@@ -60,7 +60,11 @@ export default async function SessionsPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {sessions.map((s) => (
               <tr key={s.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm font-mono text-gray-900">{s.sessionId}</td>
+                                <td className="px-6 py-4 text-sm font-mono">
+                  <Link href={`/sessions/${s.id}`} className="text-blue-600 hover:underline">
+                    {s.sessionId}
+                  </Link>
+                </td>
                 <td className="px-6 py-4 text-sm text-gray-900">{fmtDate(s.DateTime)}</td>
                 <td className="px-6 py-4 text-sm">
                   <Link href={`/players/${s.player.id}`} className="text-blue-600 hover:underline">
