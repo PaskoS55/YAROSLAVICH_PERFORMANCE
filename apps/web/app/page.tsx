@@ -114,6 +114,9 @@ export default async function HomePage() {
             <Link href="/compare" className="rounded bg-gray-100 px-3 py-2 text-sm text-gray-700 hover:bg-gray-200">
               Сравнение
             </Link>
+            <Link href="/analytics" className="rounded bg-gray-100 px-3 py-2 text-sm text-gray-700 hover:bg-gray-200">
+              Графики
+            </Link>
           </div>
         </div>
       </div>
