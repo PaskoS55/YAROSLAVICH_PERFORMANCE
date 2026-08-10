@@ -71,262 +71,269 @@ enum SessionSource {
 }
 
 model Organization {
-  id          String   @id @default(cuid())
-  name        String
-  code        String   @unique
-  teams       Team[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deletedAt   DateTime? @map("deleted_at")
+  id        String    @id @default(cuid())
+  name      String
+  code      String    @unique
+  teams     Team[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? @map("deleted_at")
 
   @@map("organizations")
 }
 
 model Team {
-  id           String        @id @default(cuid())
-  name         String
-  code         String        @unique
-  organization Organization  @relation(fields: [organizationId], references: [id])
+  id             String        @id @default(cuid())
+  name           String
+  code           String        @unique
+  organization   Organization  @relation(fields: [organizationId], references: [id])
   organizationId String
-  players      Player[]
-  seasons      Season[]
-  testSessions TestSession[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  deletedAt    DateTime?     @map("deleted_at")
+  players        Player[]
+  seasons        Season[]
+  testSessions   TestSession[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?     @map("deleted_at")
 
   @@map("teams")
 }
 
 model Season {
-  id        String      @id @default(cuid())
-  name      String      // e.g., "2026/27"
-  startDate Date
-  endDate   Date
+  id        String        @id @default(cuid())
+  name      String // e.g., "2026/27"
+  startDate DateTime
+  endDate   DateTime
   teams     Team[]
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  deletedAt DateTime?   @map("deleted_at")
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  sessions  TestSession[]
+  deletedAt DateTime?     @map("deleted_at")
 
   @@map("seasons")
 }
 
 model Player {
-  id            String    @id @default(cuid())
-  playerId      String    // Unique identifier within team (e.g., P001)
-  firstName     String
-  lastName      String
-  middleName    String?
-  number        Int?      // jersey number
-  position      String    // e.g., "outside_hitter", "opposite"
-  birthDate     Date?
-  height        Int?      // height in cm
-  status        PlayerStatus @default(ACTIVE)
-  joinedDate    DateTime?
-  photoUrl      String?
-  comment       String?
-  team          Team      @relation(fields: [teamId], references: [id])
-  teamId        String
-  testResults   TestResult[]
-  goals         PlayerGoal[]
+  id               String            @id @default(cuid())
+  playerId         String // Unique identifier within team (e.g., P001)
+  firstName        String
+  lastName         String
+  middleName       String?
+  number           Int? // jersey number
+  position         String // e.g., "outside_hitter", "opposite"
+  birthDate        DateTime?
+  height           Int? // height in cm
+  status           PlayerStatus      @default(ACTIVE)
+  joinedDate       DateTime?
+  photoUrl         String?
+  comment          String?
+  team             Team              @relation(fields: [teamId], references: [id])
+  teamId           String
+  testResults      TestResult[]
+  goals            PlayerGoal[]
   bodyCompositions BodyComposition[]
-  testSessions  TestSession[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime? @map("deleted_at")
+  testSessions     TestSession[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?         @map("deleted_at")
 
   @@unique([teamId, playerId])
   @@map("players")
 }
 
 model Test {
-  id              String      @id @default(cuid())
-  code            String      @unique // e.g., "STR_PULL", "PWR_BJ"
-  name            String      // human-readable name
+  id              String       @id @default(cuid())
+  code            String       @unique // e.g., "STR_PULL", "PWR_BJ"
+  name            String // human-readable name
   description     String?
   category        Category
-  direction       Direction   // higher-is-better, lower-is-better, contextual
-  unit            String      // e.g., "kg", "cm", "sec", "%", "°"
+  direction       Direction // higher-is-better, lower-is-better, contextual
+  unit            String // e.g., "kg", "cm", "sec", "%", "°"
   qcMin           Float?
   qcMax           Float?
   qcDescription   String?
   norms           Norm[]
   testResults     TestResult[]
-  changeThreshold Float?      // minimum meaningful change (MDC)
-  cv              Float?      // coefficient of variation for this test
-  protocolData    String?     @db.Text // JSON protocol data
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  deletedAt       DateTime?   @map("deleted_at")
+  goals           PlayerGoal[]
+  changeThreshold Float? // minimum meaningful change (MDC)
+  cv              Float? // coefficient of variation for this test
+  protocolData    String?      @db.Text // JSON protocol data
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?    @map("deleted_at")
 
   @@map("tests")
 }
 
 model TestSession {
-  id            String        @id @default(cuid())
-  sessionId     String        @unique // Human-readable ID (e.g., S001)
-  date          DateTime
-  phase         SessionPhase
-  time          DateTime?
-  tester        String?
-  location      String?
-  equipmentId   String?
-  status        SessionStatus @default(FULL)
-  source        SessionSource @default(MANUAL)
-  comment       String?       @db.Text
-  player        Player        @relation(fields: [playerId], references: [id])
-  playerId      String
-  team          Team          @relation(fields: [teamId], references: [id])
-  teamId        String
-  season        Season        @relation(fields: [seasonId], references: [id])
-  seasonId      String
-  testResults   TestResult[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  deletedAt     DateTime?     @map("deleted_at")
+  id               String            @id @default(cuid())
+  sessionId        String            @unique // Human-readable ID (e.g., S001)
+  DateTime         DateTime
+  phase            SessionPhase
+  time             DateTime?
+  tester           String?
+  location         String?
+  equipmentId      String?
+  status           SessionStatus     @default(FULL)
+  source           SessionSource     @default(MANUAL)
+  comment          String?           @db.Text
+  player           Player            @relation(fields: [playerId], references: [id])
+  playerId         String
+  team             Team              @relation(fields: [teamId], references: [id])
+  teamId           String
+  season           Season            @relation(fields: [seasonId], references: [id])
+  seasonId         String
+  testResults      TestResult[]
+  bodyCompositions BodyComposition[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?         @map("deleted_at")
 
-  @@unique([playerId, date, phase])
+  @@unique([playerId, DateTime, phase])
   @@map("test_sessions")
 }
 
 model TestResult {
-  id              String      @id @default(cuid())
-  value           Float       // actual measured value
-  score           Float?      // normalized score 0-100
-  performanceDelta Float?     // improvement/decrease from previous session
-  changeStatus    ChangeStatus?
-  pbAchieved      Boolean?    // personal best achieved in this test
-  pbImprovement   Float?      // how much PB improved
-  test            Test        @relation(fields: [testId], references: [id])
-  testId          String
-  player          Player      @relation(fields: [playerId], references: [id])
-  playerId        String
-  testSession     TestSession @relation(fields: [testSessionId], references: [id])
-  testSessionId   String
-  qcStatus        QCStatus    @default(NOT_CHECKED)
-  qcFlags         QCFlag[]
-  source          SessionSource? @default(MANUAL)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  deletedAt       DateTime?   @map("deleted_at")
+  id               String         @id @default(cuid())
+  value            Float // actual measured value
+  score            Float? // normalized score 0-100
+  performanceDelta Float? // improvement/decrease from previous session
+  changeStatus     ChangeStatus?
+  pbAchieved       Boolean? // personal best achieved in this test
+  pbImprovement    Float? // how much PB improved
+  test             Test           @relation(fields: [testId], references: [id])
+  testId           String
+  player           Player         @relation(fields: [playerId], references: [id])
+  playerId         String
+  testSession      TestSession    @relation(fields: [testSessionId], references: [id])
+  testSessionId    String
+  qcStatus         QCStatus       @default(NOT_CHECKED)
+  qcFlags          QCFlag[]
+  source           SessionSource? @default(MANUAL)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?      @map("deleted_at")
+  Equipment        Equipment?     @relation(fields: [equipmentId], references: [id])
+  equipmentId      String?
 
   @@unique([testSessionId, testId])
   @@map("test_results")
 }
 
 model Norm {
-  id              String      @id @default(cuid())
-  testCode        String      // reference to Test.code
-  position        String      // player position
-  anchor10        Float       // 10th percentile
-  anchor25        Float       // 25th percentile
-  anchor50        Float       // 50th percentile (median)
-  anchor75        Float       // 75th percentile
-  anchor90        Float       // 90th percentile
-  source          String      // source of norm data
-  validFrom       DateTime    @default(now())
-  validUntil      DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  deletedAt       DateTime?   @map("deleted_at")
+  id         String    @id @default(cuid())
+  testCode   String // reference to Test.code
+  position   String // player position
+  anchor10   Float // 10th percentile
+  anchor25   Float // 25th percentile
+  anchor50   Float // 50th percentile (median)
+  anchor75   Float // 75th percentile
+  anchor90   Float // 90th percentile
+  source     String // source of norm data
+  validFrom  DateTime  @default(now())
+  validUntil DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime? @map("deleted_at")
+  Test       Test?     @relation(fields: [testId], references: [id])
+  testId     String?
 
   @@map("norms")
 }
 
 model PlayerGoal {
-  id              String      @id @default(cuid())
-  player          Player      @relation(fields: [playerId], references: [id])
-  playerId        String
-  test            Test        @relation(fields: [testId], references: [id])
-  testId          String
-  targetValue     Float       // target value to achieve
-  targetDate      DateTime    // when to achieve the goal
-  achieved        Boolean     @default(false)
-  achievedAt      DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  deletedAt       DateTime?   @map("deleted_at")
+  id          String    @id @default(cuid())
+  player      Player    @relation(fields: [playerId], references: [id])
+  playerId    String
+  test        Test      @relation(fields: [testId], references: [id])
+  testId      String
+  targetValue Float // target value to achieve
+  targetDate  DateTime // when to achieve the goal
+  achieved    Boolean   @default(false)
+  achievedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime? @map("deleted_at")
 
   @@map("player_goals")
 }
 
 model Equipment {
-  id          String    @id @default(cuid())
-  code        String    @unique // e.g., EQ01
-  name        String
-  description String?
-  brand       String?
-  model       String?
+  id           String       @id @default(cuid())
+  code         String       @unique // e.g., EQ01
+  name         String
+  description  String?
+  brand        String?
+  model        String?
   purchaseDate DateTime?
-  warrantyExp DateTime?
-  testResults TestResult[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime? @map("deleted_at")
+  warrantyExp  DateTime?
+  testResults  TestResult[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?    @map("deleted_at")
 
   @@map("equipment")
 }
 
 model BodyComposition {
-  id                String      @id @default(cuid())
-  player            Player      @relation(fields: [playerId], references: [id])
-  playerId          String
-  testSession       TestSession @relation(fields: [testSessionId], references: [id])
-  testSessionId     String
-  mass_kg           Float?      // body mass in kg
-  fat_pct           Float?      // body fat percentage
-  ffm_kg            Float?      // fat free mass in kg
-  phase_angle       Float?      // bioelectrical impedance phase angle
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
-  deletedAt         DateTime?   @map("deleted_at")
+  id            String      @id @default(cuid())
+  player        Player      @relation(fields: [playerId], references: [id])
+  playerId      String
+  testSession   TestSession @relation(fields: [testSessionId], references: [id])
+  testSessionId String
+  mass_kg       Float? // body mass in kg
+  fat_pct       Float? // body fat percentage
+  ffm_kg        Float? // fat free mass in kg
+  phase_angle   Float? // bioelectrical impedance phase angle
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?   @map("deleted_at")
 
   @@map("body_compositions")
 }
 
 model ImportJob {
-  id          String    @id @default(cuid())
-  fileName    String
-  status      String    // "pending", "processing", "completed", "failed"
-  recordsCount Int?
+  id             String    @id @default(cuid())
+  fileName       String
+  status         String // "pending", "processing", "completed", "failed"
+  recordsCount   Int?
   processedCount Int?
-  errors      Json?
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  errors         Json?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@map("import_jobs")
 }
 
 model QCFlag {
-  id            String      @id @default(cuid())
-  testResult    TestResult  @relation(fields: [testResultId], references: [id])
-  testResultId  String
-  field         String      // which field failed QC
-  expected      String      // expected range/value
-  actual        String      // actual value that failed
-  description   String?
-  resolved      Boolean     @default(false)
-  resolvedBy    String?
-  resolvedAt    DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id           String     @id @default(cuid())
+  testResult   TestResult @relation(fields: [testResultId], references: [id])
+  testResultId String
+  field        String // which field failed QC
+  expected     String // expected range/value
+  actual       String // actual value that failed
+  description  String?
+  resolved     Boolean    @default(false)
+  resolvedBy   String?
+  resolvedAt   DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   @@map("qc_flags")
 }
 
 model AuditLog {
-  id          String    @id @default(cuid())
-  action      String    // what happened
-  entity      String    // which entity was affected
-  entityId    String    // ID of the entity
-  oldValues   Json?     // previous values
-  newValues   Json?     // new values
-  userId      String?   // who performed the action
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime  @default(now())
+  id        String   @id @default(cuid())
+  action    String // what happened
+  entity    String // which entity was affected
+  entityId  String // ID of the entity
+  oldValues Json? // previous values
+  newValues Json? // new values
+  userId    String? // who performed the action
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
   @@map("audit_logs")
 }

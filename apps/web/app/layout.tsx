@@ -1,5 +1,3 @@
-'use client';
-
 import { AppLayout } from '@/components/layout';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
