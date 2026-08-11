@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma';
+import { createBodyComposition } from './actions';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -36,56 +37,67 @@ export default async function BodyCompositionPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">Состав тела</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Последние замеры биоимпеданса по каждому игроку.
-        </p>
-      </div>
+      <h1 className="text-3xl font-bold">Состав тела</h1>
+
+      <form
+        action={createBodyComposition}
+        className="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow md:grid-cols-6"
+      >
+        <select name="playerId" required className="rounded border-2 px-2 py-1 text-sm">
+          <option value="">Игрок…</option>
+          {players.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.lastName} {p.firstName}
+            </option>
+          ))}
+        </select>
+        <input name="date" type="date" required className="rounded border-2 px-2 py-1 text-sm" />
+        <input name="mass" required placeholder="Масса, кг" className="rounded border-2 px-2 py-1 text-sm" />
+        <input name="fat" required placeholder="Жир, %" className="rounded border-2 px-2 py-1 text-sm" />
+        <input name="ffm" required placeholder="БЖМ, кг" className="rounded border-2 px-2 py-1 text-sm" />
+        <input name="phase" placeholder="Фазовый угол, °" className="rounded border-2 px-2 py-1 text-sm" />
+        <button className="rounded bg-blue-600 px-4 py-1 text-sm text-white md:col-span-6">
+          Сохранить замер
+        </button>
+      </form>
 
       <div className="overflow-hidden rounded-lg bg-white shadow">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead>
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Игрок</th>
-              <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Дата</th>
-              <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Масса</th>
-              <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">% жира</th>
-              <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">БЖМ</th>
-              <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Фазовый угол</th>
+              <th className="px-4 py-2 text-left">Игрок</th>
+              <th className="px-4 py-2 text-right">Дата</th>
+              <th className="px-4 py-2 text-right">Масса</th>
+              <th className="px-4 py-2 text-right">% жира</th>
+              <th className="px-4 py-2 text-right">БЖМ</th>
+              <th className="px-4 py-2 text-right">Фазовый угол</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {players.map((p) => {
               const b = p.bodyCompositions[0];
               return (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2">
-                    <div className="font-medium">{p.lastName} {p.firstName}</div>
+                <tr key={p.id}>
+                  <td className="px-4 py-3">
+                    <div className="font-medium">
+                      {p.lastName} {p.firstName}
+                    </div>
                     <div className="text-xs text-gray-400">{p.playerId}</div>
                   </td>
-                  <td className="px-4 py-2 text-right text-gray-500">
+                  <td className="px-4 py-3 text-right text-gray-500">
                     {b ? fmtDate(b.testSession.DateTime) : '—'}
                   </td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {b?.mass_kg !== null && b?.mass_kg !== undefined
-                      ? `${b.mass_kg.toFixed(1)} кг`
-                      : '—'}
+                  <td className="px-4 py-3 text-right font-mono">
+                    {b ? `${b.mass_kg.toFixed(1)} кг` : '—'}
                   </td>
-                  <td className={`px-4 py-2 text-right font-mono font-semibold ${fatColor(b?.fat_pct ?? null)}`}>
-                    {b?.fat_pct !== null && b?.fat_pct !== undefined
-                      ? `${b.fat_pct.toFixed(1)}%`
-                      : '—'}
+                  <td className={`px-4 py-3 text-right font-mono font-semibold ${fatColor(b?.fat_pct ?? null)}`}>
+                    {b ? `${b.fat_pct.toFixed(1)}%` : '—'}
                   </td>
-                  <td className="px-4 py-2 text-right font-mono">
-                    {b?.ffm_kg !== null && b?.ffm_kg !== undefined
-                      ? `${b.ffm_kg.toFixed(1)} кг`
-                      : '—'}
+                  <td className="px-4 py-3 text-right font-mono">
+                    {b ? `${b.ffm_kg.toFixed(1)} кг` : '—'}
                   </td>
-                  <td className={`px-4 py-2 text-right font-mono font-semibold ${phaseColor(b?.phase_angle ?? null)}`}>
-                    {b?.phase_angle !== null && b?.phase_angle !== undefined
-                      ? `${b.phase_angle.toFixed(2)}°`
-                      : '—'}
+                  <td className={`px-4 py-3 text-right font-mono font-semibold ${phaseColor(b?.phase_angle ?? null)}`}>
+                    {b ? `${b.phase_angle.toFixed(2)}°` : '—'}
                   </td>
                 </tr>
               );

@@ -12,3 +12,24 @@ export async function markGoalAchieved(formData: FormData) {
   revalidatePath('/goals');
   revalidatePath('/players', 'layout');
 }
+
+export async function createGoal(formData: FormData) {
+  const playerId = String(formData.get('playerId') ?? '');
+  const testId = String(formData.get('testId') ?? '');
+  const targetValue = Number(String(formData.get('targetValue') ?? '').replace(',', '.'));
+  const targetDateStr = String(formData.get('targetDate') ?? '');
+  if (!playerId || !testId || Number.isNaN(targetValue) || !targetDateStr) return;
+
+  await prisma.playerGoal.create({
+    data: {
+      playerId,
+      testId,
+      targetValue,
+      targetDate: new Date(targetDateStr),
+      achieved: false,
+    },
+  });
+
+  revalidatePath('/goals');
+  revalidatePath('/players', 'layout');
+}

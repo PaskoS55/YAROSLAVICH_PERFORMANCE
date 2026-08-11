@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma';
-import { markGoalAchieved } from './actions';
+import { markGoalAchieved, createGoal } from './actions';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -12,35 +12,76 @@ export default async function GoalsPage() {
     include: { player: true, test: true },
     orderBy: { targetDate: 'asc' },
   });
+  const players = await prisma.player.findMany({
+    where: { deletedAt: null },
+    orderBy: { lastName: 'asc' },
+  });
+  const tests = await prisma.test.findMany({
+    where: { deletedAt: null },
+    orderBy: { name: 'asc' },
+  });
 
   return (
     <div className="space-y-6 p-6">
       <h1 className="text-3xl font-bold">Цели</h1>
+
+      <form
+        action={createGoal}
+        className="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow md:grid-cols-5"
+      >
+        <select name="playerId" required className="rounded border-2 px-2 py-1 text-sm">
+          <option value="">Игрок…</option>
+          {players.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.lastName} {p.firstName}
+            </option>
+          ))}
+        </select>
+        <select name="testId" required className="rounded border-2 px-2 py-1 text-sm">
+          <option value="">Тест…</option>
+          {tests.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+        <input
+          name="targetValue"
+          required
+          placeholder="Целевое значение"
+          className="rounded border-2 px-2 py-1 text-sm"
+        />
+        <input name="targetDate" type="date" required className="rounded border-2 px-2 py-1 text-sm" />
+        <button className="rounded bg-blue-600 px-4 py-1 text-sm text-white">
+          Поставить цель
+        </button>
+      </form>
+
       <div className="overflow-hidden rounded-lg bg-white shadow">
         <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
+          <thead>
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Игрок</th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Тест</th>
-              <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Цель</th>
-              <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Срок</th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Статус</th>
+              <th className="px-4 py-2 text-left">Игрок</th>
+              <th className="px-4 py-2 text-left">Тест</th>
+              <th className="px-4 py-2 text-right">Цель</th>
+              <th className="px-4 py-2 text-right">Срок</th>
+              <th className="px-4 py-2 text-left">Статус</th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {goals.map((g) => (
-              <tr key={g.id} className="hover:bg-gray-50">
-                <td className="px-4 py-2">
+              <tr key={g.id}>
+                <td className="px-4 py-3">
                   {g.player.lastName} {g.player.firstName}{' '}
                   <span className="text-xs text-gray-400">({g.player.playerId})</span>
                 </td>
-                <td className="px-4 py-2">{g.test.name}</td>
-                <td className="px-4 py-2 text-right font-mono">
+                <td className="px-4 py-3">{g.test.name}</td>
+                <td className="px-4 py-3 text-right font-mono">
                   {g.targetValue} {g.test.unit}
                 </td>
-                <td className="px-4 py-2 text-right">{fmtDate(g.targetDate)}</td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-3 text-right">{fmtDate(g.targetDate)}</td>
+                <td className="px-4 py-3">
                   {g.achieved ? (
                     <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">
                       Достигнута {fmtDate(g.achievedAt)}
@@ -51,11 +92,13 @@ export default async function GoalsPage() {
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-2 text-right">
+                <td className="px-4 py-3 text-right">
                   {!g.achieved && (
                     <form action={markGoalAchieved} className="inline">
                       <input type="hidden" name="id" value={g.id} />
-                      <button className="text-sm text-blue-600 hover:underline">Отметить</button>
+                      <button className="text-sm hover:underline" style={{ color: 'var(--red)' }}>
+                        Отметить
+                      </button>
                     </form>
                   )}
                 </td>
