@@ -150,10 +150,15 @@ export default async function SettingsPage() {
               <ResetButton />
             </form>
           </div>
+          <form action="/api/auth/logout" className="mt-4">
+            <button className="rounded bg-gray-700 px-4 py-2 text-white hover:bg-gray-800">
+              Выйти из системы
+            </button>
+          </form>
 
           <div className="text-xs text-gray-500">
-            <p>Версия системы: YAROSLAVICH PERFORMANCE v1.0</p>
-            <p>Технологии: Next.js 14 + TypeScript + Prisma + PostgreSQL</p>
+            <p>Версия системы: PASKO PERFORMANCE v1.0</p>
+            <p>Технологии: создано тренером по функцианальной и кондиционной подготовке Пасько Сергеем</p>
             <p>База данных: localhost:5432</p>
           </div>
         </div>
