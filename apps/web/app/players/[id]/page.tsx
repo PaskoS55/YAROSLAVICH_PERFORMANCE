@@ -63,9 +63,16 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
   const lastSession = player.testSessions[0];
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="text-sm text-gray-500">
-        <Link href="/players" className="text-blue-600 hover:underline">Игроки</Link> / {player.playerId}
+         <div className="flex items-center justify-between text-sm text-gray-500">
+        <div>
+          <Link href="/players" className="text-blue-600 hover:underline">Игроки</Link> / {player.playerId}
+        </div>
+        <Link
+          href={`/players/${player.id}/edit`}
+          className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
+        >
+          Редактировать
+        </Link>
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 flex items-center gap-6">
