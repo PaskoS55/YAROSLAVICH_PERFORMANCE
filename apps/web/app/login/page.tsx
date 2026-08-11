@@ -6,32 +6,29 @@ export default function LoginPage({
   searchParams: { error?: string };
 }) {
   return (
-    <div className="flex min-h-[70vh] items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow">
-        <h1 className="mb-2 text-center text-2xl font-bold">
-          YAROSLAVICH PERFORMANCE
-        </h1>
-        <p className="mb-6 text-center text-sm text-gray-500">
-          Введите пароль для входа
-        </p>
+    <div className="login-wrap">
+      <div className="login-card">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="ВК Ярославич" className="login-logo" />
+        <h1 className="login-title">YAROSLAVICH PERFORMANCE</h1>
+        <p className="login-sub">Платформа анализа физической подготовки</p>
         {searchParams.error && (
-          <div className="mb-4 rounded bg-red-100 px-3 py-2 text-sm text-red-800">
-            Неверный пароль
-          </div>
+          <div className="login-error">Неверный пароль. Попробуйте ещё раз.</div>
         )}
-        <form action={login} className="space-y-4">
+        <form action={login} className="login-form">
           <input
             type="password"
             name="password"
             autoFocus
             required
             placeholder="Пароль"
-            className="w-full rounded border-2 border-gray-300 px-3 py-2"
+            className="login-input"
           />
-          <button className="w-full rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-            Войти
+          <button className="login-btn" type="submit">
+            Войти в систему
           </button>
         </form>
+        <div className="login-note">Доступ только для персонала клуба</div>
       </div>
     </div>
   );
