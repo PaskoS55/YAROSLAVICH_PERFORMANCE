@@ -60,7 +60,21 @@ export default async function HomePage() {
         <div className="rounded-lg bg-white p-6 shadow">
           <h2 className="mb-4 text-lg font-bold">Последние сессии</h2>
           <table className="min-w-full text-sm">
-            <tbody className="divide-y divide-gray-200">
+                        <tbody className="divide-y divide-gray-200">
+              {recentSessions.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="py-6 text-center text-sm text-gray-500">
+                    Сессий пока нет —{' '}
+                    <Link
+                      href="/testing/team"
+                      className="font-semibold hover:underline"
+                      style={{ color: 'var(--red)' }}
+                    >
+                      провести первое тестирование →
+                    </Link>
+                  </td>
+                </tr>
+              )}
               {recentSessions.map((s) => (
                 <tr key={s.id}>
                   <td className="py-2 font-mono text-gray-500">{s.sessionId}</td>
