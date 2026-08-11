@@ -8,18 +8,11 @@ const categoryLabels: Record<string, string> = {
   AGILITY: 'Ловкость',
   VOLLEYBALL: 'Волейбол',
   MOBILITY_STABILITY: 'Мобильность',
-  BODY_COMPOSITION: 'Состав тела',
 };
 
 function computePercentile(
   value: number,
-  norm: {
-    anchor10: number;
-    anchor25: number;
-    anchor50: number;
-    anchor75: number;
-    anchor90: number;
-  } | null
+  norm: { anchor10: number; anchor25: number; anchor50: number; anchor75: number; anchor90: number } | null
 ): number | null {
   if (!norm) return null;
   const pts = [
@@ -50,10 +43,6 @@ function radarPolygon(values: number[], cx: number, cy: number, r: number): stri
     .join(' ');
 }
 
-function fmtDate(d: Date) {
-  return new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
-}
-
 export default async function AnalyticsPage({
   searchParams,
 }: {
@@ -78,94 +67,128 @@ export default async function AnalyticsPage({
 
   const tests = await prisma.test.findMany({
     where: { deletedAt: null },
-    orderBy: { code: 'asc' },
+    orderBy: { name: 'asc' },
   });
-  const selectedTest = tests.find((t) => t.id === searchParams.testId) ?? tests[0];
+  const selectedTest =
+    tests.find((t) => t.id === searchParams.testId) ?? tests.find((t) => t.code === 'AGI_505') ?? tests[0];
+
+  const allNorms = await prisma.norm.findMany({ where: { deletedAt: null } });
+  const normByKey = new Map(allNorms.map((n) => [`${n.position}|${n.testCode}`, n]));
+
+  const allPlayers = await prisma.player.findMany({
+    where: { deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
+    include: {
+      testSessions: {
+        where: { deletedAt: null },
+        include: { testResults: { include: { test: true } } },
+      },
+    },
+  });
 
   const sessionsAsc = await prisma.testSession.findMany({
     where: { playerId: player.id, deletedAt: null },
     orderBy: { DateTime: 'asc' },
-    include: { testResults: true },
+    include: { testResults: { include: { test: true } } },
   });
 
-  const latest = new Map<string, number>();
+  const latest = new Map<string, { value: number; code: string; category: string }>();
   for (const s of [...sessionsAsc].reverse()) {
     for (const r of s.testResults) {
-      if (!latest.has(r.testId)) latest.set(r.testId, r.value);
+      if (!latest.has(r.testId)) {
+        latest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category });
+      }
     }
   }
 
-  const norms = await prisma.norm.findMany({
-    where: { position: player.position, deletedAt: null },
-  });
-  const normByCode = new Map(norms.map((n) => [n.testCode, n]));
-
   const catAcc = new Map<string, { sum: number; count: number }>();
-  for (const t of tests) {
-    const v = latest.get(t.id);
-    if (v === undefined) continue;
-    const pct = computePercentile(v, normByCode.get(t.code) ?? null);
+  for (const { value, code, category } of latest.values()) {
+    if (!categoryLabels[category]) continue;
+    const pct = computePercentile(value, normByKey.get(`${player.position}|${code}`) ?? null);
     if (pct === null) continue;
-    const acc = catAcc.get(t.category) ?? { sum: 0, count: 0 };
+    const acc = catAcc.get(category) ?? { sum: 0, count: 0 };
     acc.sum += pct;
     acc.count += 1;
-    catAcc.set(t.category, acc);
+    catAcc.set(category, acc);
   }
 
-  const radarCats = ['STRENGTH', 'POWER', 'SPEED', 'AGILITY', 'VOLLEYBALL', 'MOBILITY_STABILITY'];
-  const radar = radarCats.map((c) => ({
-    label: categoryLabels[c],
-    pct: catAcc.has(c) ? Math.round(catAcc.get(c)!.sum / catAcc.get(c)!.count) : 0,
-  }));
-
-  const points: { date: Date; value: number; sessionId: string }[] = [];
-  for (const s of sessionsAsc) {
-    const r = s.testResults.find((x) => x.testId === selectedTest.id);
-    if (r) points.push({ date: s.DateTime, value: r.value, sessionId: s.sessionId });
+  const teamAcc = new Map<string, { sum: number; count: number }>();
+  for (const tp of allPlayers) {
+    const tLatest = new Map<string, { value: number; code: string; category: string }>();
+    for (const s of tp.testSessions) {
+      for (const r of s.testResults) {
+        if (!tLatest.has(r.testId)) {
+          tLatest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category });
+        }
+      }
+    }
+    for (const { value, code, category } of tLatest.values()) {
+      if (!categoryLabels[category]) continue;
+      const pct = computePercentile(value, normByKey.get(`${tp.position}|${code}`) ?? null);
+      if (pct === null) continue;
+      const acc = teamAcc.get(category) ?? { sum: 0, count: 0 };
+      acc.sum += pct;
+      acc.count += 1;
+      teamAcc.set(category, acc);
+    }
   }
 
-  const W = 640;
-  const H = 260;
-  const P = 46;
+  const cats = Object.keys(categoryLabels)
+    .filter((c) => catAcc.has(c))
+    .map((c) => ({
+      key: c,
+      label: categoryLabels[c],
+      pct: Math.round(catAcc.get(c)!.sum / catAcc.get(c)!.count),
+    }));
+
+  const radarOrder = Object.keys(categoryLabels).map((c) =>
+    catAcc.has(c) ? Math.round(catAcc.get(c)!.sum / catAcc.get(c)!.count) : 0
+  );
+  const teamOrder = Object.keys(categoryLabels).map((c) =>
+    teamAcc.has(c) ? Math.round(teamAcc.get(c)!.sum / teamAcc.get(c)!.count) : 0
+  );
+
+  const points = sessionsAsc
+    .map((s) => {
+      const r = s.testResults.find((r) => r.testId === selectedTest.id);
+      return r ? { date: s.DateTime, value: r.value } : null;
+    })
+    .filter((p): p is { date: Date; value: number } => p !== null);
+
+  const w = 600;
+  const h = 220;
+  const pl = 40;
+  const pr = 20;
+  const pt = 20;
+  const pb = 30;
   const vals = points.map((p) => p.value);
-  let min = Math.min(...vals);
-  let max = Math.max(...vals);
-  if (!Number.isFinite(min)) {
-    min = 0;
-    max = 1;
-  }
-  if (max - min < 1e-9) {
-    min -= 1;
-    max += 1;
-  }
-  const x = (i: number) => P + (i * (W - 2 * P)) / Math.max(points.length - 1, 1);
-  const y = (v: number) => H - P - ((v - min) * (H - 2 * P)) / (max - min);
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const span = max - min || 1;
+  const x = (i: number) =>
+    points.length === 1 ? (w - pl - pr) / 2 + pl : pl + (i * (w - pl - pr)) / (points.length - 1);
+  const y = (v: number) => pt + (1 - (v - min) / span) * (h - pt - pb);
 
   return (
     <div className="space-y-6 p-6">
       <h1 className="text-3xl font-bold">Графики и радар</h1>
 
-      <div className="rounded-lg bg-white p-4 shadow">
-        <div className="flex flex-wrap gap-2">
-          {players.map((p) => (
-            <Link
-              key={p.id}
-              href={`/analytics?playerId=${p.id}&testId=${selectedTest.id}`}
-              className={`rounded-full px-3 py-1 text-sm ${
-                p.id === player.id
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {p.lastName} {p.firstName[0]}. ({p.playerId})
-            </Link>
-          ))}
-        </div>
+      <div className="flex flex-wrap gap-2 rounded-lg bg-white p-4 shadow">
+        {players.map((p) => (
+          <Link
+            key={p.id}
+            href={`/analytics?playerId=${p.id}${searchParams.testId ? `&testId=${searchParams.testId}` : ''}`}
+            className={`rounded-full px-3 py-1 text-sm ${
+              p.id === player.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {p.lastName} {p.firstName[0]}. ({p.playerId})
+          </Link>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-2 text-lg font-bold">
+          <h2 className="mb-2 text-xl font-bold">
             Профиль: {player.lastName} {player.firstName}
           </h2>
           <svg viewBox="0 0 260 240" className="w-full">
@@ -178,80 +201,92 @@ export default async function AnalyticsPage({
                 strokeWidth="1"
               />
             ))}
-            {radar.map((r, i) => {
-              const angle = (Math.PI / 180) * (60 * i - 90);
+            <polygon
+              points={radarPolygon(teamOrder, 130, 120, 90)}
+              fill="rgba(107, 114, 128, 0.12)"
+              stroke="#9ca3af"
+              strokeWidth="1.5"
+              strokeDasharray="4 3"
+            />
+            {cats.map((c) => {
+              const order = Object.keys(categoryLabels).indexOf(c.key);
+              const angle = (Math.PI / 180) * (60 * order - 90);
               const lx = 130 + 108 * Math.cos(angle);
               const ly = 120 + 108 * Math.sin(angle);
               return (
-                <text key={r.label} x={lx} y={ly} fontSize="9" textAnchor="middle" fill="#6b7280">
-                  {r.label} {r.pct}
+                <text key={c.key} x={lx} y={ly} fontSize="9" textAnchor="middle" fill="#6b7280">
+                  {c.label} {c.pct}
                 </text>
               );
             })}
             <polygon
-              points={radarPolygon(radar.map((r) => r.pct), 130, 120, 90)}
+              points={radarPolygon(radarOrder, 130, 120, 90)}
               fill="rgba(200, 16, 46, 0.18)"
               stroke="#c8102e"
               strokeWidth="2"
             />
           </svg>
+          <div className="mt-2 flex items-center gap-4 text-xs text-gray-600">
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full" style={{ background: 'var(--red)' }} />
+              {player.lastName} {player.firstName}
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
+              Средний по команде
+            </span>
+          </div>
           <p className="mt-2 text-xs text-gray-500">
             Значение = средний процентиль последних результатов игрока в категории (0–100).
           </p>
         </div>
 
         <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-2 text-lg font-bold">Динамика по тесту</h2>
-          <form className="mb-4">
+          <h2 className="mb-4 text-xl font-bold">Динамика по тесту</h2>
+          <form className="space-y-3">
             <input type="hidden" name="playerId" value={player.id} />
-            <select
-              name="testId"
-              defaultValue={selectedTest.id}
-              className="w-full rounded border-2 border-gray-300 px-2 py-1"
-            >
+            <select name="testId" className="w-full rounded border-2 px-2 py-1 text-sm">
               {tests.map((t) => (
-                <option key={t.id} value={t.id}>
+                <option key={t.id} value={t.id} selected={t.id === selectedTest.id}>
                   {t.name}
                 </option>
               ))}
             </select>
-            <button className="mt-2 rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700">
-              Показать
-            </button>
+            <button className="rounded bg-blue-600 px-4 py-1 text-sm text-white">Показать</button>
           </form>
 
-          {points.length >= 2 ? (
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-              <line x1={P} y1={H - P} x2={W - P} y2={H - P} stroke="#9ca3af" strokeWidth="1" />
-              <polyline
-                points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(' ')}
-                fill="none"
-                stroke="#c8102e"
-                strokeWidth="2"
-              />
-              {points.map((p, i) => (
-                <g key={p.sessionId}>
-                  <circle cx={x(i)} cy={y(p.value)} r="4" fill="#c8102e" />
-                  <text x={x(i)} y={y(p.value) - 8} fontSize="11" textAnchor="middle" fill="#111827">
-                    {p.value}
-                  </text>
-                  <text x={x(i)} y={H - P + 16} fontSize="10" textAnchor="middle" fill="#6b7280">
-                    {fmtDate(p.date)}
-                  </text>
-                </g>
-              ))}
-            </svg>
-          ) : (
-            <p className="text-sm text-gray-500">Для этого теста нужно минимум 2 результата.</p>
-          )}
+          <div className="mt-6">
+            {points.length === 0 ? (
+              <p className="text-sm text-gray-500">Нет данных по этому тесту.</p>
+            ) : (
+              <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
+                <polyline
+                  points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(' ')}
+                  fill="none"
+                  stroke="#c8102e"
+                  strokeWidth="2"
+                />
+                {points.map((p, i) => (
+                  <g key={i}>
+                    <circle cx={x(i)} cy={y(p.value)} r="3" fill="#c8102e" />
+                    <text x={x(i)} y={y(p.value) - 8} fontSize="10" textAnchor="middle" fill="#374151">
+                      {p.value}
+                    </text>
+                    <text x={x(i)} y={h - 8} fontSize="9" textAnchor="middle" fill="#9ca3af">
+                      {new Date(p.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
+                    </text>
+                  </g>
+                ))}
+              </svg>
+            )}
+          </div>
           <p className="mt-2 text-xs text-gray-500">
             {selectedTest.name}, {selectedTest.unit}. Направление:{' '}
             {selectedTest.direction === 'HIGHER_IS_BETTER'
-              ? 'выше — лучше'
+              ? 'выше — лучше.'
               : selectedTest.direction === 'LOWER_IS_BETTER'
-                ? 'ниже — лучше'
-                : 'контекстное'}
-            .
+                ? 'ниже — лучше.'
+                : 'контекстное.'}
           </p>
         </div>
       </div>
