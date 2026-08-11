@@ -579,3 +579,10 @@ select option:checked {
   background: var(--red);
   color: #fff;
 }
+
+/* ===== Пакет A: мобильные таблицы ===== */
+@media (max-width: 900px) {
+  .shadow {
+    overflow-x: auto;
+  }
+}

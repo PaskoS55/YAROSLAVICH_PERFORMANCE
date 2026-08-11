@@ -150,6 +150,13 @@ export default async function SettingsPage() {
               <ResetButton />
             </form>
           </div>
+          <a
+            href="/api/backup"
+            className="mb-3 inline-block rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          >
+            Скачать резервную копию (JSON)
+          </a>
+
           <form action="/api/auth/logout" className="mt-4">
             <button className="rounded bg-gray-700 px-4 py-2 text-white hover:bg-gray-800">
               Выйти из системы
