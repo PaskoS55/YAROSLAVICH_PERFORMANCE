@@ -4,8 +4,12 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Открытые пути
-  if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {
+  // Открытые пути: вход, auth-API и статические файлы (логотип и т.п.)
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/api/auth') ||
+    /\.(png|jpe?g|webp|svg|ico|css|js)$/.test(pathname)
+  ) {
     return NextResponse.next();
   }
 
