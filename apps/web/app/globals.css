@@ -586,3 +586,32 @@ select option:checked {
     overflow-x: auto;
   }
 }
+
+/* ===== Печать: чистый A4 ===== */
+@media print {
+  .sidebar,
+  .topbar,
+  .footer,
+  .hamburger,
+  .mobile-drawer,
+  .mobile-overlay,
+  button,
+  form {
+    display: none !important;
+  }
+  .main,
+  .main.main-collapsed {
+    margin-left: 0 !important;
+  }
+  .content {
+    padding: 0 !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  .shadow {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
+  }
+}

@@ -1,6 +1,7 @@
 import { prisma } from '../../../lib/prisma';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import PrintButton from './print-button';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -208,12 +209,15 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
         <div>
           <Link href="/players" className="text-blue-600 hover:underline">Игроки</Link> / {player.playerId}
         </div>
-        <Link
-          href={`/players/${player.id}/edit`}
-          className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
-        >
-          Редактировать
-        </Link>
+              <div className="flex items-center gap-2">
+          <PrintButton />
+          <Link
+            href={`/players/${player.id}/edit`}
+            className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700"
+          >
+            Редактировать
+          </Link>
+        </div>
       </div>
 
       {alerts.length > 0 && (
