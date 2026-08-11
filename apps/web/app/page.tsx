@@ -11,6 +11,14 @@ function fmtShort(d: Date | null | undefined) {
   return new Date(d).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' });
 }
 
+function plural(n: number, forms: [string, string, string]) {
+  const n10 = n % 10;
+  const n100 = n % 100;
+  if (n10 === 1 && n100 !== 11) return forms[0];
+  if (n10 >= 2 && n10 <= 4 && (n100 < 10 || n100 >= 20)) return forms[1];
+  return forms[2];
+}
+
 const phaseLabels: Record<string, string> = {
   PRESEASON: 'Предсезонка',
   CAMP: 'Сборы',
@@ -91,7 +99,7 @@ export default async function HomePage() {
       label: 'Сессий проведено',
       value: sessionsTotal,
       href: '/sessions',
-      sub: sessions30 > 0 ? `↑ +${sessions30} за 30 дней` : 'нет новых за 30 дней',
+      sub: sessions30 > 0 ? `+${sessions30} за 30 дней` : 'нет новых за 30 дней',
       danger: false,
       wide: false,
       icon: ic(<><rect width="18" height="18" x="3" y="4" rx="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></>),
@@ -100,7 +108,7 @@ export default async function HomePage() {
       label: 'Результатов записано',
       value: resultsTotal,
       href: '/sessions',
-      sub: results30 > 0 ? `↑ +${results30} за 30 дней` : 'нет новых за 30 дней',
+      sub: results30 > 0 ? `+${results30} за 30 дней` : 'нет новых за 30 дней',
       danger: false,
       wide: false,
       icon: ic(<><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14a9 3 0 0 0 18 0V5" /><path d="M3 12a9 3 0 0 0 18 0" /></>),
@@ -119,15 +127,12 @@ export default async function HomePage() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Главная</h1>
-        <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-3xl font-bold">Обзор команды</h1>
+        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
           <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-600">
             Последнее тестирование · {lastSession ? fmtShort(lastSession.DateTime) : '—'}
           </span>
-          <Link
-            href="/testing/team"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white"
-          >
+          <Link href="/testing/team" className="btn-primary w-full text-center sm:w-auto">
             + Провести тестирование
           </Link>
         </div>
@@ -147,13 +152,11 @@ export default async function HomePage() {
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-                {k.label}
-              </span>
+              <span className="text-xs font-medium text-gray-500">{k.label}</span>
               <span className={k.danger ? 'text-red-600' : 'text-gray-400'}>{k.icon}</span>
             </div>
             <div
-              className={`mt-2 text-3xl font-extrabold tracking-tight ${
+              className={`mt-2 text-4xl font-extrabold tracking-tight ${
                 k.danger ? 'text-red-700' : 'text-gray-900'
               }`}
             >
@@ -170,7 +173,7 @@ export default async function HomePage() {
         <div className="rounded-lg border border-gray-200 bg-white p-6 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-bold">Последние сессии</h2>
-            <Link href="/sessions" className="text-sm hover:underline" style={{ color: 'var(--red)' }}>
+            <Link href="/sessions" className="link-action text-sm hover:underline">
               Все сессии →
             </Link>
           </div>
@@ -180,11 +183,7 @@ export default async function HomePage() {
                 <tr>
                   <td colSpan={4} className="py-6 text-center text-gray-500">
                     Сессий пока нет —{' '}
-                    <Link
-                      href="/testing/team"
-                      className="font-semibold hover:underline"
-                      style={{ color: 'var(--red)' }}
-                    >
+                    <Link href="/testing/team" className="link-action font-semibold hover:underline">
                       провести первое тестирование →
                     </Link>
                   </td>
@@ -202,10 +201,10 @@ export default async function HomePage() {
                   </td>
                   <td className="py-2.5 text-gray-500">{fmtDate(s.DateTime)}</td>
                   <td className="py-2.5 text-right font-mono text-gray-600">
-                    {s._count.testResults} тест.
+                    {s._count.testResults} {plural(s._count.testResults, ['тест', 'теста', 'тестов'])}
                   </td>
                   <td className="py-2.5 text-right">
-                    <Link href={`/sessions/${s.id}`} className="text-sm hover:underline" style={{ color: 'var(--red)' }}>
+                    <Link href={`/sessions/${s.id}`} className="link-action text-sm hover:underline">
                       открыть →
                     </Link>
                   </td>
@@ -223,7 +222,7 @@ export default async function HomePage() {
                 {injuredList.map((p) => (
                   <li key={p.id}>
                     <Link href={`/players/${p.id}`} className="text-sm text-red-800 hover:underline">
-                      {p.lastName} {p.firstName} ({p.playerId}) ↓
+                      {p.lastName} {p.firstName} ({p.playerId}) →
                     </Link>
                   </li>
                 ))}
@@ -236,9 +235,7 @@ export default async function HomePage() {
           )}
 
           <div className="rounded-lg border border-gray-200 bg-white p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">
-              Быстрые действия
-            </div>
+            <div className="text-xs font-medium text-gray-500">Быстрые действия</div>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <Link
                 href="/analytics"
