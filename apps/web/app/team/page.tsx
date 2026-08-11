@@ -1,6 +1,6 @@
 import { prisma } from '../../lib/prisma';
 import Link from 'next/link';
-import { updatePlayerStatus } from './actions';
+import { updatePlayerStatus, createPlayer } from './actions';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -49,6 +49,13 @@ export default async function TeamPage() {
     byPos.set(p.position, (byPos.get(p.position) ?? 0) + 1);
   }
 
+  // Вычисляем следующий свободный playerId
+  const maxNum = players.reduce((max, p) => {
+    const m = p.playerId.match(/P(\d+)/);
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
+  const nextPlayerId = `P${String(maxNum + 1).padStart(3, '0')}`;
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -57,8 +64,18 @@ export default async function TeamPage() {
           <div className="text-sm text-gray-500">{team?.organization.name}</div>
         </div>
         <div className="text-right text-sm text-gray-500">
-          <div>Всего игроков: <b className="text-gray-900">{players.length}</b></div>
-          <div>Средний возраст: <b className="text-gray-900">{Math.round(players.reduce((s, p) => s + (age(p.birthDate) ?? 0), 0) / Math.max(players.length, 1))}</b></div>
+          <div>
+            Всего игроков: <b className="text-gray-900">{players.length}</b>
+          </div>
+          <div>
+            Средний возраст:{' '}
+            <b className="text-gray-900">
+              {Math.round(
+                players.reduce((s, p) => s + (age(p.birthDate) ?? 0), 0) /
+                  Math.max(players.length, 1)
+              )}
+            </b>
+          </div>
         </div>
       </div>
 
@@ -68,6 +85,140 @@ export default async function TeamPage() {
             {positionLabels[pos] ?? pos}: <b>{count}</b>
           </span>
         ))}
+      </div>
+
+      {/* Форма добавления игрока */}
+      <div className="rounded-lg bg-white p-6 shadow">
+        <h2 className="mb-4 text-lg font-bold">Добавить игрока</h2>
+        <form action={createPlayer} className="grid grid-cols-1 gap-3 md:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              ID игрока *
+            </label>
+            <input
+              name="playerId"
+              defaultValue={nextPlayerId}
+              required
+              className="w-full rounded border-2 border-gray-300 px-2 py-1 font-mono text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Фамилия *
+            </label>
+            <input
+              name="lastName"
+              required
+              className="w-full rounded border-2 border-gray-300 px-2 py-1 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Имя *
+            </label>
+            <input
+              name="firstName"
+              required
+              className="w-full rounded border-2 border-gray-300 px-2 py-1 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Отчество
+            </label>
+            <input
+              name="middleName"
+              className="w-full rounded border-2 border-gray-300 px-2 py-1 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Амплуа *
+            </label>
+            <select
+              name="position"
+              required
+              className="w-full rounded border-2 border-gray-300 px-2 py-1 text-sm"
+            >
+              <option value="outside_hitter">Доигровщик</option>
+              <option value="opposite">Диагональный</option>
+              <option value="middle_blocker">Центральный блокирующий</option>
+              <option value="setter">Связующий</option>
+              <option value="libero">Либеро</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              № на форме
+            </label>
+            <input
+              name="number"
+              type="number"
+              min="1"
+              max="99"
+              className="w-full rounded border-2 border-gray-300 px-2 py-1 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Рост (см)
+            </label>
+            <input
+              name="height"
+              type="number"
+              min="150"
+              max="220"
+              className="w-full rounded border-2 border-gray-300 px-2 py-1 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Статус
+            </label>
+            <select
+              name="status"
+              className="w-full rounded border-2 border-gray-300 px-2 py-1 text-sm"
+            >
+              <option value="ACTIVE">Активен</option>
+              <option value="LIMITED">Ограничение</option>
+              <option value="INJURED">Травмирован</option>
+              <option value="INACTIVE">Неактивен</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Дата рождения
+            </label>
+            <input
+              name="birthDate"
+              type="date"
+              className="w-full rounded border-2 border-gray-300 px-2 py-1 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-700">
+              Зачислен в команду
+            </label>
+            <input
+              name="joinedDate"
+              type="date"
+              className="w-full rounded border-2 border-gray-300 px-2 py-1 text-sm"
+            />
+          </div>
+          <div className="flex items-end md:col-span-2">
+            <button
+              type="submit"
+              className="w-full rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 md:w-auto"
+            >
+              + Добавить игрока
+            </button>
+          </div>
+        </form>
+        <p className="mt-3 text-xs text-gray-500">
+          * — обязательные поля. ID должен быть уникальным в команде.
+        </p>
       </div>
 
       <div className="overflow-hidden rounded-lg bg-white shadow">
@@ -94,18 +245,28 @@ export default async function TeamPage() {
                     {p.lastName} {p.firstName} {p.middleName ?? ''}
                   </Link>
                 </td>
-                <td className="px-4 py-2 text-gray-500">{positionLabels[p.position] ?? p.position}</td>
+                <td className="px-4 py-2 text-gray-500">
+                  {positionLabels[p.position] ?? p.position}
+                </td>
                 <td className="px-4 py-2 text-right">{age(p.birthDate) ?? '—'}</td>
-                <td className="px-4 py-2 text-right">{p.height ? `${p.height} см` : '—'}</td>
+                <td className="px-4 py-2 text-right">
+                  {p.height ? `${p.height} см` : '—'}
+                </td>
                 <td className="px-4 py-2">
-                  <span className={`rounded-full px-2 py-1 text-xs font-semibold ${statusColors[p.status]}`}>
+                  <span
+                    className={`rounded-full px-2 py-1 text-xs font-semibold ${statusColors[p.status]}`}
+                  >
                     {statusLabels[p.status]}
                   </span>
                 </td>
                 <td className="px-4 py-2 text-right">
                   <form action={updatePlayerStatus} className="inline-flex items-center gap-1">
                     <input type="hidden" name="id" value={p.id} />
-                    <select name="status" defaultValue={p.status} className="rounded border px-1 py-0.5 text-xs">
+                    <select
+                      name="status"
+                      defaultValue={p.status}
+                      className="rounded border px-1 py-0.5 text-xs"
+                    >
                       <option value="ACTIVE">Активен</option>
                       <option value="LIMITED">Ограничение</option>
                       <option value="INJURED">Травмирован</option>
