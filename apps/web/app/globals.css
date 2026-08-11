@@ -643,3 +643,8 @@ select option:checked {
 .link-action:hover {
   color: var(--red-dark);
 }
+
+.nav-divider {
+  margin: 14px 16px 6px;
+  border-top: 1px solid #1f2126;
+}

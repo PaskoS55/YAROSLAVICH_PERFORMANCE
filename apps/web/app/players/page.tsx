@@ -54,18 +54,23 @@ export default async function PlayersPage({
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">Игроки</h1>
-        <form className="flex items-center gap-2">
-          {status !== 'ALL' && <input type="hidden" name="status" value={status} />}
-          <input
-            name="q"
-            defaultValue={searchParams.q ?? ''}
-            placeholder="Поиск: ФИО или ID…"
-            className="w-64 rounded border-2 px-3 py-1.5 text-sm"
-          />
-          <button className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white">Найти</button>
-        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/team" className="btn-primary">
+            + Добавить игрока
+          </Link>
+          <form className="flex items-center gap-2">
+            {status !== 'ALL' && <input type="hidden" name="status" value={status} />}
+            <input
+              name="q"
+              defaultValue={searchParams.q ?? ''}
+              placeholder="Поиск: ФИО или ID…"
+              className="w-64 rounded border-2 px-3 py-1.5 text-sm"
+            />
+            <button className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white">Найти</button>
+          </form>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
