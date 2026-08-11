@@ -76,7 +76,14 @@ export default async function GoalsPage() {
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+                   <tbody className="divide-y divide-gray-200">
+            {goals.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-8 text-center text-gray-500">
+                  Целей пока нет — поставьте первую через форму выше.
+                </td>
+              </tr>
+            )}
             {goals.map((g) => (
               <tr key={g.id}>
                 <td className="px-4 py-3">

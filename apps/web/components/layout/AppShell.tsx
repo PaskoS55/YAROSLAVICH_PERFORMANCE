@@ -4,24 +4,6 @@ import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 
-const titles: [string, string][] = [
-  ['/players', 'Игроки'],
-  ['/sessions', 'Тестирования'],
-  ['/testing', 'Командный ввод'],
-  ['/analytics', 'Динамика и профиль'],
-  ['/compare', 'Сравнение'],
-  ['/team', 'Команда'],
-  ['/body', 'Состав тела'],
-  ['/goals', 'Цели'],
-  ['/norms', 'Нормативы'],
-  ['/protocols', 'Протоколы'],
-  ['/import', 'Импорт данных'],
-  ['/reports', 'Отчёты'],
-  ['/qc', 'Контроль данных'],
-  ['/equipment', 'Оборудование'],
-  ['/settings', 'Настройки'],
-];
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -31,7 +13,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <div className="content-full">{children}</div>;
   }
 
-  const title = titles.find(([p]) => pathname.startsWith(p))?.[1] ?? 'Главная';
   const today = new Date().toLocaleDateString('ru-RU', {
     day: '2-digit',
     month: 'long',
@@ -60,7 +41,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <line x1="4" x2="20" y1="18" y2="18" />
               </svg>
             </button>
-            <h1 className="topbar-title">{title}</h1>
+            <span className="topbar-brand">PASKO PERFORMANCE</span>
           </div>
           <div className="topbar-right">
             <span className="topbar-date">{today}</span>
@@ -71,18 +52,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </form>
           </div>
         </header>
-           <main className="content">{children}</main>
+        <main className="content">{children}</main>
         <footer className="footer">
           <div className="footer-line">
             <span className="footer-dot" />
-                       PASKO PERFORMANCE
+            PASKO PERFORMANCE
             <span className="footer-dot" />
           </div>
           <div className="footer-author">
             Разработано и создано тренером по функциональной и кондиционной
             подготовке <b>Пасько Сергеем</b> для волейбольного клуба «Ярославич»
           </div>
-         
         </footer>
       </div>
     </>
