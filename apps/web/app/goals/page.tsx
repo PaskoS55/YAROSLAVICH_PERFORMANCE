@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma';
-import { markGoalAchieved, createGoal } from './actions';
+import { markGoalAchieved, createGoal, syncGoals } from './actions';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -23,7 +23,14 @@ export default async function GoalsPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-3xl font-bold">Цели</h1>
+            <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Цели</h1>
+        <form action={syncGoals}>
+          <button className="rounded bg-blue-600 px-4 py-2 text-sm text-white">
+            Проверить достижение
+          </button>
+        </form>
+      </div>
 
       <form
         action={createGoal}

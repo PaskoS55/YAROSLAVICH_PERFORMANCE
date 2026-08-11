@@ -22,14 +22,35 @@ function phaseColor(p: number | null): string {
   return 'text-red-700';
 }
 
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return <span className="text-xs text-gray-400">—</span>;
+  const w = 90;
+  const h = 24;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const pts = values
+    .map(
+      (v, i) =>
+        `${((i * (w - 4)) / (values.length - 1) + 2).toFixed(1)},${(
+          h - 3 - ((v - min) / span) * (h - 6)
+        ).toFixed(1)}`
+    )
+    .join(' ');
+  return (
+    <svg width={w} height={h}>
+      <polyline points={pts} fill="none" stroke="#c8102e" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 export default async function BodyCompositionPage() {
   const players = await prisma.player.findMany({
     where: { deletedAt: null },
     orderBy: { playerId: 'asc' },
     include: {
       bodyCompositions: {
-        orderBy: { createdAt: 'desc' },
-        take: 1,
+        orderBy: { createdAt: 'asc' },
         include: { testSession: { select: { DateTime: true, sessionId: true } } },
       },
     },
@@ -71,11 +92,15 @@ export default async function BodyCompositionPage() {
               <th className="px-4 py-2 text-right">% жира</th>
               <th className="px-4 py-2 text-right">БЖМ</th>
               <th className="px-4 py-2 text-right">Фазовый угол</th>
+              <th className="px-4 py-2 text-left">Динамика % жира</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {players.map((p) => {
-              const b = p.bodyCompositions[0];
+              const list = p.bodyCompositions;
+              const b = list[list.length - 1];
+              const first = list[0];
+              const delta = b && first ? +(b.fat_pct - first.fat_pct).toFixed(1) : null;
               return (
                 <tr key={p.id}>
                   <td className="px-4 py-3">
@@ -97,7 +122,25 @@ export default async function BodyCompositionPage() {
                     {b ? `${b.ffm_kg.toFixed(1)} кг` : '—'}
                   </td>
                   <td className={`px-4 py-3 text-right font-mono font-semibold ${phaseColor(b?.phase_angle ?? null)}`}>
-                    {b ? `${b.phase_angle.toFixed(2)}°` : '—'}
+                    {b && b.phase_angle !== null ? `${b.phase_angle.toFixed(2)}°` : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkline values={list.map((x) => x.fat_pct)} />
+                      {delta !== null && (
+                        <span
+                          className={`font-mono text-xs font-bold ${
+                            delta < 0
+                              ? 'text-green-700'
+                              : delta > 0
+                                ? 'text-red-700'
+                                : 'text-gray-500'
+                          }`}
+                        >
+                          {delta < 0 ? '↓' : delta > 0 ? '↑' : '→'} {Math.abs(delta)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -110,7 +153,8 @@ export default async function BodyCompositionPage() {
         Цветовые зоны ориентировочные: <span className="text-green-700">●</span> оптимально,
         <span className="text-blue-700 ml-1">●</span> норма,
         <span className="text-yellow-700 ml-1">●</span> внимание,
-        <span className="text-red-700 ml-1">●</span> выход за пределы.
+        <span className="text-red-700 ml-1">●</span> выход за пределы. Стрелка ↓ у % жира —
+        улучшение (зелёная), ↑ — рост (красная).
       </div>
     </div>
   );
