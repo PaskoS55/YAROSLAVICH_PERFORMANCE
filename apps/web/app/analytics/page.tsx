@@ -65,6 +65,17 @@ export default async function AnalyticsPage({
   });
   const player = players.find((p) => p.id === searchParams.playerId) ?? players[0];
 
+  if (!player) {
+    return (
+      <div className="space-y-6 p-6">
+        <h1 className="text-3xl font-bold">Графики и радар</h1>
+        <p className="text-sm text-gray-500">
+          Нет игроков. Добавьте игроков на странице «Команда» или импортируйте данные.
+        </p>
+      </div>
+    );
+  }
+
   const tests = await prisma.test.findMany({
     where: { deletedAt: null },
     orderBy: { code: 'asc' },
