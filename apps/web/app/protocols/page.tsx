@@ -16,6 +16,73 @@ const directionLabels: Record<string, string> = {
   CONTEXTUAL: 'контекстное',
 };
 
+const protocols: Record<string, { how: string; result: string }> = {
+  STR_PULL: {
+    how: 'Исходное положение: стопы на ширине плеч, гриф у голеней, хват чуть шире плеч, спина прямая. Мощное одновременное разгибание ног и корпуса до полного выпрямления, без «рывка» поясницей.',
+    result: 'Максимальный вес одного чистого повторения (1RM), кг.',
+  },
+  STR_SQUAT: {
+    how: 'Штанга на верхней части спины, стопы на ширине плеч. Присед до параллели бёдер с полом или ниже, колени по направлению стоп, пятки на полу, спина прямая.',
+    result: 'Максимальный вес одного повторения с правильной техникой (1RM), кг.',
+  },
+  PWR_CMJ: {
+    how: 'Стоя, руки на поясе. Быстрый присед (амплитуда ~30–40 см) и немедленный вертикальный прыжок с максимальной мощностью. Пауза между приседом и отталкиванием минимальная.',
+    result: 'Высота прыжка, см. Лучшая из 3 попыток.',
+  },
+  PWR_BJ: {
+    how: 'Стопы на ширине плеч у контрольной линии. Мах руками и одновременное отталкивание двумя ногами — прыжок вперёд на максимальную дальность, приземление на обе ноги.',
+    result: 'Длина прыжка, см. Лучшая из 3 попыток.',
+  },
+  SPD_10: {
+    how: 'Старт из положения стоя за линией, фотодатчики на старте. По сигналу — максимальное ускорение 10 м без сбавления перед финишем.',
+    result: 'Время, сек. Лучшая из 3 попыток (электронный хронометраж).',
+  },
+  SPD_20: {
+    how: 'То же, что спринт 10 м, дистанция 20 м. Старт из положения стоя, максимальное ускорение по всей дистанции.',
+    result: 'Время, сек. Лучшая из 3 попыток.',
+  },
+  AGI_TTEST: {
+    how: 'Конусы расставлены буквой «Т»: 9,14 м вперёд, по 4,57 м влево и вправо. Спринт вперёд → приставной шаг влево до конуса → вправо до конуса → обратно к центральному → спиной вперёд на старт.',
+    result: 'Время полного прохождения, сек. Лучшая из 2 попыток.',
+  },
+  AGI_505: {
+    how: 'Спринт с разгона; на отметке 10 м игрок касается линии, выполняет поворот на 180° и спринтует обратно 5 м. Фотодатчики фиксируют время 5 м до и после поворота.',
+    result: 'Время смены направления (5 м + 5 м), сек. Лучшая из 2 попыток.',
+  },
+  VB_APP: {
+    how: 'Имитация нападающего удара: разбег в 1–2 шага, отталкивание двумя ногами и касание максимально высокой метки (Vertec / разметка на стене) ведущей рукой в высшей точке.',
+    result: 'Высота касания в прыжке с разбега, см. Лучшая из 3 попыток.',
+  },
+  VB_BLOCK: {
+    how: 'Стоя у сетки, без разбега: прыжок блокирования с махом обеих рук вверх, касание метки в высшей точке. Корпус вертикально, без прогиба.',
+    result: 'Высота касания в прыжке с места, см. Лучшая из 3 попыток.',
+  },
+  VB_SERVE: {
+    how: 'Подача в полную силу из зоны подачи, скорость измеряется радаром. Засчитываются подачи в площадку (силовая в прыжке или планирующая).',
+    result: 'Максимальная скорость подачи, км/ч. Лучшая из 3 попыток.',
+  },
+  MOB_OHS: {
+    how: 'Палка над головой (хват шире плеч), стопы на ширине плеч. Медленный присед до параллели и ниже. Оцениваются положение корпуса, палки, коленей и стоп по критериям FMS.',
+    result: 'Оценка 0–10 по сумме критериев мобильности.',
+  },
+  MOB_SL: {
+    how: 'Шаг в линию: носок задней ноги у пятки передней, колено задней ноги опускается к полу. Оценивается стабильность, ось корпуса и симметрия обеих ног.',
+    result: 'Оценка 0–10, отдельно за каждую ногу.',
+  },
+  BC_MASS: {
+    how: 'Взвешивание на калиброванных весах утром натощак, в минимальной одежде.',
+    result: 'Масса тела, кг.',
+  },
+  BC_FAT: {
+    how: 'Биоимпедансный анализ в стандартных условиях: утром, натощак, до тренировки, электроды по схеме производителя.',
+    result: 'Процент жировой массы, %.',
+  },
+  BC_FFM: {
+    how: 'Рассчитывается по данным биоимпедансометрии: масса тела минус жировая масса.',
+    result: 'Безжировая масса, кг.',
+  },
+};
+
 export default async function ProtocolsPage() {
   const tests = await prisma.test.findMany({
     where: { deletedAt: null },
@@ -24,28 +91,58 @@ export default async function ProtocolsPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-3xl font-bold">Протоколы и QC-правила</h1>
-      <p className="text-sm text-gray-500">
-        Справочник тестов: категория, направление, единицы и допустимые QC-диапазоны.
-      </p>
+      <div>
+        <h1 className="text-3xl font-bold">Протоколы и QC-правила</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Методика выполнения каждого теста, единицы измерения и допустимые QC-диапазоны.
+        </p>
+      </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {tests.map((t) => (
-          <div key={t.id} className="rounded-lg bg-white p-4 shadow">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold">{t.name}</h2>
-              <span className="text-xs text-gray-400">{t.code}</span>
-            </div>
-            <div className="mt-2 space-y-1 text-sm text-gray-600">
-              <div>Категория: <b>{categoryLabels[t.category] ?? t.category}</b></div>
-              <div>Направление: <b>{directionLabels[t.direction]}</b></div>
-              <div>Единицы: <b>{t.unit}</b></div>
-              <div>QC-диапазон: <b>{t.qcMin ?? '…'} – {t.qcMax ?? '…'}</b></div>
+        {tests.map((t) => {
+          const p = protocols[t.code];
+          return (
+            <div key={t.id} className="rounded-lg bg-white p-5 shadow">
+              <div className="flex items-center justify-between">
+                <h2 className="font-bold">{t.name}</h2>
+                <span className="text-xs text-gray-400">{t.code}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">
+                  {categoryLabels[t.category] ?? t.category}
+                </span>
+                <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">
+                  {directionLabels[t.direction]}
+                </span>
+                <span className="rounded-full bg-gray-100 px-2 py-1 text-gray-600">
+                  QC: {t.qcMin ?? '…'} – {t.qcMax ?? '…'} {t.unit}
+                </span>
+              </div>
+
+              {p && (
+                <div className="mt-4 space-y-3 text-sm">
+                  <div>
+                    <div className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-400">
+                      Как выполнять
+                    </div>
+                    <p className="leading-relaxed text-gray-700">{p.how}</p>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs font-bold uppercase tracking-wide text-gray-400">
+                      Результат
+                    </div>
+                    <p className="leading-relaxed text-gray-700">{p.result}</p>
+                  </div>
+                </div>
+              )}
+
               {t.changeThreshold !== null && (
-                <div>Порог значимости (MDC): <b>{t.changeThreshold}</b></div>
+                <div className="mt-3 text-xs text-gray-500">
+                  Порог значимости изменения (MDC): <b>{t.changeThreshold}</b>
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
