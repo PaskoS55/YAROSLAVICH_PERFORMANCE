@@ -10,8 +10,8 @@ export default function LoginPage({
       <div className="login-card">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="ВК Ярославич" className="login-logo" />
-        <h1 className="login-title">YAROSLAVICH PERFORMANCE</h1>
-        <p className="login-sub">Платформа анализа физической подготовки</p>
+                <h1 className="login-title">PASKO PERFORMANCE</h1>
+        <p className="login-sub">Система функциональной и кондиционной подготовки</p>
         {searchParams.error && (
           <div className="login-error">Неверный пароль. Попробуйте ещё раз.</div>
         )}
@@ -28,7 +28,7 @@ export default function LoginPage({
             Войти в систему
           </button>
         </form>
-        <div className="login-note">Доступ только для персонала клуба</div>
+                <div className="login-note">Для ВК «Ярославич» · доступ только для персонала</div>
       </div>
     </div>
   );

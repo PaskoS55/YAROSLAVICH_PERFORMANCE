@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'YAROSLAVICH PERFORMANCE',
-  description: 'Платформа анализа физической подготовки ВК «Ярославич»',
+  title: 'PASKO PERFORMANCE — ВК Ярославич',
+  description: 'Система функциональной и кондиционной подготовки Сергея Пасько для ВК «Ярославич»',
 };
 
 export default function RootLayout({

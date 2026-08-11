@@ -71,7 +71,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </form>
           </div>
         </header>
-        <main className="content">{children}</main>
+           <main className="content">{children}</main>
+        <footer className="footer">
+          <div className="footer-line">
+            <span className="footer-dot" />
+                       PASKO PERFORMANCE
+            <span className="footer-dot" />
+          </div>
+          <div className="footer-author">
+            Разработано и создано тренером по функциональной и кондиционной
+            подготовке <b>Пасько Сергеем</b> для волейбольного клуба «Ярославич»
+          </div>
+         
+        </footer>
       </div>
     </>
   );

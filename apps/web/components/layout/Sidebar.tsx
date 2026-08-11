@@ -119,7 +119,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
           {!collapsed && (
             <div className="brand-text">
               <div className="brand-name">ЯРОСЛАВИЧ</div>
-              <div className="brand-sub">PERFORMANCE</div>
+              <div className="brand-sub">by PASKO PERFORMANCE</div>
             </div>
           )}
           <button className="toggle-btn" onClick={onToggle} aria-label="Свернуть меню">
@@ -139,7 +139,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
           <img src="/logo.png" alt="ВК Ярославич" />
           <div className="brand-text">
             <div className="brand-name">ЯРОСЛАВИЧ</div>
-            <div className="brand-sub">PERFORMANCE</div>
+            <div className="brand-sub">by PASKO PERFORMANCE</div>
           </div>
         </div>
         {nav}
