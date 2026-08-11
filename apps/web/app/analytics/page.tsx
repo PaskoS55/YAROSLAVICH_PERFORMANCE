@@ -190,8 +190,8 @@ export default async function AnalyticsPage({
             })}
             <polygon
               points={radarPolygon(radar.map((r) => r.pct), 130, 120, 90)}
-              fill="rgba(37, 99, 235, 0.25)"
-              stroke="#2563eb"
+              fill="rgba(200, 16, 46, 0.18)"
+              stroke="#c8102e"
               strokeWidth="2"
             />
           </svg>
@@ -226,12 +226,12 @@ export default async function AnalyticsPage({
               <polyline
                 points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(' ')}
                 fill="none"
-                stroke="#2563eb"
+                stroke="#c8102e"
                 strokeWidth="2"
               />
               {points.map((p, i) => (
                 <g key={p.sessionId}>
-                  <circle cx={x(i)} cy={y(p.value)} r="4" fill="#2563eb" />
+                  <circle cx={x(i)} cy={y(p.value)} r="4" fill="#c8102e" />
                   <text x={x(i)} y={y(p.value) - 8} fontSize="11" textAnchor="middle" fill="#111827">
                     {p.value}
                   </text>
