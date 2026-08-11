@@ -648,3 +648,9 @@ select option:checked {
   margin: 14px 16px 6px;
   border-top: 1px solid #1f2126;
 }
+
+.chip-active {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
