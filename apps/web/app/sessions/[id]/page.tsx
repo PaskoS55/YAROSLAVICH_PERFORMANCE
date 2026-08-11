@@ -50,34 +50,46 @@ export default async function SessionPage({ params }: { params: { id: string } }
   const existing: Record<string, number> = {};
   for (const r of results) existing[r.testId] = r.value;
 
+  const fillPct = Math.round((results.length / Math.max(tests.length, 1)) * 100);
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="text-sm text-gray-500">
-        <Link href="/sessions" className="text-blue-600 hover:underline">Тестирования</Link>
-        {' / '}{session.sessionId}
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between text-sm text-gray-500">
+        <div>
+          <Link href="/sessions" className="text-blue-600 hover:underline">Тестирования</Link>
+          {' / '}{session.sessionId}
+        </div>
+        <div>
+          Заполнено тестов: <b className="text-gray-900">{results.length}</b> из{' '}
+          <b className="text-gray-900">{tests.length}</b>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-lg bg-white p-6 shadow">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{session.sessionId}</h1>
-            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[session.status]}`}>
+            <span className={`rounded-full px-2 py-1 text-xs font-semibold ${statusColors[session.status]}`}>
               {statusLabels[session.status]}
             </span>
           </div>
           <div className="mt-2 text-sm text-gray-600">
-            Дата: <b>{fmtDate(session.DateTime)}</b> · Фаза: <b>{phaseLabels[session.phase]}</b> · Игрок:{' '}
+            Дата: <b>{fmtDate(session.DateTime)}</b> · Фаза:{' '}
+            <b>{phaseLabels[session.phase] ?? session.phase}</b> · Игрок:{' '}
             <Link href={`/players/${session.player.id}`} className="text-blue-600 hover:underline">
               {session.player.lastName} {session.player.firstName}
             </Link>
           </div>
         </div>
-        <div className="text-sm text-gray-500">
-          Заполнено тестов: <b>{results.length}</b> из <b>{tests.length}</b>
+        <div className="rounded-lg bg-gray-50 px-5 py-3 text-center">
+          <div className="text-2xl font-extrabold" style={{ color: 'var(--red)' }}>
+            {fillPct}%
+          </div>
+          <div className="text-xs text-gray-500">заполнено</div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="rounded-lg bg-white p-6 shadow">
         <h2 className="mb-4 text-xl font-bold">Ввод результатов</h2>
         <ResultsForm
           sessionId={session.id}
