@@ -165,8 +165,10 @@ body {
   background: var(--graphite-2);
   color: #fff;
 }
-.sidebar.collapsed .toggle-btn {
-  display: none;
+.sidebar.collapsed .brand {
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 8px;
 }
 
 .nav {
