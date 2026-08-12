@@ -41,13 +41,14 @@ export default function TeamForm({ players, tests }: { players: Player[]; tests:
   });
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   const test = tests.find((t) => t.id === testId);
 
-  function fieldState(s: string): { state: 'empty' | 'ok' | 'bad'; value?: number } {
+  function fieldState(s: string): { state: 'empty' | 'ok' | 'bad' | 'warn'; value?: number } {
     const t = s.trim().replace(',', '.');
     if (!t) return { state: 'empty' };
     const n = Number(t);
@@ -56,29 +57,44 @@ export default function TeamForm({ players, tests }: { players: Player[]; tests:
       test &&
       ((test.qcMin !== null && n < test.qcMin) || (test.qcMax !== null && n > test.qcMax))
     ) {
-      return { state: 'bad', value: n };
+      return { state: 'warn', value: n };
     }
     return { state: 'ok', value: n };
   }
 
   const states = players.map((p) => ({ p, st: fieldState(values[p.id] ?? '') }));
-  const entered = states.filter((x) => x.st.state === 'ok').length;
+  const entered = states.filter((x) => x.st.state === 'ok' || x.st.state === 'warn').length;
   const invalid = states.filter((x) => x.st.state === 'bad').length;
+  const warns = states.filter((x) => x.st.state === 'warn').length;
 
   async function onSubmit() {
     setError(null);
     setMessage(null);
+
     if (invalid > 0) {
-      setError(`Исправьте ${invalid} ${plural(invalid, ['значение', 'значения', 'значений'])} перед сохранением.`);
+      setConfirming(false);
+      setError(
+        `Исправьте ${invalid} ${plural(invalid, ['значение', 'значения', 'значений'])}: введено не число.`
+      );
       return;
     }
+
+    if (warns > 0 && !confirming) {
+      setConfirming(true);
+      setError(
+        `Вне диапазона: ${warns} ${plural(warns, ['значение', 'значения', 'значений'])}. Нажмите «Подтвердить и сохранить», чтобы записать как есть.`
+      );
+      return;
+    }
+
     const entries = states
-      .filter((x) => x.st.state === 'ok')
+      .filter((x) => x.st.state === 'ok' || x.st.state === 'warn')
       .map((x) => ({ playerId: x.p.id, value: x.st.value as number }));
     if (entries.length === 0) {
       setError('Введите хотя бы один результат.');
       return;
     }
+
     setSaving(true);
     try {
       await saveTeamResults({ testId, date, phase, entries });
@@ -90,6 +106,7 @@ export default function TeamForm({ players, tests }: { players: Player[]; tests:
         }`
       );
       setValues({});
+      setConfirming(false);
     } catch {
       setError('Не удалось сохранить. Проверьте данные и попробуйте ещё раз.');
     } finally {
@@ -102,7 +119,14 @@ export default function TeamForm({ players, tests }: { players: Player[]; tests:
       <div className="flex flex-wrap items-end gap-3">
         <label className={label}>
           Тест
-          <select value={testId} onChange={(e) => setTestId(e.target.value)} className={`${field} mt-1 border-gray-200`}>
+          <select
+            value={testId}
+            onChange={(e) => {
+              setTestId(e.target.value);
+              setConfirming(false);
+            }}
+            className={`${field} mt-1 border-gray-200`}
+          >
             {tests.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -112,11 +136,20 @@ export default function TeamForm({ players, tests }: { players: Player[]; tests:
         </label>
         <label className={label}>
           Дата
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${field} mt-1 border-gray-200`} />
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className={`${field} mt-1 border-gray-200`}
+          />
         </label>
         <label className={label}>
           Фаза
-          <select value={phase} onChange={(e) => setPhase(e.target.value)} className={`${field} mt-1 border-gray-200`}>
+          <select
+            value={phase}
+            onChange={(e) => setPhase(e.target.value)}
+            className={`${field} mt-1 border-gray-200`}
+          >
             {phases.map(([v, l]) => (
               <option key={v} value={v}>
                 {l}
@@ -128,7 +161,9 @@ export default function TeamForm({ players, tests }: { players: Player[]; tests:
 
       <div className="text-xs text-gray-500">
         Единица: <b>{test?.unit ?? '—'}</b> · допустимый диапазон ввода:{' '}
-        <b>{test?.qcMin ?? '…'}–{test?.qcMax ?? '…'}</b>
+        <b>
+          {test?.qcMin ?? '…'}–{test?.qcMax ?? '…'}
+        </b>
       </div>
 
       <div>
@@ -154,6 +189,7 @@ export default function TeamForm({ players, tests }: { players: Player[]; tests:
                 onChange={(e) => {
                   setValues((v) => ({ ...v, [p.id]: e.target.value }));
                   setMessage(null);
+                  setConfirming(false);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -163,12 +199,20 @@ export default function TeamForm({ players, tests }: { players: Player[]; tests:
                   }
                 }}
                 className={`w-28 text-right font-mono ${field} py-2.5 ${
-                  st.state === 'bad' ? 'border-red-500' : 'border-gray-200'
+                  st.state === 'bad'
+                    ? 'border-red-500'
+                    : st.state === 'warn'
+                      ? 'border-amber-500'
+                      : 'border-gray-200'
                 }`}
               />
               {st.state === 'bad' && (
-                <div className="mt-1 text-[11px] text-red-600">
-                  Проверьте значение · ожидается {test?.qcMin ?? '…'}–{test?.qcMax ?? '…'} {test?.unit}
+                <div className="mt-1 text-[11px] text-red-600">Не число — исправьте</div>
+              )}
+              {st.state === 'warn' && (
+                <div className="mt-1 text-[11px] text-amber-600">
+                  Проверьте значение · ожидается {test?.qcMin ?? '…'}–{test?.qcMax ?? '…'}{' '}
+                  {test?.unit}
                 </div>
               )}
             </div>
@@ -177,7 +221,13 @@ export default function TeamForm({ players, tests }: { players: Player[]; tests:
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+        <div
+          className={`rounded-lg border px-4 py-2 text-sm ${
+            confirming && invalid === 0
+              ? 'border-amber-200 bg-amber-50 text-amber-700'
+              : 'border-red-200 bg-red-50 text-red-700'
+          }`}
+        >
           {error}
         </div>
       )}
@@ -192,7 +242,11 @@ export default function TeamForm({ players, tests }: { players: Player[]; tests:
           Введено {entered} из {players.length}
         </span>
         <button className="btn-primary" onClick={onSubmit} disabled={saving}>
-          {saving ? 'Сохранение…' : 'Сохранить результаты'}
+          {saving
+            ? 'Сохранение…'
+            : confirming && warns > 0
+              ? 'Подтвердить и сохранить'
+              : 'Сохранить результаты'}
         </button>
       </div>
     </div>
