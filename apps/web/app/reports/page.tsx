@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma';
+import ReportsCards from './reports-cards';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -18,75 +19,31 @@ export default async function ReportsPage() {
   });
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-3xl font-bold">Отчёты и экспорт</h1>
-
-      <div className="rounded-lg bg-white p-6 shadow">
-        <h2 className="mb-3 text-lg font-bold">Командная сводка</h2>
-        <p className="mb-3 text-sm text-gray-600">
-          Матрица «все игроки × все тесты» с последними результатами.
+    <div className="space-y-5 p-6">
+      <div>
+        <h1 className="text-3xl font-bold">Отчёты</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Экспорт командных, индивидуальных и сессионных данных.
         </p>
-        <a
-          href="/api/export?type=team"
-          className="inline-block rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-        >
-          Скачать CSV
-        </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-3 text-lg font-bold">Отчёт по сессии</h2>
-          <table className="min-w-full text-sm">
-            <tbody className="divide-y divide-gray-200">
-              {sessions.map((s) => (
-                <tr key={s.id}>
-                  <td className="py-2 font-mono text-gray-500">{s.sessionId}</td>
-                  <td className="py-2">{fmtDate(s.DateTime)}</td>
-                  <td className="py-2">
-                    {s.player.lastName} {s.player.firstName}
-                  </td>
-                  <td className="py-2 text-right">
-                    <a
-                      href={`/api/export?type=session&id=${s.id}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      Скачать ↓
-                    </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-3 text-lg font-bold">Отчёт по игроку</h2>
-          <table className="min-w-full text-sm">
-            <tbody className="divide-y divide-gray-200">
-              {players.map((p) => (
-                <tr key={p.id}>
-                  <td className="py-2 font-mono text-gray-500">{p.playerId}</td>
-                  <td className="py-2">
-                    {p.lastName} {p.firstName} {p.middleName ?? ''}
-                  </td>
-                  <td className="py-2 text-right">
-                    <a
-                      href={`/api/export?type=player&id=${p.id}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      Скачать ↓
-                    </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <ReportsCards
+        players={players.map((p) => ({
+          id: p.id,
+          lastName: p.lastName,
+          firstName: p.firstName,
+          playerId: p.playerId,
+        }))}
+        sessions={sessions.map((s) => ({
+          id: s.id,
+          sessionId: s.sessionId,
+          date: fmtDate(s.DateTime),
+          playerLabel: `${s.player.lastName} ${s.player.firstName}`,
+        }))}
+      />
 
       <p className="text-xs text-gray-500">
-        Файлы CSV: разделитель «;», кодировка UTF-8 с BOM — корректно открываются в Excel.
+        Формат: CSV · UTF-8 · совместим с Excel.
       </p>
     </div>
   );
