@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma';
+import Link from 'next/link';
 import { createBodyComposition } from './actions';
 import NewMeasureSection from './new-measure-section';
 
@@ -65,19 +66,19 @@ export default async function BodyCompositionPage() {
           </label>
           <label className={label}>
             Масса, кг *
-            <input name="mass" required className={field} />
+            <input name="mass" type="number" step="0.1" min="0" required className={field} />
           </label>
           <label className={label}>
             Жир, % *
-            <input name="fat" required className={field} />
+            <input name="fat" type="number" step="0.1" min="0" max="60" required className={field} />
           </label>
           <label className={label}>
             БЖМ, кг *
-            <input name="ffm" required className={field} />
+            <input name="ffm" type="number" step="0.1" min="0" required className={field} />
           </label>
           <label className={label}>
             Фазовый угол, °
-            <input name="phase" className={field} />
+            <input name="phase" type="number" step="0.01" min="0" max="15" className={field} />
           </label>
           <div className="md:col-span-3">
             <button className="btn-primary">Сохранить замер</button>
@@ -105,15 +106,22 @@ export default async function BodyCompositionPage() {
               const first = list[0];
               const delta = b && first ? +(b.fat_pct - first.fat_pct).toFixed(1) : null;
               return (
-                <tr key={p.id}>
+                <tr key={p.id} className="relative">
                   <td className="px-4 py-3">
-                    <div className="font-medium">
+                    <Link
+                      href={`/players/${p.id}`}
+                      className="font-medium hover:underline after:absolute after:inset-0"
+                    >
                       {p.lastName} {p.firstName}
-                    </div>
+                    </Link>
                     <div className="text-xs text-gray-400">{p.playerId}</div>
                   </td>
                   <td className="px-4 py-3 text-right text-gray-500">
-                    {b ? fmtDate(b.testSession.DateTime) : '—'}
+                    {b ? (
+                      fmtDate(b.testSession.DateTime)
+                    ) : (
+                      <span className="text-gray-400">нет замеров</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-gray-900">
                     {b ? `${b.mass_kg.toFixed(1).replace('.', ',')} кг` : '—'}
@@ -125,7 +133,9 @@ export default async function BodyCompositionPage() {
                     {b ? `${b.ffm_kg.toFixed(1).replace('.', ',')} кг` : '—'}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-gray-900">
-                    {b && b.phase_angle !== null ? `${b.phase_angle.toFixed(2).replace('.', ',')}°` : '—'}
+                    {b && b.phase_angle !== null
+                      ? `${b.phase_angle.toFixed(2).replace('.', ',')}°`
+                      : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">

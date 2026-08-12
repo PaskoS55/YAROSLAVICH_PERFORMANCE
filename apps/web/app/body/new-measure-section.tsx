@@ -9,7 +9,7 @@ export default function NewMeasureSection({ children }: { children: React.ReactN
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold">Состав тела</h1>
         <button className="btn-primary" onClick={() => setOpen((o) => !o)}>
-          {open ? 'Скрыть форму' : '+ Новый замер'}
+          {open ? 'Закрыть' : '+ Новый замер'}
         </button>
       </div>
       {open && (
