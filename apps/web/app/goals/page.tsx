@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma';
 import Link from 'next/link';
 import { markGoalAchieved, createGoal } from './actions';
 import GoalsHeader from './new-goal-section';
+import ConfirmMarkButton from './confirm-mark-button';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -197,14 +198,17 @@ export default async function GoalsPage({
                 </td>
                 <td className="px-4 py-3 text-gray-600">{g.test.name}</td>
                 <td className="px-4 py-3 text-right font-mono text-gray-900">
-                  {g.current !== null ? fmtVal(g.current) : '—'}
+                  {g.current !== null ? `${fmtVal(g.current)} ${g.test.unit}` : '—'}
                 </td>
                 <td className="px-4 py-3">
                   <div className="font-mono text-gray-900">
                     {fmtVal(g.targetValue)} {g.test.unit}
                   </div>
                   {g.current !== null && (
-                    <div className="mt-1 h-1 w-16 rounded bg-gray-100">
+                    <div
+                      className="mt-1 h-1 w-16 rounded bg-gray-100"
+                      title="Отношение текущего результата к цели"
+                    >
                       <div
                         className="h-1 rounded"
                         style={{ width: `${g.pct}%`, background: 'var(--red)' }}
@@ -225,9 +229,7 @@ export default async function GoalsPage({
                   {!g.achieved && (
                     <form action={markGoalAchieved} className="relative z-10 inline">
                       <input type="hidden" name="id" value={g.id} />
-                      <button className="link-action text-xs hover:underline">
-                        Отметить выполненной
-                      </button>
+                      <ConfirmMarkButton />
                     </form>
                   )}
                 </td>
