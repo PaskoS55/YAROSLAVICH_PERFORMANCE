@@ -1,58 +1,82 @@
 import { prisma } from '../../lib/prisma';
-import { createEquipment } from './actions';
+import NewEquipmentSection from './new-equipment-section';
+import EquipmentRow from './equipment-row';
 
-function fmtDate(d: Date | null | undefined) {
-  if (!d) return '—';
-  return new Date(d).toLocaleDateString('ru-RU');
+const statusLabels: Record<string, string> = {
+  ACTIVE: 'В работе',
+  MAINTENANCE: 'На обслуживании',
+  BROKEN: 'Неисправно',
+  RETIRED: 'Списано',
+};
+const statusColors: Record<string, string> = {
+  ACTIVE: 'bg-green-100 text-green-800',
+  MAINTENANCE: 'bg-yellow-100 text-yellow-800',
+  BROKEN: 'bg-red-100 text-red-800',
+  RETIRED: 'bg-gray-200 text-gray-600',
+};
+
+function warrantyInfo(d: Date | null | undefined) {
+  if (!d) return { label: '—', color: 'text-gray-400' };
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const exp = new Date(d);
+  exp.setHours(0, 0, 0, 0);
+  const days = Math.ceil((exp.getTime() - today.getTime()) / 86400000);
+  const label = exp.toLocaleDateString('ru-RU');
+  if (days < 0) return { label: `${label} · истекла`, color: 'text-red-700' };
+  if (days <= 30) return { label: `${label} · ещё ${days} дн.`, color: 'text-amber-700' };
+  return { label, color: 'text-gray-600' };
 }
 
 export default async function EquipmentPage() {
   const items = await prisma.equipment.findMany({
     where: { deletedAt: null },
-    orderBy: { code: 'asc' },
+    orderBy: { name: 'asc' },
   });
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-3xl font-bold">Оборудование</h1>
-
-      <form
-        action={createEquipment}
-        className="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow md:grid-cols-5"
-      >
-        <input name="code" placeholder="Код (EQ01)" required className="rounded border-2 border-gray-300 px-2 py-1 text-sm" />
-        <input name="name" placeholder="Название" required className="rounded border-2 border-gray-300 px-2 py-1 text-sm" />
-        <input name="brand" placeholder="Производитель" className="rounded border-2 border-gray-300 px-2 py-1 text-sm" />
-        <input name="model" placeholder="Модель" className="rounded border-2 border-gray-300 px-2 py-1 text-sm" />
-        <button className="rounded bg-blue-600 px-4 py-1 text-sm text-white hover:bg-blue-700">
-          Добавить
-        </button>
-      </form>
+    <div className="space-y-5 p-6">
+      <NewEquipmentSection />
 
       {items.length === 0 ? (
-        <p className="text-sm text-gray-500">Оборудование ещё не добавлено.</p>
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+          Оборудования ещё нет — добавьте первую запись через «+ Добавить».
+        </div>
       ) : (
-        <div className="overflow-hidden rounded-lg bg-white shadow">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead>
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Код</th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Название</th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Производитель</th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Модель</th>
-                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Гарантия до</th>
+                <th className="px-4 py-2 text-left">Название</th>
+                <th className="px-4 py-2 text-left">Производитель</th>
+                <th className="px-4 py-2 text-left">Модель</th>
+                <th className="px-4 py-2 text-left">Гарантия</th>
+                <th className="px-4 py-2 text-left">Статус</th>
+                <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {items.map((e) => (
-                <tr key={e.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 font-mono">{e.code}</td>
-                  <td className="px-4 py-2">{e.name}</td>
-                  <td className="px-4 py-2 text-gray-500">{e.brand ?? '—'}</td>
-                  <td className="px-4 py-2 text-gray-500">{e.model ?? '—'}</td>
-                  <td className="px-4 py-2 text-gray-500">{fmtDate(e.warrantyExp)}</td>
-                </tr>
-              ))}
+              {items.map((e) => {
+                const w = warrantyInfo(e.warrantyExp);
+                return (
+                  <EquipmentRow
+                    key={e.id}
+                    item={{
+                      id: e.id,
+                      code: e.code,
+                      name: e.name,
+                      brand: e.brand,
+                      model: e.model,
+                      warrantyExp: e.warrantyExp ? e.warrantyExp.toISOString().slice(0, 10) : null,
+                      status: e.status ?? 'ACTIVE',
+                    }}
+                    warrantyLabel={w.label}
+                    warrantyColor={w.color}
+                    statusLabel={statusLabels[e.status ?? 'ACTIVE']}
+                    statusColor={statusColors[e.status ?? 'ACTIVE']}
+                  />
+                );
+              })}
             </tbody>
           </table>
         </div>
