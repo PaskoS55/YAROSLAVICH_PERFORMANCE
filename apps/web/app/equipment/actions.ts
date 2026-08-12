@@ -10,7 +10,7 @@ const toDate = (s: string) => (s === '' ? null : new Date(s + 'T12:00:00.000Z'))
 const ALLOWED = new Set(['ACTIVE', 'MAINTENANCE', 'BROKEN', 'RETIRED']);
 
 export async function createEquipment(formData: FormData) {
-  const code = str(formData.get('code'));
+  const code = str(formData.get('code')).toUpperCase();
   const name = str(formData.get('name'));
   if (!code || !name) return { error: 'Укажите код и название.' };
   const status = str(formData.get('status')) || 'ACTIVE';
@@ -36,7 +36,7 @@ export async function createEquipment(formData: FormData) {
 export async function updateEquipment(formData: FormData) {
   const id = str(formData.get('id'));
   if (!id) return { error: 'Запись не найдена.' };
-  const code = str(formData.get('code'));
+  const code = str(formData.get('code')).toUpperCase();
   const name = str(formData.get('name'));
   if (!code || !name) return { error: 'Укажите код и название.' };
   const status = str(formData.get('status')) || 'ACTIVE';

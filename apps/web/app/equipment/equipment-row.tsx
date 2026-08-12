@@ -42,6 +42,10 @@ export default function EquipmentRow({
     null as null | { ok?: boolean; error?: string }
   );
 
+  React.useEffect(() => {
+    if (state?.ok) setEditing(false);
+  }, [state]);
+
   if (!editing) {
     return (
       <tr>
