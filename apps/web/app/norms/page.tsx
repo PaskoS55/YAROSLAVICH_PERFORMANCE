@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma';
-import { updateNorm } from './actions';
+import NormRow from './norm-row';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -22,15 +22,13 @@ export default async function NormsPage() {
     byTest.set(n.testCode, arr);
   }
 
-  const grid = 'grid grid-cols-[1.4fr_repeat(5,5.5rem)_5rem] gap-2 items-center';
-
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-5 p-6">
       <div>
         <h1 className="text-3xl font-bold">Нормативы</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Процентильные якоря по позициям. Изменения сразу влияют на «Динамику»,
-          «Сравнение» и «Графики».
+          Процентильные нормативы по игровым позициям. Используются в «Динамике» и
+          «Сравнении».
         </p>
       </div>
 
@@ -38,43 +36,48 @@ export default async function NormsPage() {
         const list = byTest.get(t.code) ?? [];
         if (list.length === 0) return null;
         return (
-          <div key={t.id} className="rounded-lg bg-white p-6 shadow">
-            <h2 className="mb-3 font-bold">
-              {t.name}{' '}
-              <span className="text-xs font-normal text-gray-400">
+          <div key={t.id} className="rounded-lg border border-gray-200 bg-white p-6">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h2 className="font-bold">{t.name}</h2>
+              <span className="text-xs text-gray-400">
                 ({t.code}, {t.unit})
               </span>
-            </h2>
-            <div className={`${grid} border-b pb-1 text-xs text-gray-500`}>
-              <div>Позиция</div>
-              <div>p10</div>
-              <div>p25</div>
-              <div>p50</div>
-              <div>p75</div>
-              <div>p90</div>
-              <div></div>
+              <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
+                {t.direction === 'HIGHER_IS_BETTER'
+                  ? '↑ Больше — лучше'
+                  : t.direction === 'LOWER_IS_BETTER'
+                    ? '↓ Меньше — лучше'
+                    : '· Контекстно'}
+              </span>
             </div>
-            {list.map((n) => (
-              <form
-                key={n.id}
-                action={updateNorm}
-                className={`${grid} border-b py-2 last:border-0`}
-              >
-                <input type="hidden" name="id" value={n.id} />
-                <div className="text-sm">{positionLabels[n.position] ?? n.position}</div>
-                {(['anchor10', 'anchor25', 'anchor50', 'anchor75', 'anchor90'] as const).map(
-                  (f) => (
-                    <input
-                      key={f}
-                      name={f}
-                      defaultValue={String(n[f]).replace('.', ',')}
-                      className="w-full rounded border px-1 py-0.5 font-mono text-sm"
-                    />
-                  )
-                )}
-                <button className="text-sm text-blue-600 hover:underline">Сохранить</button>
-              </form>
-            ))}
+            <div className="overflow-x-auto">
+              <div className="min-w-[720px]">
+                <div className="grid grid-cols-[1.2fr_repeat(5,5.5rem)_9rem] gap-2 border-b border-gray-200 pb-1 text-xs text-gray-500">
+                  <div>Позиция</div>
+                  <div>p10</div>
+                  <div>p25</div>
+                  <div>p50</div>
+                  <div>p75</div>
+                  <div>p90</div>
+                  <div></div>
+                </div>
+                {list.map((n) => (
+                  <NormRow
+                    key={n.id}
+                    positionLabel={positionLabels[n.position] ?? n.position}
+                    norm={{
+                      id: n.id,
+                      position: n.position,
+                      anchor10: n.anchor10,
+                      anchor25: n.anchor25,
+                      anchor50: n.anchor50,
+                      anchor75: n.anchor75,
+                      anchor90: n.anchor90,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         );
       })}
