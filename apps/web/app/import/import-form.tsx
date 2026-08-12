@@ -129,7 +129,9 @@ export default function ImportForm() {
                   <td className="py-1 pr-4 font-mono">{r.playerCode}</td>
                   <td className="py-1 pr-4">{r.date}</td>
                   <td className="py-1 pr-4 font-mono">{r.testCode}</td>
-                  <td className="py-1 pr-4 font-mono">{r.value || '—'}</td>
+                                    <td className="py-1 pr-4 font-mono">
+                    {r.valid || r.value !== 0 ? r.value : '—'}
+                  </td>
                   <td className="py-1">
                     {r.valid ? (
                       <span className="text-gray-600">Готово</span>
