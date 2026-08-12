@@ -1,25 +1,10 @@
 import { prisma } from '../../lib/prisma';
 import { createBodyComposition } from './actions';
+import NewMeasureSection from './new-measure-section';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('ru-RU');
-}
-
-function fatColor(pct: number | null): string {
-  if (pct === null) return 'text-gray-400';
-  if (pct < 8) return 'text-green-700';
-  if (pct < 14) return 'text-blue-700';
-  if (pct < 20) return 'text-yellow-700';
-  return 'text-red-700';
-}
-
-function phaseColor(p: number | null): string {
-  if (p === null) return 'text-gray-400';
-  if (p >= 6.5) return 'text-green-700';
-  if (p >= 5.0) return 'text-blue-700';
-  if (p >= 4.0) return 'text-yellow-700';
-  return 'text-red-700';
 }
 
 function Sparkline({ values }: { values: number[] }) {
@@ -44,6 +29,9 @@ function Sparkline({ values }: { values: number[] }) {
   );
 }
 
+const field = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm';
+const label = 'block text-xs font-medium text-gray-500';
+
 export default async function BodyCompositionPage() {
   const players = await prisma.player.findMany({
     where: { deletedAt: null },
@@ -57,32 +45,47 @@ export default async function BodyCompositionPage() {
   });
 
   return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-3xl font-bold">Состав тела</h1>
+    <div className="space-y-5 p-6">
+      <NewMeasureSection>
+        <form action={createBodyComposition} className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <label className={label}>
+            Игрок *
+            <select name="playerId" required className={field}>
+              <option value="">Выберите игрока…</option>
+              {players.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.lastName} {p.firstName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={label}>
+            Дата *
+            <input name="date" type="date" required className={field} />
+          </label>
+          <label className={label}>
+            Масса, кг *
+            <input name="mass" required className={field} />
+          </label>
+          <label className={label}>
+            Жир, % *
+            <input name="fat" required className={field} />
+          </label>
+          <label className={label}>
+            БЖМ, кг *
+            <input name="ffm" required className={field} />
+          </label>
+          <label className={label}>
+            Фазовый угол, °
+            <input name="phase" className={field} />
+          </label>
+          <div className="md:col-span-3">
+            <button className="btn-primary">Сохранить замер</button>
+          </div>
+        </form>
+      </NewMeasureSection>
 
-      <form
-        action={createBodyComposition}
-        className="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow md:grid-cols-6"
-      >
-        <select name="playerId" required className="rounded border-2 px-2 py-1 text-sm">
-          <option value="">Игрок…</option>
-          {players.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.lastName} {p.firstName}
-            </option>
-          ))}
-        </select>
-        <input name="date" type="date" required className="rounded border-2 px-2 py-1 text-sm" />
-        <input name="mass" required placeholder="Масса, кг" className="rounded border-2 px-2 py-1 text-sm" />
-        <input name="fat" required placeholder="Жир, %" className="rounded border-2 px-2 py-1 text-sm" />
-        <input name="ffm" required placeholder="БЖМ, кг" className="rounded border-2 px-2 py-1 text-sm" />
-        <input name="phase" placeholder="Фазовый угол, °" className="rounded border-2 px-2 py-1 text-sm" />
-        <button className="rounded bg-blue-600 px-4 py-1 text-sm text-white md:col-span-6">
-          Сохранить замер
-        </button>
-      </form>
-
-      <div className="overflow-hidden rounded-lg bg-white shadow">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full text-sm">
           <thead>
             <tr>
@@ -112,32 +115,25 @@ export default async function BodyCompositionPage() {
                   <td className="px-4 py-3 text-right text-gray-500">
                     {b ? fmtDate(b.testSession.DateTime) : '—'}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono">
-                    {b ? `${b.mass_kg.toFixed(1)} кг` : '—'}
+                  <td className="px-4 py-3 text-right font-mono text-gray-900">
+                    {b ? `${b.mass_kg.toFixed(1).replace('.', ',')} кг` : '—'}
                   </td>
-                  <td className={`px-4 py-3 text-right font-mono font-semibold ${fatColor(b?.fat_pct ?? null)}`}>
-                    {b ? `${b.fat_pct.toFixed(1)}%` : '—'}
+                  <td className="px-4 py-3 text-right font-mono font-semibold text-gray-900">
+                    {b ? `${b.fat_pct.toFixed(1).replace('.', ',')}%` : '—'}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono">
-                    {b ? `${b.ffm_kg.toFixed(1)} кг` : '—'}
+                  <td className="px-4 py-3 text-right font-mono text-gray-900">
+                    {b ? `${b.ffm_kg.toFixed(1).replace('.', ',')} кг` : '—'}
                   </td>
-                  <td className={`px-4 py-3 text-right font-mono font-semibold ${phaseColor(b?.phase_angle ?? null)}`}>
-                    {b && b.phase_angle !== null ? `${b.phase_angle.toFixed(2)}°` : '—'}
+                  <td className="px-4 py-3 text-right font-mono text-gray-900">
+                    {b && b.phase_angle !== null ? `${b.phase_angle.toFixed(2).replace('.', ',')}°` : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Sparkline values={list.map((x) => x.fat_pct)} />
                       {delta !== null && (
-                        <span
-                          className={`font-mono text-xs font-bold ${
-                            delta < 0
-                              ? 'text-green-700'
-                              : delta > 0
-                                ? 'text-red-700'
-                                : 'text-gray-500'
-                          }`}
-                        >
-                          {delta < 0 ? '↓' : delta > 0 ? '↑' : '→'} {Math.abs(delta)}
+                        <span className="font-mono text-xs font-semibold text-gray-600">
+                          {delta < 0 ? '↓' : delta > 0 ? '↑' : '→'}{' '}
+                          {Math.abs(delta).toFixed(1).replace('.', ',')} п.п.
                         </span>
                       )}
                     </div>
@@ -147,14 +143,6 @@ export default async function BodyCompositionPage() {
             })}
           </tbody>
         </table>
-      </div>
-
-      <div className="text-xs text-gray-500">
-        Цветовые зоны ориентировочные: <span className="text-green-700">●</span> оптимально,
-        <span className="text-blue-700 ml-1">●</span> норма,
-        <span className="text-yellow-700 ml-1">●</span> внимание,
-        <span className="text-red-700 ml-1">●</span> выход за пределы. Стрелка ↓ у % жира —
-        улучшение (зелёная), ↑ — рост (красная).
       </div>
     </div>
   );
