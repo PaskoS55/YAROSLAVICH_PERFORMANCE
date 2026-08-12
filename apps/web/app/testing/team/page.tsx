@@ -13,13 +13,15 @@ export default async function TeamTestingPage() {
   });
 
   return (
-    <div className="p-6">
-      <h1 className="mb-2 text-3xl font-bold">Командный ввод</h1>
-      <p className="mb-6 text-sm text-gray-500">
-        Ввод результатов одного теста для всех активных игроков за одну дату.
-        Пустое поле = игрок не тестировался. Сессия создаётся автоматически.
-      </p>
-      <div className="bg-white rounded-lg shadow p-6">
+    <div className="space-y-5 p-6">
+      <div>
+        <h1 className="text-3xl font-bold">Провести тестирование</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Один тест · вся команда · одна дата. Пустое поле = игрок не
+          тестировался. Сессия создаётся автоматически.
+        </p>
+      </div>
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
         <TeamForm
           players={players.map((p) => ({
             id: p.id,
