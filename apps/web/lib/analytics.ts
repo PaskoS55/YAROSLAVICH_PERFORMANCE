@@ -15,6 +15,9 @@ export function computePercentile(
   direction: string
 ): number | null {
   if (!norm) return null;
+  // Для контекстных тестов направление не задано — процентиль не определён,
+  // пока не появится явная политика направления.
+  if (direction === 'CONTEXTUAL') return null;
   const anchors = [
     { v: norm.anchor10 },
     { v: norm.anchor25 },

@@ -5,9 +5,10 @@ import { revalidatePath } from 'next/cache';
 
 export type NormState = { ok?: boolean; error?: string } | null;
 
-const num = (v: FormDataEntryValue | null) =>
-  Number(String(v ?? '').trim().replace(',', '.'));
-
+const num = (v: FormDataEntryValue | null) => {
+  const s = String(v ?? '').trim().replace(',', '.');
+  return s === '' ? NaN : Number(s);
+};
 export async function updateNorm(_state: NormState, formData: FormData): Promise<NormState> {
   const id = String(formData.get('id'));
   const norm = await prisma.norm.findUnique({ where: { id } });
