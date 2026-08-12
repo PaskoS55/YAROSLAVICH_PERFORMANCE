@@ -1,33 +1,6 @@
 import { prisma } from '../../lib/prisma';
-
-function computePercentile(
-  value: number,
-  norm: {
-    anchor10: number;
-    anchor25: number;
-    anchor50: number;
-    anchor75: number;
-    anchor90: number;
-  } | null
-): number | null {
-  if (!norm) return null;
-  const pts = [
-    { p: 10, v: norm.anchor10 },
-    { p: 25, v: norm.anchor25 },
-    { p: 50, v: norm.anchor50 },
-    { p: 75, v: norm.anchor75 },
-    { p: 90, v: norm.anchor90 },
-  ];
-  if (value <= pts[0].v) return pts[0].p;
-  if (value >= pts[4].v) return pts[4].p;
-  for (let i = 0; i < 4; i++) {
-    if (value >= pts[i].v && value <= pts[i + 1].v) {
-      const ratio = (value - pts[i].v) / (pts[i + 1].v - pts[i].v);
-      return Math.round(pts[i].p + ratio * (pts[i + 1].p - pts[i].p));
-    }
-  }
-  return 50;
-}
+import CompareControls from './compare-controls';
+import { computePercentile, fmtVal } from '../../lib/analytics';
 
 export default async function ComparePage({
   searchParams,
@@ -37,181 +10,176 @@ export default async function ComparePage({
   const players = await prisma.player.findMany({
     where: { deletedAt: null },
     orderBy: { lastName: 'asc' },
+    include: {
+      testSessions: {
+        where: { deletedAt: null },
+        orderBy: { DateTime: 'desc' },
+        include: { testResults: { include: { test: true } } },
+      },
+    },
   });
 
-  const playerA = players.find((p) => p.id === searchParams.a) ?? players[0];
-  const playerB = players.find((p) => p.id === searchParams.b) ?? players[1] ?? players[0];
-
-  const tests = await prisma.test.findMany({
-    where: { deletedAt: null },
-    orderBy: { code: 'asc' },
-  });
-
-  async function latestByTest(playerId: string) {
-    const sessions = await prisma.testSession.findMany({
-      where: { playerId, deletedAt: null },
-      orderBy: { DateTime: 'desc' },
-      include: { testResults: true },
-    });
-    const map = new Map<string, number>();
-    for (const s of sessions) {
-      for (const r of s.testResults) {
-        if (!map.has(r.testId)) map.set(r.testId, r.value);
-      }
-    }
-    return map;
+  if (players.length < 2) {
+    return (
+      <div className="space-y-5 p-6">
+        <h1 className="text-3xl font-bold">Сравнение</h1>
+        <p className="text-sm text-gray-500">Для сравнения нужно минимум два игрока.</p>
+      </div>
+    );
   }
 
-  const resA = await latestByTest(playerA.id);
-  const resB = await latestByTest(playerB.id);
+  const a = players.find((p) => p.id === searchParams.a) ?? players[0];
+  const b =
+    players.find((p) => p.id === searchParams.b && p.id !== a.id) ??
+    players.find((p) => p.id !== a.id)!;
 
-  const normsA = await prisma.norm.findMany({
-    where: { position: playerA.position, deletedAt: null },
-  });
-  const normsB = await prisma.norm.findMany({
-    where: { position: playerB.position, deletedAt: null },
-  });
-  const normA = new Map(normsA.map((n) => [n.testCode, n]));
-  const normB = new Map(normsB.map((n) => [n.testCode, n]));
+  const same = !!searchParams.a && searchParams.a === searchParams.b;
 
-  let winsA = 0;
-  let winsB = 0;
+  const norms = await prisma.norm.findMany({ where: { deletedAt: null } });
+  const normByKey = new Map(norms.map((n) => [`${n.position}|${n.testCode}`, n]));
 
-  const rows = tests.map((t) => {
-    const va = resA.get(t.id) ?? null;
-    const vb = resB.get(t.id) ?? null;
-    let better: 'A' | 'B' | null = null;
-    if (va !== null && vb !== null && va !== vb && t.direction !== 'CONTEXTUAL') {
-      const aIsHigher = va > vb;
-      better =
-        t.direction === 'LOWER_IS_BETTER'
-          ? aIsHigher
-            ? 'B'
-            : 'A'
-          : aIsHigher
-            ? 'A'
-            : 'B';
-      if (better === 'A') winsA++;
-      else winsB++;
+  const latestOf = (pl: (typeof players)[number]) => {
+    const m = new Map<
+      string,
+      { value: number; name: string; unit: string; code: string; direction: string }
+    >();
+    for (const s of pl.testSessions) {
+      for (const r of s.testResults) {
+        if (!m.has(r.testId)) {
+          m.set(r.testId, {
+            value: r.value,
+            name: r.test.name,
+            unit: r.test.unit,
+            code: r.test.code,
+            direction: r.test.direction,
+          });
+        }
+      }
     }
-    return {
-      test: t,
-      va,
-      vb,
-      better,
-      pa: va !== null ? computePercentile(va, normA.get(t.code) ?? null) : null,
-      pb: vb !== null ? computePercentile(vb, normB.get(t.code) ?? null) : null,
-    };
-  });
+    return m;
+  };
+
+  const la = latestOf(a);
+  const lb = latestOf(b);
+
+  const rows: {
+    testId: string;
+    name: string;
+    unit: string;
+    va: number;
+    vb: number;
+    pa: number | null;
+    pb: number | null;
+    win: 'a' | 'b' | null;
+  }[] = [];
+
+  for (const [testId, ra] of la) {
+    const rb = lb.get(testId);
+    if (!rb) continue;
+    const pa = computePercentile(ra.value, normByKey.get(`${a.position}|${ra.code}`) ?? null, ra.direction);
+    const pb = computePercentile(rb.value, normByKey.get(`${b.position}|${rb.code}`) ?? null, rb.direction);
+    let win: 'a' | 'b' | null = null;
+    if (ra.direction === 'HIGHER_IS_BETTER') win = ra.value > rb.value ? 'a' : ra.value < rb.value ? 'b' : null;
+    if (ra.direction === 'LOWER_IS_BETTER') win = ra.value < rb.value ? 'a' : ra.value > rb.value ? 'b' : null;
+    rows.push({ testId, name: ra.name, unit: ra.unit, va: ra.value, vb: rb.value, pa, pb, win });
+  }
+
+  const winsA = rows.filter((r) => r.win === 'a').length;
+  const winsB = rows.filter((r) => r.win === 'b').length;
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Сравнение</h1>
-
-      <form className="grid grid-cols-1 gap-4 rounded-lg bg-white p-4 shadow md:grid-cols-3">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Игрок A</label>
-          <select
-            name="a"
-            defaultValue={playerA.id}
-            className="w-full rounded border-2 border-gray-300 px-2 py-1"
-          >
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.lastName} {p.firstName} ({p.playerId})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-gray-700">Игрок B</label>
-          <select
-            name="b"
-            defaultValue={playerB.id}
-            className="w-full rounded border-2 border-gray-300 px-2 py-1"
-          >
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.lastName} {p.firstName} ({p.playerId})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-end">
-          <button className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-            Сравнить
-          </button>
-        </div>
-      </form>
-
-      <div className="flex items-center gap-6 rounded-lg bg-white p-4 text-sm shadow">
-        <span className="font-semibold text-green-700">
-          {playerA.lastName}: {winsA}
-        </span>
-        <span className="text-gray-400">тестов лучше</span>
-        <span className="font-semibold text-green-700">
-          {playerB.lastName}: {winsB}
-        </span>
+    <div className="space-y-5 p-6">
+      <div>
+        <h1 className="text-3xl font-bold">Сравнение</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Два игрока по последним результатам общих тестов.
+        </p>
       </div>
 
-      <div className="overflow-hidden rounded-lg bg-white shadow">
-        <table className="min-w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                Тест
-              </th>
-              <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">
-                {playerA.lastName} {playerA.firstName[0]}.
-              </th>
-              <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">
-                {playerB.lastName} {playerB.firstName[0]}.
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {rows.map((r) => (
-              <tr key={r.test.id} className="hover:bg-gray-50">
-                <td className="px-4 py-2">
-                  <div className="font-medium">{r.test.name}</div>
-                  <div className="text-xs text-gray-400">
-                    {r.test.code} · {r.test.unit}
-                  </div>
-                </td>
-                <td
-                  className={`px-4 py-2 text-right font-mono ${
-                    r.better === 'A'
-                      ? 'bg-green-50 font-semibold text-green-700'
-                      : 'text-gray-700'
-                  }`}
-                >
-                  {r.va !== null ? r.va.toFixed(2) : '—'}
-                  {r.pa !== null && (
-                    <span className="ml-2 text-xs text-gray-400">p{r.pa}</span>
-                  )}
-                </td>
-                <td
-                  className={`px-4 py-2 text-right font-mono ${
-                    r.better === 'B'
-                      ? 'bg-green-50 font-semibold text-green-700'
-                      : 'text-gray-700'
-                  }`}
-                >
-                  {r.vb !== null ? r.vb.toFixed(2) : '—'}
-                  {r.pb !== null && (
-                    <span className="ml-2 text-xs text-gray-400">p{r.pb}</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <CompareControls
+        players={players.map((p) => ({
+          id: p.id,
+          lastName: p.lastName,
+          firstName: p.firstName,
+          playerId: p.playerId,
+        }))}
+        aId={a.id}
+        bId={b.id}
+      />
 
-      <p className="text-xs text-gray-500">
-        Зелёным выделен лучший результат по тесту (для спринтов и T-теста лучше меньшее
-        значение). p — процентиль по нормативу для позиции игрока.
-      </p>
+      {same && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          Выбран один и тот же игрок с обеих сторон — выберите двух разных игроков.
+        </div>
+      )}
+
+      {!same && (
+        <>
+          <div className="space-y-1 rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
+            <div>
+              <b className="text-gray-900">
+                {a.lastName} {a.firstName}
+              </b>{' '}
+              — лучший результат в {winsA}{' '}
+              {winsA % 10 === 1 && winsA % 100 !== 11 ? 'тесте' : 'тестах'}
+            </div>
+            <div>
+              <b className="text-gray-900">
+                {b.lastName} {b.firstName}
+              </b>{' '}
+              — лучший результат в {winsB}{' '}
+              {winsB % 10 === 1 && winsB % 100 !== 11 ? 'тесте' : 'тестах'}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 text-left">Тест</th>
+                  <th className="px-4 py-2 text-right">
+                    {a.lastName} {a.firstName}
+                  </th>
+                  <th className="px-4 py-2 text-right">
+                    {b.lastName} {b.firstName}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="py-8 text-center text-gray-500">
+                      У игроков нет общих тестов с результатами.
+                    </td>
+                  </tr>
+                )}
+                {rows.map((r) => (
+                  <tr key={r.testId}>
+                    <td className="px-4 py-3 text-gray-600">{r.name}</td>
+                    <td className={`px-4 py-3 text-right ${r.win === 'a' ? 'bg-green-50' : ''}`}>
+                      <div className="font-mono text-gray-900">
+                        {fmtVal(r.va)} {r.unit}
+                      </div>
+                      <div className="text-xs text-gray-400">p{r.pa ?? '—'}</div>
+                    </td>
+                    <td className={`px-4 py-3 text-right ${r.win === 'b' ? 'bg-green-50' : ''}`}>
+                      <div className="font-mono text-gray-900">
+                        {fmtVal(r.vb)} {r.unit}
+                      </div>
+                      <div className="text-xs text-gray-400">p{r.pb ?? '—'}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            Зелёным отмечен лучший абсолютный результат (с учётом направления теста). pXX —
+            положение каждого игрока относительно нормативов его собственной позиции.
+          </p>
+        </>
+      )}
     </div>
   );
 }

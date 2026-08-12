@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma';
 import AnalyticsControls from './analytics-controls';
+import { computePercentile, fmtVal } from '../../lib/analytics';
 
 const categoryLabels: Record<string, string> = {
   STRENGTH: 'Сила',
@@ -9,38 +10,6 @@ const categoryLabels: Record<string, string> = {
   VOLLEYBALL: 'Волейбол',
   MOBILITY_STABILITY: 'Мобильность',
 };
-
-function fmtVal(v: number) {
-  return (Math.round(v * 100) / 100).toString().replace('.', ',');
-}
-
-function computePercentile(
-  value: number,
-  norm: { anchor10: number; anchor25: number; anchor50: number; anchor75: number; anchor90: number } | null,
-  direction: string
-): number | null {
-  if (!norm) return null;
-  const anchors = [
-    { v: norm.anchor10 },
-    { v: norm.anchor25 },
-    { v: norm.anchor50 },
-    { v: norm.anchor75 },
-    { v: norm.anchor90 },
-  ].sort((a, b) => a.v - b.v);
-  // Процентиль унифицирован: выше = всегда лучше.
-  // HIGHER: меньшее значение -> меньший процентиль; LOWER: меньшее значение -> больший.
-  const seq = direction === 'LOWER_IS_BETTER' ? [90, 75, 50, 25, 10] : [10, 25, 50, 75, 90];
-  const pts = anchors.map((a, i) => ({ v: a.v, p: seq[i] }));
-  if (value <= pts[0].v) return pts[0].p;
-  if (value >= pts[4].v) return pts[4].p;
-  for (let i = 0; i < 4; i++) {
-    if (value >= pts[i].v && value <= pts[i + 1].v) {
-      const ratio = (value - pts[i].v) / (pts[i + 1].v - pts[i].v);
-      return Math.round(pts[i].p + ratio * (pts[i + 1].p - pts[i].p));
-    }
-  }
-  return 50;
-}
 
 function radarPolygon(values: number[], cx: number, cy: number, r: number): string {
   return values
