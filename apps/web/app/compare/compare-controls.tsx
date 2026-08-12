@@ -26,7 +26,7 @@ export default function CompareControls({
         Игрок A
         <select value={aId} onChange={(e) => go(e.target.value, bId)} className={field}>
           {players.map((p) => (
-            <option key={p.id} value={p.id}>
+            <option key={p.id} value={p.id} disabled={p.id === bId}>
               {p.lastName} {p.firstName} · {p.playerId}
             </option>
           ))}
@@ -36,7 +36,7 @@ export default function CompareControls({
         Игрок B
         <select value={bId} onChange={(e) => go(aId, e.target.value)} className={field}>
           {players.map((p) => (
-            <option key={p.id} value={p.id}>
+            <option key={p.id} value={p.id} disabled={p.id === aId}>
               {p.lastName} {p.firstName} · {p.playerId}
             </option>
           ))}
