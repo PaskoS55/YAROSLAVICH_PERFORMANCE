@@ -214,6 +214,7 @@ model TestResult {
   deletedAt        DateTime?      @map("deleted_at")
   Equipment        Equipment?     @relation(fields: [equipmentId], references: [id])
   equipmentId      String?
+  status       String       @default("ACTIVE") // ACTIVE | MAINTENANCE | BROKEN | RETIRED
 
   @@unique([testSessionId, testId])
   @@map("test_results")
