@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma';
-import Link from 'next/link';
+import AnalyticsControls from './analytics-controls';
 
 const categoryLabels: Record<string, string> = {
   STRENGTH: 'Сила',
@@ -10,18 +10,24 @@ const categoryLabels: Record<string, string> = {
   MOBILITY_STABILITY: 'Мобильность',
 };
 
+function fmtVal(v: number) {
+  return (Math.round(v * 100) / 100).toString().replace('.', ',');
+}
+
 function computePercentile(
   value: number,
   norm: { anchor10: number; anchor25: number; anchor50: number; anchor75: number; anchor90: number } | null
 ): number | null {
   if (!norm) return null;
-  const pts = [
+  let pts = [
     { p: 10, v: norm.anchor10 },
     { p: 25, v: norm.anchor25 },
     { p: 50, v: norm.anchor50 },
     { p: 75, v: norm.anchor75 },
     { p: 90, v: norm.anchor90 },
   ];
+  // Нормативы LOWER_IS_BETTER хранятся в обратном порядке — разворачиваем
+  if (pts[0].v > pts[4].v) pts = pts.slice().reverse();
   if (value <= pts[0].v) return pts[0].p;
   if (value >= pts[4].v) return pts[4].p;
   for (let i = 0; i < 4; i++) {
@@ -56,10 +62,10 @@ export default async function AnalyticsPage({
 
   if (!player) {
     return (
-      <div className="space-y-6 p-6">
-        <h1 className="text-3xl font-bold">Графики и радар</h1>
+      <div className="space-y-5 p-6">
+        <h1 className="text-3xl font-bold">Динамика</h1>
         <p className="text-sm text-gray-500">
-          Нет игроков. Добавьте игроков на странице «Команда» или импортируйте данные.
+          Нет игроков. Добавьте игроков или импортируйте данные.
         </p>
       </div>
     );
@@ -114,7 +120,10 @@ export default async function AnalyticsPage({
   const teamAcc = new Map<string, { sum: number; count: number }>();
   for (const tp of allPlayers) {
     const tLatest = new Map<string, { value: number; code: string; category: string }>();
-    for (const s of tp.testSessions) {
+    const sorted = [...tp.testSessions].sort(
+      (a, b) => new Date(b.DateTime).getTime() - new Date(a.DateTime).getTime()
+    );
+    for (const s of sorted) {
       for (const r of s.testResults) {
         if (!tLatest.has(r.testId)) {
           tLatest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category });
@@ -155,39 +164,49 @@ export default async function AnalyticsPage({
     .filter((p): p is { date: Date; value: number } => p !== null);
 
   const w = 600;
-  const h = 220;
-  const pl = 40;
+  const h = 240;
+  const pl = 46;
   const pr = 20;
   const pt = 20;
   const pb = 30;
   const vals = points.map((p) => p.value);
-  const min = Math.min(...vals);
-  const max = Math.max(...vals);
+  const rawMin = Math.min(...vals);
+  const rawMax = Math.max(...vals);
+  const pad = (rawMax - rawMin) * 0.15 || Math.max(Math.abs(rawMax) * 0.05, 0.5);
+  const min = rawMin - pad;
+  const max = rawMax + pad;
   const span = max - min || 1;
   const x = (i: number) =>
     points.length === 1 ? (w - pl - pr) / 2 + pl : pl + (i * (w - pl - pr)) / (points.length - 1);
   const y = (v: number) => pt + (1 - (v - min) / span) * (h - pt - pb);
 
-  return (
-    <div className="space-y-6 p-6">
-      <h1 className="text-3xl font-bold">Графики и радар</h1>
+  const first = points[0];
+  const lastP = points[points.length - 1];
+  const delta = first && lastP ? +(lastP.value - first.value).toFixed(2) : null;
 
-      <div className="flex flex-wrap gap-2 rounded-lg bg-white p-4 shadow">
-        {players.map((p) => (
-          <Link
-            key={p.id}
-            href={`/analytics?playerId=${p.id}${searchParams.testId ? `&testId=${searchParams.testId}` : ''}`}
-            className={`rounded-full px-3 py-1 text-sm ${
-              p.id === player.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {p.lastName} {p.firstName[0]}. ({p.playerId})
-          </Link>
-        ))}
+  return (
+    <div className="space-y-5 p-6">
+      <div>
+        <h1 className="text-3xl font-bold">Динамика</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Изменение результатов игрока и профиль по категориям.
+        </p>
       </div>
 
+      <AnalyticsControls
+        players={players.map((p) => ({
+          id: p.id,
+          lastName: p.lastName,
+          firstName: p.firstName,
+          playerId: p.playerId,
+        }))}
+        tests={tests.map((t) => ({ id: t.id, name: t.name }))}
+        playerId={player.id}
+        testId={selectedTest.id}
+      />
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg bg-white p-6 shadow">
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="mb-2 text-xl font-bold">
             Профиль: {player.lastName} {player.firstName}
           </h2>
@@ -233,33 +252,47 @@ export default async function AnalyticsPage({
             </span>
             <span className="flex items-center gap-1">
               <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
-              Средний по команде
+              Средний по команде (последние тесты)
             </span>
           </div>
-          <p className="mt-2 text-xs text-gray-500">
-            Значение = средний процентиль последних результатов игрока в категории (0–100).
-          </p>
         </div>
 
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-xl font-bold">Динамика по тесту</h2>
-          <form className="space-y-3">
-            <input type="hidden" name="playerId" value={player.id} />
-            <select name="testId" className="w-full rounded border-2 px-2 py-1 text-sm">
-              {tests.map((t) => (
-                <option key={t.id} value={t.id} selected={t.id === selectedTest.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-            <button className="rounded bg-blue-600 px-4 py-1 text-sm text-white">Показать</button>
-          </form>
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="text-xl font-bold">{selectedTest.name}</h2>
+          <div className="mt-1 text-sm text-gray-600">
+            {first && lastP && points.length > 1 ? (
+              <>
+                <span className="font-mono">{fmtVal(first.value)}</span> →{' '}
+                <span className="font-mono font-semibold text-gray-900">{fmtVal(lastP.value)}</span>{' '}
+                {selectedTest.unit} ·{' '}
+                <span className="font-mono text-gray-600">
+                  {delta !== null && delta !== 0 ? (delta > 0 ? '↑ +' : '↓ −') : '→'}
+                  {delta !== null ? fmtVal(Math.abs(delta)) : ''}
+                </span>
+              </>
+            ) : (
+              <span>
+                {lastP ? `${fmtVal(lastP.value)} ${selectedTest.unit}` : 'нет данных'}
+              </span>
+            )}
+            <span className="ml-2 text-xs text-gray-400">
+              направление: {selectedTest.direction === 'HIGHER_IS_BETTER' ? 'выше — лучше' : selectedTest.direction === 'LOWER_IS_BETTER' ? 'ниже — лучше' : 'контекстное'}
+            </span>
+          </div>
 
-          <div className="mt-6">
+          <div className="mt-4">
             {points.length === 0 ? (
               <p className="text-sm text-gray-500">Нет данных по этому тесту.</p>
             ) : (
               <svg viewBox={`0 0 ${w} ${h}`} className="w-full">
+                <line x1={pl} x2={w - pr} y1={y(rawMax)} y2={y(rawMax)} stroke="#f0f1f3" />
+                <line x1={pl} x2={w - pr} y1={y(rawMin)} y2={y(rawMin)} stroke="#f0f1f3" />
+                <text x={4} y={y(rawMax) + 3} fontSize="9" fill="#9ca3af">
+                  {fmtVal(rawMax)}
+                </text>
+                <text x={4} y={y(rawMin) + 3} fontSize="9" fill="#9ca3af">
+                  {fmtVal(rawMin)}
+                </text>
                 <polyline
                   points={points.map((p, i) => `${x(i)},${y(p.value)}`).join(' ')}
                   fill="none"
@@ -270,7 +303,7 @@ export default async function AnalyticsPage({
                   <g key={i}>
                     <circle cx={x(i)} cy={y(p.value)} r="3" fill="#c8102e" />
                     <text x={x(i)} y={y(p.value) - 8} fontSize="10" textAnchor="middle" fill="#374151">
-                      {p.value}
+                      {fmtVal(p.value)}
                     </text>
                     <text x={x(i)} y={h - 8} fontSize="9" textAnchor="middle" fill="#9ca3af">
                       {new Date(p.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
@@ -281,12 +314,8 @@ export default async function AnalyticsPage({
             )}
           </div>
           <p className="mt-2 text-xs text-gray-500">
-            {selectedTest.name}, {selectedTest.unit}. Направление:{' '}
-            {selectedTest.direction === 'HIGHER_IS_BETTER'
-              ? 'выше — лучше.'
-              : selectedTest.direction === 'LOWER_IS_BETTER'
-                ? 'ниже — лучше.'
-                : 'контекстное.'}
+            Единица: {selectedTest.unit}. Ось Y масштабируется с запасом, чтобы небольшие
+            изменения не выглядели скачками.
           </p>
         </div>
       </div>

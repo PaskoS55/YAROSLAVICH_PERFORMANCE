@@ -59,13 +59,15 @@ function computePercentile(
   norm: { anchor10: number; anchor25: number; anchor50: number; anchor75: number; anchor90: number } | null
 ): number | null {
   if (!norm) return null;
-  const pts = [
+  let pts = [
     { p: 10, v: norm.anchor10 },
     { p: 25, v: norm.anchor25 },
     { p: 50, v: norm.anchor50 },
     { p: 75, v: norm.anchor75 },
     { p: 90, v: norm.anchor90 },
   ];
+  // Нормативы LOWER_IS_BETTER хранятся в обратном порядке — разворачиваем
+  if (pts[0].v > pts[4].v) pts = pts.slice().reverse();
   if (value <= pts[0].v) return pts[0].p;
   if (value >= pts[4].v) return pts[4].p;
   for (let i = 0; i < 4; i++) {
@@ -143,7 +145,10 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
   const teamAcc = new Map<string, { sum: number; count: number }>();
   for (const tp of allPlayers) {
     const tLatest = new Map<string, { value: number; code: string; category: string }>();
-    for (const s of tp.testSessions) {
+    const sorted = [...tp.testSessions].sort(
+      (a, b) => new Date(b.DateTime).getTime() - new Date(a.DateTime).getTime()
+    );
+    for (const s of sorted) {
       for (const r of s.testResults) {
         if (!tLatest.has(r.testId)) {
           tLatest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category });
@@ -209,7 +214,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
         <div>
           <Link href="/players" className="text-blue-600 hover:underline">Игроки</Link> / {player.playerId}
         </div>
-              <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <PrintButton />
           <Link
             href={`/players/${player.id}/edit`}
@@ -306,7 +311,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
-                Средний по команде
+                Средний по команде (последние тесты)
               </span>
             </div>
             <p className="mt-2 text-xs text-gray-500">
