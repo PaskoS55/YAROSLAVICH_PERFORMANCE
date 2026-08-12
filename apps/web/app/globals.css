@@ -637,7 +637,12 @@ select option:checked {
 .btn-primary:hover {
   background: var(--red-dark);
 }
-.link-action {
+.btn-primary:disabled {
+  background: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  box-shadow: none;
+}.link-action {
   color: var(--red);
 }
 .link-action:hover {

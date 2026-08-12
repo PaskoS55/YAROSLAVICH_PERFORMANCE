@@ -22,8 +22,11 @@ export default function ReportsCards({
     window.location.href = url;
   };
 
+  const hasPlayers = players.length > 0;
+  const hasSessions = sessions.length > 0;
+
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div className="rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="text-lg font-bold">Командная сводка</h2>
         <p className="mt-1 text-sm text-gray-600">
@@ -42,22 +45,27 @@ export default function ReportsCards({
         <p className="mt-1 text-sm text-gray-600">
           История результатов выбранного игрока.
         </p>
-        <label className={`${label} mt-3`}>
-          Игрок
-          <select
-            value={playerId}
-            onChange={(e) => setPlayerId(e.target.value)}
-            className={field}
-          >
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.lastName} {p.firstName} · {p.playerId}
-              </option>
-            ))}
-          </select>
-        </label>
+        {hasPlayers ? (
+          <label className={`${label} mt-3`}>
+            Игрок
+            <select
+              value={playerId}
+              onChange={(e) => setPlayerId(e.target.value)}
+              className={field}
+            >
+              {players.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.lastName} {p.firstName} · {p.playerId}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <p className="mt-4 text-sm text-gray-400">Нет игроков.</p>
+        )}
         <button
           className="btn-primary mt-4"
+          disabled={!playerId}
           onClick={() => download(`/api/export?type=player&id=${playerId}`)}
         >
           Скачать CSV
@@ -69,22 +77,27 @@ export default function ReportsCards({
         <p className="mt-1 text-sm text-gray-600">
           Все результаты выбранной сессии тестирования.
         </p>
-        <label className={`${label} mt-3`}>
-          Сессия
-          <select
-            value={sessionId}
-            onChange={(e) => setSessionId(e.target.value)}
-            className={field}
-          >
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.playerLabel} · {s.date}
-              </option>
-            ))}
-          </select>
-        </label>
+        {hasSessions ? (
+          <label className={`${label} mt-3`}>
+            Сессия
+            <select
+              value={sessionId}
+              onChange={(e) => setSessionId(e.target.value)}
+              className={field}
+            >
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.playerLabel} · {s.date}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <p className="mt-4 text-sm text-gray-400">Нет сессий.</p>
+        )}
         <button
           className="btn-primary mt-4"
+          disabled={!sessionId}
           onClick={() => download(`/api/export?type=session&id=${sessionId}`)}
         >
           Скачать CSV
