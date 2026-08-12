@@ -3,9 +3,11 @@ import Link from 'next/link';
 
 const phaseLabels: Record<string, string> = {
   PRESEASON: 'Предсезонка',
-  INSEASON: 'Сезон',
-  OFFSEASON: 'Межсезонье',
   CAMP: 'Сборы',
+  INSEASON: 'Сезон',
+  POSTSEASON: 'Постсезон',
+  RECOVERY: 'Восстановление',
+  OFFSEASON: 'Межсезонье',
   PLAYOFF: 'Плей-офф',
 };
 
@@ -41,26 +43,39 @@ export default async function SessionsPage({
   const countBy = (ph: string) => all.filter((s) => s.phase === ph).length;
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Журнал сессий</h1>
-        <form className="flex items-center gap-2">
-          {phase !== 'ALL' && <input type="hidden" name="phase" value={phase} />}
-          <input
-            name="q"
-            defaultValue={searchParams.q ?? ''}
-            placeholder="Игрок или № сессии…"
-            className="w-64 rounded border-2 px-3 py-1.5 text-sm"
-          />
-          <button className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white">Найти</button>
-        </form>
-      </div>
+    <div className="space-y-5 p-6">
+      <h1 className="text-3xl font-bold">Сессии</h1>
+
+      <form className="relative max-w-xl">
+        {phase !== 'ALL' && <input type="hidden" name="phase" value={phase} />}
+        <svg
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <input
+          name="q"
+          defaultValue={searchParams.q ?? ''}
+          placeholder="Поиск по игроку или ID сессии… (Enter)"
+          className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
+        />
+      </form>
 
       <div className="flex flex-wrap gap-2">
         <Link
           href={`/sessions${q ? `?q=${encodeURIComponent(q)}` : ''}`}
-          className={`rounded-full px-3 py-1 text-sm ${
-            phase === 'ALL' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 shadow hover:bg-gray-50'
+          className={`rounded-full border px-3 py-1 text-sm ${
+            phase === 'ALL'
+              ? 'chip-active'
+              : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
           }`}
         >
           Все · {all.length}
@@ -69,8 +84,10 @@ export default async function SessionsPage({
           <Link
             key={ph}
             href={`/sessions?phase=${ph}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
-            className={`rounded-full px-3 py-1 text-sm ${
-              phase === ph ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 shadow hover:bg-gray-50'
+            className={`rounded-full border px-3 py-1 text-sm ${
+              phase === ph
+                ? 'chip-active'
+                : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
             }`}
           >
             {phaseLabels[ph] ?? ph} · {countBy(ph)}
@@ -78,23 +95,22 @@ export default async function SessionsPage({
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-lg bg-white shadow">
+      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full text-sm">
           <thead>
             <tr>
-              <th className="px-4 py-2 text-left">Сессия</th>
               <th className="px-4 py-2 text-left">Дата</th>
               <th className="px-4 py-2 text-left">Игрок</th>
               <th className="px-4 py-2 text-left">Фаза</th>
-              <th className="px-4 py-2 text-right">Результатов</th>
+              <th className="px-4 py-2 text-right">Тестов</th>
               <th className="px-4 py-2 text-left">QC</th>
-              <th className="px-4 py-2"></th>
+              <th className="px-4 py-2 text-left">ID</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {sessions.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-500">
+                <td colSpan={6} className="py-8 text-center text-gray-500">
                   Ничего не найдено. Измените фильтр или запрос.
                 </td>
               </tr>
@@ -102,11 +118,14 @@ export default async function SessionsPage({
             {sessions.map((s) => {
               const failed = s.testResults.filter((r) => r.qcStatus === 'FAILED').length;
               return (
-                <tr key={s.id}>
-                  <td className="px-4 py-3 font-mono text-gray-500">{s.sessionId}</td>
-                  <td className="px-4 py-3">{fmtDate(s.DateTime)}</td>
+                <tr key={s.id} className="relative">
+                  <Link href={`/sessions/${s.id}`} className="after:absolute after:inset-0" aria-label={`Открыть сессию ${s.sessionId}`} />
+                  <td className="px-4 py-3 text-gray-900">{fmtDate(s.DateTime)}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/players/${s.player.id}`} className="font-medium hover:underline">
+                    <Link
+                      href={`/players/${s.player.id}`}
+                      className="relative z-10 font-medium hover:underline"
+                    >
                       {s.player.lastName} {s.player.firstName}
                     </Link>
                   </td>
@@ -115,7 +134,9 @@ export default async function SessionsPage({
                       {phaseLabels[s.phase] ?? s.phase}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono">{s.testResults.length}</td>
+                  <td className="px-4 py-3 text-right font-mono text-gray-600">
+                    {s.testResults.length}
+                  </td>
                   <td className="px-4 py-3">
                     {failed > 0 ? (
                       <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">
@@ -127,15 +148,7 @@ export default async function SessionsPage({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/sessions/${s.id}`}
-                      className="text-sm hover:underline"
-                      style={{ color: 'var(--red)' }}
-                    >
-                      открыть →
-                    </Link>
-                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-400">{s.sessionId}</td>
                 </tr>
               );
             })}
