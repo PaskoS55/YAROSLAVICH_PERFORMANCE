@@ -16,18 +16,21 @@ function fmtVal(v: number) {
 
 function computePercentile(
   value: number,
-  norm: { anchor10: number; anchor25: number; anchor50: number; anchor75: number; anchor90: number } | null
+  norm: { anchor10: number; anchor25: number; anchor50: number; anchor75: number; anchor90: number } | null,
+  direction: string
 ): number | null {
   if (!norm) return null;
-  let pts = [
-    { p: 10, v: norm.anchor10 },
-    { p: 25, v: norm.anchor25 },
-    { p: 50, v: norm.anchor50 },
-    { p: 75, v: norm.anchor75 },
-    { p: 90, v: norm.anchor90 },
-  ];
-  // Нормативы LOWER_IS_BETTER хранятся в обратном порядке — разворачиваем
-  if (pts[0].v > pts[4].v) pts = pts.slice().reverse();
+  const anchors = [
+    { v: norm.anchor10 },
+    { v: norm.anchor25 },
+    { v: norm.anchor50 },
+    { v: norm.anchor75 },
+    { v: norm.anchor90 },
+  ].sort((a, b) => a.v - b.v);
+  // Процентиль унифицирован: выше = всегда лучше.
+  // HIGHER: меньшее значение -> меньший процентиль; LOWER: меньшее значение -> больший.
+  const seq = direction === 'LOWER_IS_BETTER' ? [90, 75, 50, 25, 10] : [10, 25, 50, 75, 90];
+  const pts = anchors.map((a, i) => ({ v: a.v, p: seq[i] }));
   if (value <= pts[0].v) return pts[0].p;
   if (value >= pts[4].v) return pts[4].p;
   for (let i = 0; i < 4; i++) {
@@ -97,19 +100,19 @@ export default async function AnalyticsPage({
     include: { testResults: { include: { test: true } } },
   });
 
-  const latest = new Map<string, { value: number; code: string; category: string }>();
+  const latest = new Map<string, { value: number; code: string; category: string; direction: string }>();
   for (const s of [...sessionsAsc].reverse()) {
     for (const r of s.testResults) {
       if (!latest.has(r.testId)) {
-        latest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category });
+        latest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category, direction: r.test.direction });
       }
     }
   }
 
   const catAcc = new Map<string, { sum: number; count: number }>();
-  for (const { value, code, category } of latest.values()) {
+  for (const { value, code, category, direction } of latest.values()) {
     if (!categoryLabels[category]) continue;
-    const pct = computePercentile(value, normByKey.get(`${player.position}|${code}`) ?? null);
+    const pct = computePercentile(value, normByKey.get(`${player.position}|${code}`) ?? null, direction);
     if (pct === null) continue;
     const acc = catAcc.get(category) ?? { sum: 0, count: 0 };
     acc.sum += pct;
@@ -119,25 +122,33 @@ export default async function AnalyticsPage({
 
   const teamAcc = new Map<string, { sum: number; count: number }>();
   for (const tp of allPlayers) {
-    const tLatest = new Map<string, { value: number; code: string; category: string }>();
+    const tLatest = new Map<string, { value: number; code: string; category: string; direction: string }>();
     const sorted = [...tp.testSessions].sort(
       (a, b) => new Date(b.DateTime).getTime() - new Date(a.DateTime).getTime()
     );
     for (const s of sorted) {
       for (const r of s.testResults) {
         if (!tLatest.has(r.testId)) {
-          tLatest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category });
+          tLatest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category, direction: r.test.direction });
         }
       }
     }
-    for (const { value, code, category } of tLatest.values()) {
+    // Сначала профиль игрока по категории, затем среднее по игрокам (равный вес)
+    const pCat = new Map<string, { sum: number; count: number }>();
+    for (const { value, code, category, direction } of tLatest.values()) {
       if (!categoryLabels[category]) continue;
-      const pct = computePercentile(value, normByKey.get(`${tp.position}|${code}`) ?? null);
+      const pct = computePercentile(value, normByKey.get(`${tp.position}|${code}`) ?? null, direction);
       if (pct === null) continue;
-      const acc = teamAcc.get(category) ?? { sum: 0, count: 0 };
+      const acc = pCat.get(category) ?? { sum: 0, count: 0 };
       acc.sum += pct;
       acc.count += 1;
-      teamAcc.set(category, acc);
+      pCat.set(category, acc);
+    }
+    for (const [cat, acc] of pCat) {
+      const t = teamAcc.get(cat) ?? { sum: 0, count: 0 };
+      t.sum += acc.sum / acc.count;
+      t.count += 1;
+      teamAcc.set(cat, t);
     }
   }
 
@@ -271,12 +282,15 @@ export default async function AnalyticsPage({
                 </span>
               </>
             ) : (
-              <span>
-                {lastP ? `${fmtVal(lastP.value)} ${selectedTest.unit}` : 'нет данных'}
-              </span>
+              <span>{lastP ? `${fmtVal(lastP.value)} ${selectedTest.unit}` : 'нет данных'}</span>
             )}
             <span className="ml-2 text-xs text-gray-400">
-              направление: {selectedTest.direction === 'HIGHER_IS_BETTER' ? 'выше — лучше' : selectedTest.direction === 'LOWER_IS_BETTER' ? 'ниже — лучше' : 'контекстное'}
+              направление:{' '}
+              {selectedTest.direction === 'HIGHER_IS_BETTER'
+                ? 'выше — лучше'
+                : selectedTest.direction === 'LOWER_IS_BETTER'
+                  ? 'ниже — лучше'
+                  : 'контекстное'}
             </span>
           </div>
 
