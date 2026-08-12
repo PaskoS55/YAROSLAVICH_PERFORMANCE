@@ -99,8 +99,8 @@ export default async function SessionsPage({
         <table className="min-w-full text-sm">
           <thead>
             <tr>
-              <th className="px-4 py-2 text-left">Дата</th>
               <th className="px-4 py-2 text-left">Игрок</th>
+              <th className="whitespace-nowrap px-4 py-2 text-left">Дата</th>
               <th className="px-4 py-2 text-left">Фаза</th>
               <th className="px-4 py-2 text-right">Тестов</th>
               <th className="px-4 py-2 text-left">QC</th>
@@ -117,17 +117,23 @@ export default async function SessionsPage({
             )}
             {sessions.map((s) => {
               const failed = s.testResults.filter((r) => r.qcStatus === 'FAILED').length;
+              const warn = s.testResults.filter((r) => (r.qcStatus as string) === 'WARN').length;
               return (
                 <tr key={s.id} className="relative">
-                  <Link href={`/sessions/${s.id}`} className="after:absolute after:inset-0" aria-label={`Открыть сессию ${s.sessionId}`} />
-                  <td className="px-4 py-3 text-gray-900">{fmtDate(s.DateTime)}</td>
                   <td className="px-4 py-3">
+                    <Link
+                      href={`/sessions/${s.id}`}
+                      className="after:absolute after:inset-0"
+                      aria-label={`Открыть сессию ${s.sessionId}`}
+                    />
                     <Link
                       href={`/players/${s.player.id}`}
                       className="relative z-10 font-medium hover:underline"
                     >
                       {s.player.lastName} {s.player.firstName}
                     </Link>
+                  </td>                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                    {fmtDate(s.DateTime)}
                   </td>
                   <td className="px-4 py-3">
                     <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
@@ -141,6 +147,10 @@ export default async function SessionsPage({
                     {failed > 0 ? (
                       <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">
                         ⚠ {failed}
+                      </span>
+                    ) : warn > 0 ? (
+                      <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800">
+                        ⚠ {warn}
                       </span>
                     ) : (
                       <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">
