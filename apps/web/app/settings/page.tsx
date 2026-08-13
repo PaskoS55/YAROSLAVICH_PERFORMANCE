@@ -1,6 +1,9 @@
 import { prisma } from '../../lib/prisma';
-import { updateOrganization, updateTeam, updateSeason, resetDemoData } from './actions';
+import { updateOrganization, updateTeam, updateSeason } from './actions';
 import ResetButton from './reset-button';
+
+const field = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm';
+const label = 'block text-xs font-medium text-gray-500';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '';
@@ -23,152 +26,148 @@ export default async function SettingsPage() {
   const [playersCount, sessionsCount, resultsCount, testsCount] = stats;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-5 p-6">
       <h1 className="text-3xl font-bold">Настройки</h1>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg bg-white p-6 shadow">
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-lg font-bold">Организация</h2>
           <form action={updateOrganization} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Название</label>
-              <input
-                name="name"
-                defaultValue={org?.name ?? ''}
-                className="w-full rounded border-2 border-gray-300 px-3 py-2"
-              />
+              <label className={label}>Название</label>
+              <input name="name" defaultValue={org?.name ?? ''} required className={field} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Код</label>
+              <label className={label}>
+                Код{' '}
+                <span className="text-gray-400">(системный идентификатор, не редактируется)</span>
+              </label>
               <input
                 name="code"
-                defaultValue={org?.code ?? ''}
-                className="w-full rounded border-2 border-gray-300 px-3 py-2 font-mono"
+                defaultValue={org?.code ?? 'ORG'}
+                readOnly
+                className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-500"
               />
             </div>
-            <button className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-              Сохранить
-            </button>
+            <button className="btn-primary">Сохранить</button>
           </form>
         </div>
 
-        <div className="rounded-lg bg-white p-6 shadow">
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-lg font-bold">Команда</h2>
           <form action={updateTeam} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Название</label>
-              <input
-                name="name"
-                defaultValue={team?.name ?? ''}
-                className="w-full rounded border-2 border-gray-300 px-3 py-2"
-              />
+              <label className={label}>Название</label>
+              <input name="name" defaultValue={team?.name ?? ''} required className={field} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Код</label>
+              <label className={label}>
+                Код{' '}
+                <span className="text-gray-400">(системный идентификатор, не редактируется)</span>
+              </label>
               <input
                 name="code"
-                defaultValue={team?.code ?? ''}
-                className="w-full rounded border-2 border-gray-300 px-3 py-2 font-mono"
+                defaultValue={team?.code ?? 'TEAM'}
+                readOnly
+                className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-500"
               />
             </div>
-            <button className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-              Сохранить
-            </button>
+            <button className="btn-primary">Сохранить</button>
           </form>
         </div>
 
-        <div className="rounded-lg bg-white p-6 shadow">
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-lg font-bold">Текущий сезон</h2>
           <form action={updateSeason} className="space-y-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Название</label>
+              <label className={label}>Название</label>
               <input
                 name="name"
                 defaultValue={season?.name ?? ''}
                 placeholder="2026/27"
-                className="w-full rounded border-2 border-gray-300 px-3 py-2"
+                required
+                className={field}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Начало</label>
+                <label className={label}>Начало</label>
                 <input
                   type="date"
                   name="startDate"
                   defaultValue={fmtDate(season?.startDate)}
-                  className="w-full rounded border-2 border-gray-300 px-3 py-2"
+                  required
+                  className={field}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Окончание</label>
+                <label className={label}>Окончание</label>
                 <input
                   type="date"
                   name="endDate"
                   defaultValue={fmtDate(season?.endDate)}
-                  className="w-full rounded border-2 border-gray-300 px-3 py-2"
+                  required
+                  className={field}
                 />
               </div>
             </div>
-            <button className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">
-              Сохранить
-            </button>
+            <button className="btn-primary">Сохранить</button>
           </form>
         </div>
 
-        <div className="rounded-lg bg-white p-6 shadow">
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-lg font-bold">Статистика системы</h2>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Игроков:</span>
-              <span className="font-semibold">{playersCount}</span>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-lg bg-gray-50 p-3">
+              <div className="text-xs text-gray-500">Игроков</div>
+              <div className="text-2xl font-bold">{playersCount}</div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Сессий:</span>
-              <span className="font-semibold">{sessionsCount}</span>
+            <div className="rounded-lg bg-gray-50 p-3">
+              <div className="text-xs text-gray-500">Сессий</div>
+              <div className="text-2xl font-bold">{sessionsCount}</div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Результатов:</span>
-              <span className="font-semibold">{resultsCount}</span>
+            <div className="rounded-lg bg-gray-50 p-3">
+              <div className="text-xs text-gray-500">Результатов</div>
+              <div className="text-2xl font-bold">{resultsCount}</div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Тестов в справочнике:</span>
-              <span className="font-semibold">{testsCount}</span>
+            <div className="rounded-lg bg-gray-50 p-3">
+              <div className="text-xs text-gray-500">Тестов</div>
+              <div className="text-2xl font-bold">{testsCount}</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-lg bg-white p-6 shadow">
-        <h2 className="mb-4 text-lg font-bold">Системные действия</h2>
-        <div className="space-y-4">
-          <div className="rounded-lg border-2 border-yellow-200 bg-yellow-50 p-4">
-            <h3 className="font-semibold text-yellow-900">Сброс демо-данных</h3>
-            <p className="mt-1 text-sm text-yellow-800">
-              Удаляет всех игроков, сессии, результаты, цели и нормативы. Справочник тестов и оборудование сохраняются.
-            </p>
-                      <form action={resetDemoData} className="mt-3">
-              <ResetButton />
-            </form>
-          </div>
-          <a
-            href="/api/backup"
-            className="mb-3 inline-block rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-          >
-            Скачать резервную копию (JSON)
-          </a>
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-4 text-lg font-bold">Резервное копирование</h2>
+        <p className="mb-3 text-sm text-gray-600">
+          Скачайте полную копию данных в формате JSON для архива или переноса.
+        </p>
+        <a
+          href="/api/backup"
+          className="inline-block rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Скачать резервную копию
+        </a>
+      </div>
 
-          <form action="/api/auth/logout" className="mt-4">
-            <button className="rounded bg-gray-700 px-4 py-2 text-white hover:bg-gray-800">
-              Выйти из системы
-            </button>
-          </form>
+      <div className="rounded-lg border-2 border-red-200 bg-red-50 p-6">
+        <h2 className="mb-2 text-lg font-bold text-red-900">⚠ Опасная зона</h2>
+        <p className="mb-3 text-sm text-red-800">
+          Сброс удалит всех игроков, сессии, результаты, цели и замеры. Нормативы, справочник
+          тестов и оборудование сохранятся. Это действие необратимо — сначала скачайте резервную
+          копию.
+        </p>
+        <form action={resetDemoData}>
+          <ResetButton />
+        </form>
+      </div>
 
-          <div className="text-xs text-gray-500">
-            <p>Версия системы: PASKO PERFORMANCE v1.0</p>
-            <p>Технологии: создано тренером по функцианальной и кондиционной подготовке Пасько Сергеем</p>
-            <p>База данных: localhost:5432</p>
-          </div>
-        </div>
+      <div className="text-xs text-gray-400">
+        <p>Версия системы: PASKO PERFORMANCE v1.0</p>
+        <p>
+          Создано тренером по функциональной и кондиционной подготовке Пасько Сергеем
+        </p>
       </div>
     </div>
   );
