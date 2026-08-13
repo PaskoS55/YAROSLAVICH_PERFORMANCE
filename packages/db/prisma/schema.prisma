@@ -100,7 +100,7 @@ model Team {
 
 model Season {
   id        String        @id @default(cuid())
-  name      String // e.g., "2026/27"
+  name      String
   startDate DateTime
   endDate   DateTime
   teams     Team[]
@@ -114,14 +114,14 @@ model Season {
 
 model Player {
   id               String            @id @default(cuid())
-  playerId         String // Unique identifier within team (e.g., P001)
+  playerId         String
   firstName        String
   lastName         String
   middleName       String?
-  number           Int? // jersey number
-  position         String // e.g., "outside_hitter", "opposite"
+  number           Int?
+  position         String
   birthDate        DateTime?
-  height           Int? // height in cm
+  height           Int?
   status           PlayerStatus      @default(ACTIVE)
   joinedDate       DateTime?
   photoUrl         String?
@@ -140,33 +140,53 @@ model Player {
   @@map("players")
 }
 
+model TestCategory {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  tests     Test[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("test_categories")
+}
+
 model Test {
-  id              String       @id @default(cuid())
-  code            String       @unique // e.g., "STR_PULL", "PWR_BJ"
-  name            String // human-readable name
+  id              String        @id @default(cuid())
+  code            String        @unique
+  name            String
   description     String?
   category        Category
-  direction       Direction // higher-is-better, lower-is-better, contextual
-  unit            String // e.g., "kg", "cm", "sec", "%", "°"
+  categoryId      String?
+  categoryRel     TestCategory? @relation(fields: [categoryId], references: [id])
+  isSystem        Boolean       @default(false)
+  createdBy       String?
+  equipment       String?
+  source          String?
+  comment         String?
+  direction       Direction
+  unit            String
   qcMin           Float?
   qcMax           Float?
   qcDescription   String?
   norms           Norm[]
   testResults     TestResult[]
   goals           PlayerGoal[]
-  changeThreshold Float? // minimum meaningful change (MDC)
-  cv              Float? // coefficient of variation for this test
-  protocolData    String?      @db.Text // JSON protocol data
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  deletedAt       DateTime?    @map("deleted_at")
+  changeThreshold Float?
+  cv              Float?
+  protocolData    String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?     @map("deleted_at")
 
   @@map("tests")
 }
 
 model TestSession {
   id               String            @id @default(cuid())
-  sessionId        String            @unique // Human-readable ID (e.g., S001)
+  sessionId        String            @unique
   DateTime         DateTime
   phase            SessionPhase
   time             DateTime?
@@ -194,12 +214,12 @@ model TestSession {
 
 model TestResult {
   id               String         @id @default(cuid())
-  value            Float // actual measured value
-  score            Float? // normalized score 0-100
-  performanceDelta Float? // improvement/decrease from previous session
+  value            Float
+  score            Float?
+  performanceDelta Float?
   changeStatus     ChangeStatus?
-  pbAchieved       Boolean? // personal best achieved in this test
-  pbImprovement    Float? // how much PB improved
+  pbAchieved       Boolean?
+  pbImprovement    Float?
   test             Test           @relation(fields: [testId], references: [id])
   testId           String
   player           Player         @relation(fields: [playerId], references: [id])
@@ -214,7 +234,6 @@ model TestResult {
   deletedAt        DateTime?      @map("deleted_at")
   Equipment        Equipment?     @relation(fields: [equipmentId], references: [id])
   equipmentId      String?
-  status       String       @default("ACTIVE") // ACTIVE | MAINTENANCE | BROKEN | RETIRED
 
   @@unique([testSessionId, testId])
   @@map("test_results")
@@ -222,14 +241,14 @@ model TestResult {
 
 model Norm {
   id         String    @id @default(cuid())
-  testCode   String // reference to Test.code
-  position   String // player position
-  anchor10   Float // 10th percentile
-  anchor25   Float // 25th percentile
-  anchor50   Float // 50th percentile (median)
-  anchor75   Float // 75th percentile
-  anchor90   Float // 90th percentile
-  source     String // source of norm data
+  testCode   String
+  position   String
+  anchor10   Float
+  anchor25   Float
+  anchor50   Float
+  anchor75   Float
+  anchor90   Float
+  source     String
   validFrom  DateTime  @default(now())
   validUntil DateTime?
   createdAt  DateTime  @default(now())
@@ -247,8 +266,8 @@ model PlayerGoal {
   playerId    String
   test        Test      @relation(fields: [testId], references: [id])
   testId      String
-  targetValue Float // target value to achieve
-  targetDate  DateTime // when to achieve the goal
+  targetValue Float
+  targetDate  DateTime
   achieved    Boolean   @default(false)
   achievedAt  DateTime?
   createdAt   DateTime  @default(now())
@@ -260,11 +279,12 @@ model PlayerGoal {
 
 model Equipment {
   id           String       @id @default(cuid())
-  code         String       @unique // e.g., EQ01
+  code         String       @unique
   name         String
   description  String?
   brand        String?
   model        String?
+  status       String       @default("ACTIVE")
   purchaseDate DateTime?
   warrantyExp  DateTime?
   testResults  TestResult[]
@@ -281,10 +301,10 @@ model BodyComposition {
   playerId      String
   testSession   TestSession @relation(fields: [testSessionId], references: [id])
   testSessionId String
-  mass_kg       Float? // body mass in kg
-  fat_pct       Float? // body fat percentage
-  ffm_kg        Float? // fat free mass in kg
-  phase_angle   Float? // bioelectrical impedance phase angle
+  mass_kg       Float?
+  fat_pct       Float?
+  ffm_kg        Float?
+  phase_angle   Float?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   deletedAt     DateTime?   @map("deleted_at")
@@ -295,7 +315,7 @@ model BodyComposition {
 model ImportJob {
   id             String    @id @default(cuid())
   fileName       String
-  status         String // "pending", "processing", "completed", "failed"
+  status         String
   recordsCount   Int?
   processedCount Int?
   errors         Json?
@@ -311,9 +331,9 @@ model QCFlag {
   id           String     @id @default(cuid())
   testResult   TestResult @relation(fields: [testResultId], references: [id])
   testResultId String
-  field        String // which field failed QC
-  expected     String // expected range/value
-  actual       String // actual value that failed
+  field        String
+  expected     String
+  actual       String
   description  String?
   resolved     Boolean    @default(false)
   resolvedBy   String?
@@ -326,12 +346,12 @@ model QCFlag {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  action    String // what happened
-  entity    String // which entity was affected
-  entityId  String // ID of the entity
-  oldValues Json? // previous values
-  newValues Json? // new values
-  userId    String? // who performed the action
+  action    String
+  entity    String
+  entityId  String
+  oldValues Json?
+  newValues Json?
+  userId    String?
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
