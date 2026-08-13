@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import Link from 'next/link';
 import ResolveFlagButton from './resolve-flag-button';
+import { resolveFlag } from './actions';
 
 const fieldLabels: Record<string, string> = {
   value: 'Значение результата',
