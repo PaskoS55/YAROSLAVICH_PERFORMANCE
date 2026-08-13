@@ -1,5 +1,10 @@
 import { prisma } from '../../lib/prisma';
-import { updateOrganization, updateTeam, updateSeason } from './actions';
+import {
+  updateOrganization,
+  updateTeam,
+  updateSeason,
+  resetDemoData,
+} from './actions';
 import ResetButton from './reset-button';
 
 const field = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm';
