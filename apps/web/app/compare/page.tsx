@@ -76,8 +76,16 @@ export default async function ComparePage({
   for (const [testId, ra] of la) {
     const rb = lb.get(testId);
     if (!rb) continue;
-    const pa = computePercentile(ra.value, normByKey.get(`${a.position}|${ra.code}`) ?? null, ra.direction);
-    const pb = computePercentile(rb.value, normByKey.get(`${b.position}|${rb.code}`) ?? null, rb.direction);
+    const pa = computePercentile(
+      ra.value,
+      normByKey.get(`${a.position}|${ra.code}`) ?? null,
+      ra.direction
+    );
+    const pb = computePercentile(
+      rb.value,
+      normByKey.get(`${b.position}|${rb.code}`) ?? null,
+      rb.direction
+    );
     let win: 'a' | 'b' | null = null;
     if (ra.direction === 'HIGHER_IS_BETTER') win = ra.value > rb.value ? 'a' : ra.value < rb.value ? 'b' : null;
     if (ra.direction === 'LOWER_IS_BETTER') win = ra.value < rb.value ? 'a' : ra.value > rb.value ? 'b' : null;
@@ -86,6 +94,9 @@ export default async function ComparePage({
 
   const winsA = rows.filter((r) => r.win === 'a').length;
   const winsB = rows.filter((r) => r.win === 'b').length;
+
+  const pctLabel = (p: number | null) =>
+    p !== null ? `p${p}` : 'нормативы не настроены';
 
   return (
     <div className="space-y-5 p-6">
@@ -160,13 +171,13 @@ export default async function ComparePage({
                       <div className="font-mono text-gray-900">
                         {fmtVal(r.va)} {r.unit}
                       </div>
-                      <div className="text-xs text-gray-400">p{r.pa ?? '—'}</div>
+                      <div className="text-xs text-gray-400">{pctLabel(r.pa)}</div>
                     </td>
                     <td className={`px-4 py-3 text-right ${r.win === 'b' ? 'bg-green-50' : ''}`}>
                       <div className="font-mono text-gray-900">
                         {fmtVal(r.vb)} {r.unit}
                       </div>
-                      <div className="text-xs text-gray-400">p{r.pb ?? '—'}</div>
+                      <div className="text-xs text-gray-400">{pctLabel(r.pb)}</div>
                     </td>
                   </tr>
                 ))}
@@ -176,7 +187,8 @@ export default async function ComparePage({
 
           <p className="text-xs text-gray-500">
             Зелёным отмечен лучший абсолютный результат (с учётом направления теста). pXX —
-            положение каждого игрока относительно нормативов его собственной позиции.
+            положение каждого игрока относительно нормативов его собственной позиции. Если
+            нормативы по тесту не настроены, сравнение работает по абсолютным значениям.
           </p>
         </>
       )}
