@@ -2,14 +2,15 @@ import { prisma } from '../../lib/prisma';
 import AnalyticsControls from './analytics-controls';
 import { computePercentile, fmtVal } from '../../lib/analytics';
 
-const categoryLabels: Record<string, string> = {
-  STRENGTH: 'Сила',
-  POWER: 'Мощность',
-  SPEED: 'Скорость',
-  AGILITY: 'Ловкость',
-  VOLLEYBALL: 'Волейбол',
-  MOBILITY_STABILITY: 'Мобильность',
-};
+// Порядок категорий для радара (6 основных, без BODY_COMPOSITION)
+const RADAR_CODES = [
+  'STRENGTH',
+  'POWER',
+  'SPEED',
+  'AGILITY',
+  'VOLLEYBALL',
+  'MOBILITY_STABILITY',
+];
 
 function radarPolygon(values: number[], cx: number, cy: number, r: number): string {
   return values
@@ -46,19 +47,31 @@ export default async function AnalyticsPage({
   const tests = await prisma.test.findMany({
     where: { deletedAt: null },
     orderBy: { name: 'asc' },
+    include: { categoryRel: true },
   });
   const selectedTest =
-    tests.find((t) => t.id === searchParams.testId) ?? tests.find((t) => t.code === 'AGI_505') ?? tests[0];
+    tests.find((t) => t.id === searchParams.testId) ??
+    tests.find((t) => t.code === 'AGI_505') ??
+    tests[0];
 
   const allNorms = await prisma.norm.findMany({ where: { deletedAt: null } });
   const normByKey = new Map(allNorms.map((n) => [`${n.position}|${n.testCode}`, n]));
+
+  const allCategories = await prisma.testCategory.findMany({
+    where: { active: true },
+    orderBy: { sortOrder: 'asc' },
+  });
+  const radarCategories = RADAR_CODES
+    .map((code) => allCategories.find((c) => c.code === code))
+    .filter((c): c is NonNullable<typeof c> => c !== undefined);
+  const radarCatIds = new Set(radarCategories.map((c) => c.id));
 
   const allPlayers = await prisma.player.findMany({
     where: { deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
     include: {
       testSessions: {
         where: { deletedAt: null },
-        include: { testResults: { include: { test: true } } },
+        include: { testResults: { include: { test: { include: { categoryRel: true } } } } },
       },
     },
   });
@@ -66,74 +79,90 @@ export default async function AnalyticsPage({
   const sessionsAsc = await prisma.testSession.findMany({
     where: { playerId: player.id, deletedAt: null },
     orderBy: { DateTime: 'asc' },
-    include: { testResults: { include: { test: true } } },
+    include: { testResults: { include: { test: { include: { categoryRel: true } } } } },
   });
 
-  const latest = new Map<string, { value: number; code: string; category: string; direction: string }>();
+  const latest = new Map<
+    string,
+    { value: number; testCode: string; categoryId: string | null; direction: string }
+  >();
   for (const s of [...sessionsAsc].reverse()) {
     for (const r of s.testResults) {
       if (!latest.has(r.testId)) {
-        latest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category, direction: r.test.direction });
+        latest.set(r.testId, {
+          value: r.value,
+          testCode: r.test.code,
+          categoryId: r.test.categoryId,
+          direction: r.test.direction,
+        });
       }
     }
   }
 
   const catAcc = new Map<string, { sum: number; count: number }>();
-  for (const { value, code, category, direction } of latest.values()) {
-    if (!categoryLabels[category]) continue;
-    const pct = computePercentile(value, normByKey.get(`${player.position}|${code}`) ?? null, direction);
+  for (const { value, testCode, categoryId, direction } of latest.values()) {
+    if (!categoryId || !radarCatIds.has(categoryId)) continue;
+    const pct = computePercentile(
+      value,
+      normByKey.get(`${player.position}|${testCode}`) ?? null,
+      direction
+    );
     if (pct === null) continue;
-    const acc = catAcc.get(category) ?? { sum: 0, count: 0 };
+    const acc = catAcc.get(categoryId) ?? { sum: 0, count: 0 };
     acc.sum += pct;
     acc.count += 1;
-    catAcc.set(category, acc);
+    catAcc.set(categoryId, acc);
   }
 
   const teamAcc = new Map<string, { sum: number; count: number }>();
   for (const tp of allPlayers) {
-    const tLatest = new Map<string, { value: number; code: string; category: string; direction: string }>();
+    const tLatest = new Map<
+      string,
+      { value: number; testCode: string; categoryId: string | null; direction: string }
+    >();
     const sorted = [...tp.testSessions].sort(
       (a, b) => new Date(b.DateTime).getTime() - new Date(a.DateTime).getTime()
     );
     for (const s of sorted) {
       for (const r of s.testResults) {
         if (!tLatest.has(r.testId)) {
-          tLatest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category, direction: r.test.direction });
+          tLatest.set(r.testId, {
+            value: r.value,
+            testCode: r.test.code,
+            categoryId: r.test.categoryId,
+            direction: r.test.direction,
+          });
         }
       }
     }
-    // Сначала профиль игрока по категории, затем среднее по игрокам (равный вес)
     const pCat = new Map<string, { sum: number; count: number }>();
-    for (const { value, code, category, direction } of tLatest.values()) {
-      if (!categoryLabels[category]) continue;
-      const pct = computePercentile(value, normByKey.get(`${tp.position}|${code}`) ?? null, direction);
+    for (const { value, testCode, categoryId, direction } of tLatest.values()) {
+      if (!categoryId || !radarCatIds.has(categoryId)) continue;
+      const pct = computePercentile(
+        value,
+        normByKey.get(`${tp.position}|${testCode}`) ?? null,
+        direction
+      );
       if (pct === null) continue;
-      const acc = pCat.get(category) ?? { sum: 0, count: 0 };
+      const acc = pCat.get(categoryId) ?? { sum: 0, count: 0 };
       acc.sum += pct;
       acc.count += 1;
-      pCat.set(category, acc);
+      pCat.set(categoryId, acc);
     }
-    for (const [cat, acc] of pCat) {
-      const t = teamAcc.get(cat) ?? { sum: 0, count: 0 };
+    for (const [catId, acc] of pCat) {
+      const t = teamAcc.get(catId) ?? { sum: 0, count: 0 };
       t.sum += acc.sum / acc.count;
       t.count += 1;
-      teamAcc.set(cat, t);
+      teamAcc.set(catId, t);
     }
   }
 
-  const cats = Object.keys(categoryLabels)
-    .filter((c) => catAcc.has(c))
-    .map((c) => ({
-      key: c,
-      label: categoryLabels[c],
-      pct: Math.round(catAcc.get(c)!.sum / catAcc.get(c)!.count),
-    }));
 
-  const radarOrder = Object.keys(categoryLabels).map((c) =>
-    catAcc.has(c) ? Math.round(catAcc.get(c)!.sum / catAcc.get(c)!.count) : 0
+  const radarOrder = radarCategories.map((c) =>
+    catAcc.has(c.id) ? Math.round(catAcc.get(c.id)!.sum / catAcc.get(c.id)!.count) : 0
   );
-  const teamOrder = Object.keys(categoryLabels).map((c) =>
-    teamAcc.has(c) ? Math.round(teamAcc.get(c)!.sum / teamAcc.get(c)!.count) : 0
+  const teamOrder = radarCategories.map((c) =>
+    teamAcc.has(c.id) ? Math.round(teamAcc.get(c.id)!.sum / teamAcc.get(c.id)!.count) : 0
   );
 
   const points = sessionsAsc
@@ -207,18 +236,18 @@ export default async function AnalyticsPage({
               strokeWidth="1.5"
               strokeDasharray="4 3"
             />
-            {cats.map((c) => {
-              const order = Object.keys(categoryLabels).indexOf(c.key);
+            {radarCategories.map((c, order) => {
               const angle = (Math.PI / 180) * (60 * order - 90);
               const lx = 130 + 108 * Math.cos(angle);
               const ly = 120 + 108 * Math.sin(angle);
+              const acc = catAcc.get(c.id);
+              const pct = acc ? Math.round(acc.sum / acc.count) : null;
               return (
-                <text key={c.key} x={lx} y={ly} fontSize="9" textAnchor="middle" fill="#6b7280">
-                  {c.label} {c.pct}
+                <text key={c.id} x={lx} y={ly} fontSize="9" textAnchor="middle" fill="#6b7280">
+                  {c.name} {pct !== null ? pct : '—'}
                 </text>
               );
-            })}
-            <polygon
+            })}            <polygon
               points={radarPolygon(radarOrder, 130, 120, 90)}
               fill="rgba(200, 16, 46, 0.18)"
               stroke="#c8102e"
@@ -251,7 +280,9 @@ export default async function AnalyticsPage({
                 </span>
               </>
             ) : (
-              <span>{lastP ? `${fmtVal(lastP.value)} ${selectedTest.unit}` : 'нет данных'}</span>
+              <span>
+                {lastP ? `${fmtVal(lastP.value)} ${selectedTest.unit}` : 'нет данных'}
+              </span>
             )}
             <span className="ml-2 text-xs text-gray-400">
               направление:{' '}
@@ -289,7 +320,10 @@ export default async function AnalyticsPage({
                       {fmtVal(p.value)}
                     </text>
                     <text x={x(i)} y={h - 8} fontSize="9" textAnchor="middle" fill="#9ca3af">
-                      {new Date(p.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })}
+                      {new Date(p.date).toLocaleDateString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                      })}
                     </text>
                   </g>
                 ))}

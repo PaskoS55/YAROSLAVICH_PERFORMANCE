@@ -6,22 +6,13 @@ type Test = {
   id: string;
   code: string;
   name: string;
-  category: string;
+  categoryName: string;
   direction: string;
   unit: string;
   qcMin: number | null;
   qcMax: number | null;
   changeThreshold: number | null;
-};
-
-const categoryLabels: Record<string, string> = {
-  STRENGTH: 'Сила',
-  POWER: 'Мощность',
-  SPEED: 'Скорость',
-  AGILITY: 'Ловкость',
-  VOLLEYBALL: 'Волейбол',
-  MOBILITY_STABILITY: 'Мобильность',
-  BODY_COMPOSITION: 'Состав тела',
+  protocolData: string | null;
 };
 
 const directionLabels: Record<string, string> = {
@@ -32,138 +23,26 @@ const directionLabels: Record<string, string> = {
 
 type Protocol = { how: string; result: string; rules?: string[] };
 
-const protocols: Record<string, Protocol> = {
-  STR_PULL: {
-    how: 'Исходное положение: стопы на ширине плеч, гриф у голеней, хват чуть шире плеч, спина прямая. Мощное одновременное разгибание ног и корпуса до полного выпрямления.',
-    result: 'Максимальный вес одного чистого повторения (1RM), кг.',
-    rules: [
-      'Полное выпрямление ног и корпуса в верхней точке — иначе повтор не засчитывается',
-      'Спина нейтральна весь подход; «круглая» спина = остановка попытки',
-      'Старт штанги с пола, без «срыва» рывком',
-    ],
-  },
-  STR_SQUAT: {
-    how: 'Штанга на верхней части спины, стопы на ширине плеч. Присед до параллели бёдер с полом или ниже, колени по направлению стоп, пятки на полу.',
-    result: 'Максимальный вес одного повторения с правильной техникой (1RM), кг.',
-    rules: [
-      'Глубина: тазобедренный сустав ниже коленного',
-      'Пятки и стопы полностью на полу во всей амплитуде',
-      'Колени по оси стоп, без завала внутрь',
-    ],
-  },
-  PWR_CMJ: {
-    how: 'Стоя, руки на поясе. Быстрый присед (амплитуда ~30–40 см) и немедленный вертикальный прыжок с максимальной мощностью.',
-    result: 'Высота прыжка, см. Лучшая из 3 попыток.',
-    rules: [
-      'Руки на поясе — мах руками запрещён',
-      'Непрерывное движение: без паузы в нижней точке',
-      'Отдых между попытками 30–60 сек',
-    ],
-  },
-  PWR_BJ: {
-    how: 'Стопы на ширине плеч у контрольной линии. Мах руками и одновременное отталкивание двумя ногами — прыжок вперёд на максимальную дальность.',
-    result: 'Длина прыжка, см. Лучшая из 3 попыток.',
-    rules: [
-      'Отталкивание и приземление двумя ногами',
-      'Заступ за линию старта = попытка не засчитана',
-      'Приземление без падения и шага назад',
-    ],
-  },
-  SPD_10: {
-    how: 'Старт из положения стоя за линией, фотодатчики на старте. По сигналу — максимальное ускорение 10 м без сбавления перед финишем.',
-    result: 'Время, сек. Лучшая из 3 попыток (электронный хронометраж).',
-    rules: [
-      'Старт по сигналу, самостоятельное начало движения',
-      'Финиш без замедления, датчик на полной дистанции',
-    ],
-  },
-  SPD_20: {
-    how: 'То же, что спринт 10 м, дистанция 20 м. Старт из положения стоя, максимальное ускорение по всей дистанции.',
-    result: 'Время, сек. Лучшая из 3 попыток.',
-    rules: [
-      'Старт по сигналу, самостоятельное начало движения',
-      'Финиш без замедления, датчик на полной дистанции',
-    ],
-  },
-  AGI_TTEST: {
-    how: 'Конусы буквой «Т»: 9,14 м вперёд, по 4,57 м влево и вправо. Спринт вперёд → приставной шаг влево → вправо → обратно к центральному → спиной вперёд на старт.',
-    result: 'Время полного прохождения, сек. Лучшая из 2 попыток.',
-    rules: [
-      'Касание конуса рукой на каждом повороте',
-      'Приставные шаги в боковых отрезках, без скрещивания ног',
-      'Задом на финише — без разворота корпуса',
-    ],
-  },
-  AGI_505: {
-    how: 'Спринт с разгона; на отметке 10 м игрок касается линии, выполняет поворот на 180° и спринтует обратно 5 м. Фотодатчики фиксируют 5 м до и после поворота.',
-    result: 'Время смены направления (5 м + 5 м), сек. Лучшая из 2 попыток.',
-    rules: ['Обязательное касание линии при развороте', 'Разворот на 180°, а не по дуге'],
-  },
-  VB_APP: {
-    how: 'Имитация нападающего удара: разбег в 1–2 шага, отталкивание двумя ногами и касание максимально высокой метки (Vertec / разметка) ведущей рукой в высшей точке.',
-    result: 'Высота касания в прыжке с разбега, см. Лучшая из 3 попыток.',
-    rules: [
-      'Касание метки в высшей точке прыжка',
-      'Стандартный разбег (2 шага) для сравнимости замеров',
-    ],
-  },
-  VB_BLOCK: {
-    how: 'Стоя у сетки, без разбега: прыжок блокирования с махом обеих рук вверх, касание метки в высшей точке. Корпус вертикально.',
-    result: 'Высота касания в прыжке с места, см. Лучшая из 3 попыток.',
-    rules: ['Прыжок с места, без подседа-разбега', 'Обе руки вытянуты, касание двумя ладонями'],
-  },
-  VB_SERVE: {
-    how: 'Подача в полную силу из зоны подачи, скорость измеряется радаром. Засчитываются подачи в площадку.',
-    result: 'Максимальная скорость подачи, км/ч. Лучшая из 3 попыток.',
-    rules: ['Подача мимо площадки = 0 и повторная попытка', 'Радар на оси траектории мяча'],
-  },
-  MOB_OHS: {
-    how: 'Палка над головой (хват шире плеч), стопы на ширине плеч. Медленный присед до параллели и ниже. Выполняется 3 раза, оценивается лучшая попытка.',
-    result: 'Сумма баллов по 5 критериям: 0–10.',
-    rules: [
-      'Палка строго над головой, локти выпрямлены — 0–2',
-      'Корпус вертикально, без наклона вперёд — 0–2',
-      'Колени по оси стоп, без завала внутрь — 0–2',
-      'Пятки на полу во всей амплитуде — 0–2',
-      'Глубина: бедро ниже параллели с полом — 0–2',
-      'Боль в любой фазе = 0 баллов и направление к врачу',
-    ],
-  },
-  MOB_SL: {
-    how: 'Шаг в линию: носок задней ноги у пятки передней, колено задней ноги опускается к полу. Оценивается каждая нога отдельно, 3 попытки на сторону.',
-    result: 'Сумма баллов по 5 критериям за ногу: 0–10. В базу — среднее двух ног.',
-    rules: [
-      'Стопы строго на линии, длина шага сохранена — 0–2',
-      'Колено передней ноги без завала внутрь — 0–2',
-      'Корпус вертикально, без наклона и ротации — 0–2',
-      'Колено задней ноги касается пола у пятки — 0–2',
-      'Баланс: без лишних шагов и касаний руками — 0–2',
-      'Боль = 0 баллов и направление к врачу',
-    ],
-  },
-  BC_MASS: {
-    how: 'Взвешивание на калиброванных весах утром натощак, в минимальной одежде.',
-    result: 'Масса тела, кг.',
-    rules: ['Одни и те же весы и условия при каждом замере'],
-  },
-  BC_FAT: {
-    how: 'Биоимпедансный анализ в стандартных условиях: утром, натощак, до тренировки, электроды по схеме производителя.',
-    result: 'Процент жировой массы, %.',
-    rules: ['Не проводить после тренировки и при обезвоживании'],
-  },
-  BC_FFM: {
-    how: 'Рассчитывается по данным биоимпедансометрии: масса тела минус жировая масса.',
-    result: 'Безжировая масса, кг.',
-    rules: ['Считается автоматически из BC_MASS и BC_FAT'],
-  },
-};
+function parseProtocol(json: string | null): Protocol | null {
+  if (!json) return null;
+  try {
+    const p = JSON.parse(json);
+    return {
+      how: p.how ?? '',
+      result: p.result ?? '',
+      rules: Array.isArray(p.rules) ? p.rules : [],
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default function ProtocolsList({ tests }: { tests: Test[] }) {
   const [cat, setCat] = useState('ALL');
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
-  const cats = Array.from(new Set(tests.map((t) => t.category)));
-  const filtered = tests.filter((t) => cat === 'ALL' || t.category === cat);
+  const categories = Array.from(new Set(tests.map((t) => t.categoryName)));
+  const filtered = tests.filter((t) => cat === 'ALL' || t.categoryName === cat);
 
   return (
     <div className="space-y-4">
@@ -178,7 +57,7 @@ export default function ProtocolsList({ tests }: { tests: Test[] }) {
         >
           Все · {tests.length}
         </button>
-        {cats.map((c) => (
+        {categories.map((c) => (
           <button
             key={c}
             onClick={() => setCat(c)}
@@ -188,14 +67,14 @@ export default function ProtocolsList({ tests }: { tests: Test[] }) {
                 : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
             }`}
           >
-            {categoryLabels[c] ?? c} · {tests.filter((t) => t.category === c).length}
+            {c} · {tests.filter((t) => t.categoryName === c).length}
           </button>
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {filtered.map((t) => {
-          const p = protocols[t.code];
+          const p = parseProtocol(t.protocolData);
           const isOpen = !!open[t.id];
           return (
             <div key={t.id} className="rounded-lg border border-gray-200 bg-white p-5">
@@ -206,8 +85,8 @@ export default function ProtocolsList({ tests }: { tests: Test[] }) {
                 <div>
                   <div className="font-bold">{t.name}</div>
                   <div className="mt-1 text-xs text-gray-500">
-                    {categoryLabels[t.category] ?? t.category} · {directionLabels[t.direction]} ·
-                    QC {t.qcMin ?? '…'}–{t.qcMax ?? '…'} {t.unit}
+                    {t.categoryName} · {directionLabels[t.direction]} · QC{' '}
+                    {t.qcMin ?? '…'}–{t.qcMax ?? '…'} {t.unit}
                   </div>
                 </div>
                 <span className="text-gray-400">{isOpen ? '▾' : '▸'}</span>
@@ -217,13 +96,15 @@ export default function ProtocolsList({ tests }: { tests: Test[] }) {
                 <div className="mt-4 space-y-3 border-t border-gray-100 pt-4 text-sm">
                   {p ? (
                     <>
-                      <div>
-                        <div className="mb-1 text-xs font-semibold text-gray-500">
-                          Как выполнять
+                      {p.how && (
+                        <div>
+                          <div className="mb-1 text-xs font-semibold text-gray-500">
+                            Как выполнять
+                          </div>
+                          <p className="leading-relaxed text-gray-700">{p.how}</p>
                         </div>
-                        <p className="leading-relaxed text-gray-700">{p.how}</p>
-                      </div>
-                      {p.rules && (
+                      )}
+                      {p.rules && p.rules.length > 0 && (
                         <div>
                           <div className="mb-1 text-xs font-semibold text-gray-500">
                             Критерии оценки и зачёта
@@ -235,10 +116,14 @@ export default function ProtocolsList({ tests }: { tests: Test[] }) {
                           </ul>
                         </div>
                       )}
-                      <div>
-                        <div className="mb-1 text-xs font-semibold text-gray-500">Результат</div>
-                        <p className="leading-relaxed text-gray-700">{p.result}</p>
-                      </div>
+                      {p.result && (
+                        <div>
+                          <div className="mb-1 text-xs font-semibold text-gray-500">
+                            Результат
+                          </div>
+                          <p className="leading-relaxed text-gray-700">{p.result}</p>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <p className="text-sm text-gray-400">Протокол пока не заполнен.</p>

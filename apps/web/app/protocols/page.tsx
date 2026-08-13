@@ -5,6 +5,7 @@ export default async function ProtocolsPage() {
   const tests = await prisma.test.findMany({
     where: { deletedAt: null },
     orderBy: { code: 'asc' },
+    include: { categoryRel: true },
   });
 
   return (
@@ -20,12 +21,13 @@ export default async function ProtocolsPage() {
           id: t.id,
           code: t.code,
           name: t.name,
-          category: t.category,
+          categoryName: t.categoryRel?.name ?? 'Без категории',
           direction: t.direction,
           unit: t.unit,
           qcMin: t.qcMin,
           qcMax: t.qcMax,
           changeThreshold: t.changeThreshold,
+          protocolData: t.protocolData,
         }))}
       />
     </div>
