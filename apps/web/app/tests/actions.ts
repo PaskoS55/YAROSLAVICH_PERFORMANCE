@@ -60,7 +60,7 @@ export async function createTest(formData: FormData) {
       source: str(formData.get('source')) || null,
       comment: str(formData.get('comment')) || null,
       protocolData: buildProtocol(formData),
-      category: 'POWER',
+      
     },
   });
   revalidateAll();

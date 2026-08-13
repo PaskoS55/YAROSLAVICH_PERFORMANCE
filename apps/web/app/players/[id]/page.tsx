@@ -14,7 +14,7 @@ const positionLabels: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   ACTIVE: 'Активен',
   INJURED: 'Травмирован',
-  LIMITED: 'Ограничение',
+  LIMITED: 'Ограничен',
   INACTIVE: 'Неактивен',
 };
 
@@ -35,19 +35,19 @@ const phaseLabels: Record<string, string> = {
 
 const sessionStatusLabels: Record<string, string> = {
   FULL: 'Полное',
-  PARTIAL: 'Частичное',
+  PARTIAL: 'Частично',
   INCOMPLETE: 'Не завершено',
   RESTRICTED: 'Ограничение',
 };
 
-const categoryLabels: Record<string, string> = {
-  STRENGTH: 'Сила',
-  POWER: 'Мощность',
-  SPEED: 'Скорость',
-  AGILITY: 'Ловкость',
-  VOLLEYBALL: 'Волейбол',
-  MOBILITY_STABILITY: 'Мобильность',
-};
+const RADAR_CODES = [
+  'STRENGTH',
+  'POWER',
+  'SPEED',
+  'AGILITY',
+  'VOLLEYBALL',
+  'MOBILITY_STABILITY',
+];
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -56,7 +56,13 @@ function fmtDate(d: Date | null | undefined) {
 
 function computePercentile(
   value: number,
-  norm: { anchor10: number; anchor25: number; anchor50: number; anchor75: number; anchor90: number } | null,
+  norm: {
+    anchor10: number;
+    anchor25: number;
+    anchor50: number;
+    anchor75: number;
+    anchor90: number;
+  } | null,
   direction: string
 ): number | null {
   if (!norm) return null;
@@ -67,8 +73,6 @@ function computePercentile(
     { v: norm.anchor75 },
     { v: norm.anchor90 },
   ].sort((a, b) => a.v - b.v);
-  // Процентиль унифицирован: выше = всегда лучше.
-  // HIGHER: меньшее значение -> меньший процентиль; LOWER: меньшее значение -> больший.
   const seq = direction === 'LOWER_IS_BETTER' ? [90, 75, 50, 25, 10] : [10, 25, 50, 75, 90];
   const pts = anchors.map((a, i) => ({ v: a.v, p: seq[i] }));
   if (value <= pts[0].v) return pts[0].p;
@@ -100,7 +104,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
       testSessions: {
         where: { deletedAt: null },
         orderBy: { DateTime: 'desc' },
-        include: { testResults: { include: { test: true } } },
+        include: { testResults: { include: { test: { include: { categoryRel: true } } } } },
       },
       goals: { include: { test: true } },
     },
@@ -111,23 +115,40 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
   const allNorms = await prisma.norm.findMany({ where: { deletedAt: null } });
   const normByKey = new Map(allNorms.map((n) => [`${n.position}|${n.testCode}`, n]));
 
+  const allCategories = await prisma.testCategory.findMany({
+    where: { active: true },
+    orderBy: { sortOrder: 'asc' },
+  });
+  const radarCategories = RADAR_CODES
+    .map((code) => allCategories.find((c) => c.code === code))
+    .filter((c): c is NonNullable<typeof c> => c !== undefined);
+  const radarCatIds = new Set(radarCategories.map((c) => c.id));
+
   const allPlayers = await prisma.player.findMany({
     where: { deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
     include: {
       testSessions: {
         where: { deletedAt: null },
-        include: { testResults: { include: { test: true } } },
+        include: { testResults: { include: { test: { include: { categoryRel: true } } } } },
       },
     },
   });
 
   const lastSession = player.testSessions[0];
 
-  const latest = new Map<string, { value: number; code: string; category: string; direction: string }>();
+  const latest = new Map<
+    string,
+    { value: number; code: string; categoryId: string | null; direction: string }
+  >();
   for (const s of player.testSessions) {
     for (const r of s.testResults) {
       if (!latest.has(r.testId)) {
-        latest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category, direction: r.test.direction });
+        latest.set(r.testId, {
+          value: r.value,
+          code: r.test.code,
+          categoryId: r.test.categoryId,
+          direction: r.test.direction,
+        });
       }
     }
   }
@@ -135,61 +156,68 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
   for (const { value, code } of latest.values()) latestByCode.set(code, value);
 
   const catAcc = new Map<string, { sum: number; count: number }>();
-  for (const { value, code, category, direction } of latest.values()) {
-    if (!categoryLabels[category]) continue;
+  for (const { value, code, categoryId, direction } of latest.values()) {
+    if (!categoryId || !radarCatIds.has(categoryId)) continue;
     const pct = computePercentile(value, normByKey.get(`${player.position}|${code}`) ?? null, direction);
     if (pct === null) continue;
-    const acc = catAcc.get(category) ?? { sum: 0, count: 0 };
+    const acc = catAcc.get(categoryId) ?? { sum: 0, count: 0 };
     acc.sum += pct;
     acc.count += 1;
-    catAcc.set(category, acc);
+    catAcc.set(categoryId, acc);
   }
 
   const teamAcc = new Map<string, { sum: number; count: number }>();
   for (const tp of allPlayers) {
-    const tLatest = new Map<string, { value: number; code: string; category: string; direction: string }>();
+    const tLatest = new Map<
+      string,
+      { value: number; code: string; categoryId: string | null; direction: string }
+    >();
     const sorted = [...tp.testSessions].sort(
       (a, b) => new Date(b.DateTime).getTime() - new Date(a.DateTime).getTime()
     );
     for (const s of sorted) {
       for (const r of s.testResults) {
         if (!tLatest.has(r.testId)) {
-          tLatest.set(r.testId, { value: r.value, code: r.test.code, category: r.test.category, direction: r.test.direction });
+          tLatest.set(r.testId, {
+            value: r.value,
+            code: r.test.code,
+            categoryId: r.test.categoryId,
+            direction: r.test.direction,
+          });
         }
       }
     }
-    // Сначала профиль игрока по категории, затем среднее по игрокам (равный вес)
     const pCat = new Map<string, { sum: number; count: number }>();
-    for (const { value, code, category, direction } of tLatest.values()) {
-      if (!categoryLabels[category]) continue;
+    for (const { value, code, categoryId, direction } of tLatest.values()) {
+      if (!categoryId || !radarCatIds.has(categoryId)) continue;
       const pct = computePercentile(value, normByKey.get(`${tp.position}|${code}`) ?? null, direction);
       if (pct === null) continue;
-      const acc = pCat.get(category) ?? { sum: 0, count: 0 };
+      const acc = pCat.get(categoryId) ?? { sum: 0, count: 0 };
       acc.sum += pct;
       acc.count += 1;
-      pCat.set(category, acc);
+      pCat.set(categoryId, acc);
     }
-    for (const [cat, acc] of pCat) {
-      const t = teamAcc.get(cat) ?? { sum: 0, count: 0 };
+    for (const [catId, acc] of pCat) {
+      const t = teamAcc.get(catId) ?? { sum: 0, count: 0 };
       t.sum += acc.sum / acc.count;
       t.count += 1;
-      teamAcc.set(cat, t);
+      teamAcc.set(catId, t);
     }
   }
 
-  const cats = Object.keys(categoryLabels)
-    .filter((c) => catAcc.has(c))
+  const cats = radarCategories
+    .filter((c) => catAcc.has(c.id))
     .map((c) => ({
-      key: c,
-      label: categoryLabels[c],
-      pct: Math.round(catAcc.get(c)!.sum / catAcc.get(c)!.count),
+      key: c.id,
+      label: c.name,
+      pct: Math.round(catAcc.get(c.id)!.sum / catAcc.get(c.id)!.count),
     }));
 
-  const radarOrder = Object.keys(categoryLabels).map((c) =>
-    catAcc.has(c) ? Math.round(catAcc.get(c)!.sum / catAcc.get(c)!.count) : 0
+  const radarOrder = radarCategories.map((c) =>
+    catAcc.has(c.id) ? Math.round(catAcc.get(c.id)!.sum / catAcc.get(c.id)!.count) : 0
   );
-  const teamOrder = Object.keys(categoryLabels).map((c) =>
-    teamAcc.has(c) ? Math.round(teamAcc.get(c)!.sum / teamAcc.get(c)!.count) : 0
+  const teamOrder = radarCategories.map((c) =>
+    teamAcc.has(c.id) ? Math.round(teamAcc.get(c.id)!.sum / teamAcc.get(c.id)!.count) : 0
   );
 
   const strengths = [...cats].sort((a, b) => b.pct - a.pct).slice(0, 3);
@@ -297,14 +325,15 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
                 strokeWidth="1.5"
                 strokeDasharray="4 3"
               />
-              {cats.map((c) => {
-                const order = Object.keys(categoryLabels).indexOf(c.key);
+              {radarCategories.map((c, order) => {
                 const angle = (Math.PI / 180) * (60 * order - 90);
                 const lx = 130 + 108 * Math.cos(angle);
                 const ly = 120 + 108 * Math.sin(angle);
+                const acc = catAcc.get(c.id);
+                const pct = acc ? Math.round(acc.sum / acc.count) : null;
                 return (
-                  <text key={c.key} x={lx} y={ly} fontSize="9" textAnchor="middle" fill="#6b7280">
-                    {c.label} {c.pct}
+                  <text key={c.id} x={lx} y={ly} fontSize="9" textAnchor="middle" fill="#6b7280">
+                    {c.name} {pct !== null ? pct : '—'}
                   </text>
                 );
               })}
