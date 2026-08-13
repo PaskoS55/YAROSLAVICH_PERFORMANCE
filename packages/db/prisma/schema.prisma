@@ -14,15 +14,7 @@ enum Direction {
   CONTEXTUAL
 }
 
-enum Category {
-  STRENGTH
-  POWER
-  SPEED
-  AGILITY
-  VOLLEYBALL
-  MOBILITY_STABILITY
-  BODY_COMPOSITION
-}
+
 
 enum ChangeStatus {
   SIGNIFICANT_IMPROVEMENT
@@ -158,7 +150,6 @@ model Test {
   code            String        @unique
   name            String
   description     String?
-  category        Category
   categoryId      String?
   categoryRel     TestCategory? @relation(fields: [categoryId], references: [id])
   isSystem        Boolean       @default(false)

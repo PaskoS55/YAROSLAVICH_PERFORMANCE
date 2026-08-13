@@ -16,7 +16,15 @@ export default async function TestsPage({
   const tests = await prisma.test.findMany({
     where: showArchived ? { NOT: { deletedAt: null } } : { deletedAt: null },
     orderBy: [{ isSystem: 'desc' }, { code: 'asc' }],
-    include: { categoryRel: true, _count: { select: { testResults: true } } },
+    include: {
+      categoryRel: true,
+      _count: {
+        select: {
+          testResults: true,
+          norms: { where: { deletedAt: null } },
+        },
+      },
+    },
   });
 
   const base = tests.filter((t) => t.isSystem);
@@ -35,6 +43,21 @@ export default async function TestsPage({
       <td className="px-4 py-3 text-gray-600">{directionLabels[t.direction]}</td>
       <td className="px-4 py-3 text-right font-mono text-gray-600">{t._count.testResults}</td>
       <td className="px-4 py-3">
+        {t._count.norms > 0 ? (
+          <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">
+            настроены
+          </span>
+        ) : (
+          <Link
+            href="/norms"
+            className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 hover:underline"
+            title="Процентили для этого теста не настроены — в аналитике будет «Нормативы не настроены»"
+          >
+            не настроены →
+          </Link>
+        )}
+      </td>
+      <td className="px-4 py-3">
         {t.deletedAt ? (
           <span className="rounded-full bg-gray-200 px-2 py-1 text-xs font-semibold text-gray-600">
             Архив
@@ -45,6 +68,18 @@ export default async function TestsPage({
           </span>
         )}
       </td>
+    </tr>
+  );
+
+  const head = (
+    <tr>
+      <th className="px-4 py-2 text-left">Тест</th>
+      <th className="px-4 py-2 text-left">Категория</th>
+      <th className="px-4 py-2 text-left">Ед.</th>
+      <th className="px-4 py-2 text-left">Направление</th>
+      <th className="px-4 py-2 text-right">Результатов</th>
+      <th className="px-4 py-2 text-left">Нормативы</th>
+      <th className="px-4 py-2 text-left">Статус</th>
     </tr>
   );
 
@@ -76,16 +111,7 @@ export default async function TestsPage({
             Добавленные командой
           </div>
           <table className="min-w-full text-sm">
-            <thead>
-              <tr>
-                <th className="px-4 py-2 text-left">Тест</th>
-                <th className="px-4 py-2 text-left">Категория</th>
-                <th className="px-4 py-2 text-left">Ед.</th>
-                <th className="px-4 py-2 text-left">Направление</th>
-                <th className="px-4 py-2 text-right">Результатов</th>
-                <th className="px-4 py-2 text-left">Статус</th>
-              </tr>
-            </thead>
+            <thead>{head}</thead>
             <tbody className="divide-y divide-gray-200">{custom.map(row)}</tbody>
           </table>
         </div>
@@ -96,16 +122,7 @@ export default async function TestsPage({
           Базовые тесты
         </div>
         <table className="min-w-full text-sm">
-          <thead>
-            <tr>
-              <th className="px-4 py-2 text-left">Тест</th>
-              <th className="px-4 py-2 text-left">Категория</th>
-              <th className="px-4 py-2 text-left">Ед.</th>
-              <th className="px-4 py-2 text-left">Направление</th>
-              <th className="px-4 py-2 text-right">Результатов</th>
-              <th className="px-4 py-2 text-left">Статус</th>
-            </tr>
-          </thead>
+          <thead>{head}</thead>
           <tbody className="divide-y divide-gray-200">{base.map(row)}</tbody>
         </table>
       </div>
