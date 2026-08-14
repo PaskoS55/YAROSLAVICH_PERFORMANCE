@@ -5,12 +5,17 @@ import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
 
 const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
-const numOrNull = (s: string) => {
-  const t = s.trim().replace(',', '.');
-  if (t === '') return null;
+
+type NumParse = { value: number | null } | { error: string };
+
+// Пусто → null (допустимо). Нечисловое значение → ошибка, а не молчаливый null.
+function parseNum(s: string, label: string): NumParse {
+  const t = s.replace(',', '.');
+  if (t === '') return { value: null };
   const n = Number(t);
-  return Number.isFinite(n) ? n : null;
-};
+  if (!Number.isFinite(n)) return { error: `«${label}»: введите число.` };
+  return { value: n };
+}
 
 const DIRECTIONS = new Set(['HIGHER_IS_BETTER', 'LOWER_IS_BETTER', 'CONTEXTUAL']);
 
@@ -29,7 +34,6 @@ async function resolveCategory(formData: FormData): Promise<string | { error: st
   const newCat = str(formData.get('newCategory'));
   if (categoryId === '__new__') {
     if (!newCat) return { error: 'Укажите название новой категории.' };
-    // Сначала ищем категорию с таким же названием — чтобы «Плиометрика» не создавалась дважды
     const existing = await prisma.testCategory.findFirst({
       where: { name: { equals: newCat, mode: 'insensitive' } },
     });
@@ -38,7 +42,6 @@ async function resolveCategory(formData: FormData): Promise<string | { error: st
       : (
           await prisma.testCategory.create({
             data: {
-              // code — внутренний стабильный ID, не пытаемся выводить его из русского названия
               code: 'CUSTOM_' + randomUUID().slice(0, 8).toUpperCase(),
               name: newCat,
               sortOrder: 100,
@@ -47,7 +50,6 @@ async function resolveCategory(formData: FormData): Promise<string | { error: st
         ).id;
   }
   if (!categoryId) return { error: 'Выберите категорию.' };
-  // Не доверяем строке из формы: категория должна существовать и быть активной
   const cat = await prisma.testCategory.findUnique({ where: { id: categoryId } });
   if (!cat || !cat.active) return { error: 'Категория не найдена или неактивна.' };
   return cat.id;
@@ -63,6 +65,33 @@ function buildProtocol(formData: FormData) {
     result: str(formData.get('result')),
     rules,
   });
+}
+
+type NumericFields = {
+  qcMin: number | null;
+  qcMax: number | null;
+  changeThreshold: number | null;
+  cv: number | null;
+};
+
+function parseNumericFields(formData: FormData): NumericFields | { error: string } {
+  const qcMin = parseNum(str(formData.get('qcMin')), 'QC минимум');
+  if ('error' in qcMin) return qcMin;
+  const qcMax = parseNum(str(formData.get('qcMax')), 'QC максимум');
+  if ('error' in qcMax) return qcMax;
+  const changeThreshold = parseNum(str(formData.get('changeThreshold')), 'MDC');
+  if ('error' in changeThreshold) return changeThreshold;
+  const cv = parseNum(str(formData.get('cv')), 'CV');
+  if ('error' in cv) return cv;
+  if (qcMin.value !== null && qcMax.value !== null && qcMin.value > qcMax.value) {
+    return { error: 'QC минимум больше QC максимума.' };
+  }
+  return {
+    qcMin: qcMin.value,
+    qcMax: qcMax.value,
+    changeThreshold: changeThreshold.value,
+    cv: cv.value,
+  };
 }
 
 export async function createTest(formData: FormData) {
@@ -84,10 +113,8 @@ export async function createTest(formData: FormData) {
   const cat = await resolveCategory(formData);
   if (typeof cat !== 'string') return cat;
 
-  const qcMin = numOrNull(str(formData.get('qcMin')));
-  const qcMax = numOrNull(str(formData.get('qcMax')));
-  if (qcMin !== null && qcMax !== null && qcMin > qcMax)
-    return { error: 'QC минимум больше QC максимума.' };
+  const nums = parseNumericFields(formData);
+  if ('error' in nums) return nums;
 
   await prisma.test.create({
     data: {
@@ -98,11 +125,11 @@ export async function createTest(formData: FormData) {
       categoryId: cat,
       isSystem: false,
       createdBy: 'coach',
-      qcMin,
-      qcMax,
+      qcMin: nums.qcMin,
+      qcMax: nums.qcMax,
       qcDescription: str(formData.get('qcDescription')) || null,
-      changeThreshold: numOrNull(str(formData.get('changeThreshold'))),
-      cv: numOrNull(str(formData.get('cv'))),
+      changeThreshold: nums.changeThreshold,
+      cv: nums.cv,
       equipment: str(formData.get('equipment')) || null,
       source: str(formData.get('source')) || null,
       comment: str(formData.get('comment')) || null,
@@ -140,10 +167,8 @@ export async function updateTest(formData: FormData) {
   const cat = await resolveCategory(formData);
   if (typeof cat !== 'string') return cat;
 
-  const qcMin = numOrNull(str(formData.get('qcMin')));
-  const qcMax = numOrNull(str(formData.get('qcMax')));
-  if (qcMin !== null && qcMax !== null && qcMin > qcMax)
-    return { error: 'QC минимум больше QC максимума.' };
+  const nums = parseNumericFields(formData);
+  if ('error' in nums) return nums;
 
   await prisma.test.update({
     where: { id },
@@ -152,11 +177,11 @@ export async function updateTest(formData: FormData) {
       unit,
       direction,
       categoryId: cat,
-      qcMin,
-      qcMax,
+      qcMin: nums.qcMin,
+      qcMax: nums.qcMax,
       qcDescription: str(formData.get('qcDescription')) || null,
-      changeThreshold: numOrNull(str(formData.get('changeThreshold'))),
-      cv: numOrNull(str(formData.get('cv'))),
+      changeThreshold: nums.changeThreshold,
+      cv: nums.cv,
       equipment: str(formData.get('equipment')) || null,
       source: str(formData.get('source')) || null,
       comment: str(formData.get('comment')) || null,
