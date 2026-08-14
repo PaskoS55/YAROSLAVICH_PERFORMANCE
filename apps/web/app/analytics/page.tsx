@@ -54,6 +54,17 @@ export default async function AnalyticsPage({
     tests.find((t) => t.code === 'AGI_505') ??
     tests[0];
 
+  if (tests.length === 0) {
+    return (
+      <div className="space-y-5 p-6">
+        <h1 className="text-3xl font-bold">Динамика</h1>
+        <p className="text-sm text-gray-500">
+          Нет активных тестов. Добавьте новый тест или восстановите архивный в разделе «Тесты».
+        </p>
+      </div>
+    );
+  }
+
   const allNorms = await prisma.norm.findMany({ where: { deletedAt: null } });
   const normByKey = new Map(allNorms.map((n) => [`${n.position}|${n.testCode}`, n]));
 
