@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma';
 import NormRow from './norm-row';
+import NormCreateForm from './norm-create-form';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -27,14 +28,12 @@ export default async function NormsPage() {
       <div>
         <h1 className="text-3xl font-bold">Нормативы</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Процентильные нормативы по игровым позициям. Используются в «Динамике» и
-          «Сравнении».
+          Процентильные нормативы по игровым позициям. Используются в «Динамике» и «Сравнении».
         </p>
       </div>
 
       {tests.map((t) => {
         const list = byTest.get(t.code) ?? [];
-        if (list.length === 0) return null;
         return (
           <div key={t.id} className="rounded-lg border border-gray-200 bg-white p-6">
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -50,34 +49,39 @@ export default async function NormsPage() {
                     : '· Контекстно'}
               </span>
             </div>
-            <div className="overflow-x-auto">
-              <div className="min-w-[720px]">
-                <div className="grid grid-cols-[1.2fr_repeat(5,5.5rem)_9rem] gap-2 border-b border-gray-200 pb-1 text-xs text-gray-500">
-                  <div>Позиция</div>
-                  <div>p10</div>
-                  <div>p25</div>
-                  <div>p50</div>
-                  <div>p75</div>
-                  <div>p90</div>
-                  <div></div>
+
+            {list.length === 0 ? (
+              <NormCreateForm testCode={t.code} />
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="min-w-[720px]">
+                  <div className="grid grid-cols-[1.2fr_repeat(5,5.5rem)_9rem] gap-2 border-b border-gray-200 pb-1 text-xs text-gray-500">
+                    <div>Позиция</div>
+                    <div>p10</div>
+                    <div>p25</div>
+                    <div>p50</div>
+                    <div>p75</div>
+                    <div>p90</div>
+                    <div></div>
+                  </div>
+                  {list.map((n) => (
+                    <NormRow
+                      key={n.id}
+                      positionLabel={positionLabels[n.position] ?? n.position}
+                      norm={{
+                        id: n.id,
+                        position: n.position,
+                        anchor10: n.anchor10,
+                        anchor25: n.anchor25,
+                        anchor50: n.anchor50,
+                        anchor75: n.anchor75,
+                        anchor90: n.anchor90,
+                      }}
+                    />
+                  ))}
                 </div>
-                {list.map((n) => (
-                  <NormRow
-                    key={n.id}
-                    positionLabel={positionLabels[n.position] ?? n.position}
-                    norm={{
-                      id: n.id,
-                      position: n.position,
-                      anchor10: n.anchor10,
-                      anchor25: n.anchor25,
-                      anchor50: n.anchor50,
-                      anchor75: n.anchor75,
-                      anchor90: n.anchor90,
-                    }}
-                  />
-                ))}
               </div>
-            </div>
+            )}
           </div>
         );
       })}

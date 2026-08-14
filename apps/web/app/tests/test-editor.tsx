@@ -62,8 +62,8 @@ export default function TestEditor({ test, categories, hasResults, resultsCount 
         <h2 className={h2}>Основное</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className={label}>Название *<input name="name" required defaultValue={test?.name ?? ''} className={field} /></label>
-          <label className={label}>Код * {hasResults && <span className="text-gray-400">(заблокирован)</span>}
-            <input name="code" required readOnly={hasResults} defaultValue={test?.code ?? ''} placeholder="PLY_RSI" className={`${field} ${hasResults ? 'bg-gray-50 text-gray-500' : ''} font-mono`} />
+          <label className={label}>Код * {test?.id && <span className="text-gray-400">(не изменяется после создания)</span>}
+            <input name="code" required readOnly={!!test?.id} defaultValue={test?.code ?? ''} placeholder="PLY_RSI" className={`${field} ${test?.id ? 'bg-gray-50 text-gray-500' : ''} font-mono`} />
           </label>
           <label className={label}>Категория *
             <select name="categoryId" value={catId} onChange={(e) => setCatId(e.target.value)} className={field}>
