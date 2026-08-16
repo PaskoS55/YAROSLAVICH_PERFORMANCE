@@ -1,26 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import AnalyticsControls from './analytics-controls';
 import { computePercentile, fmtVal } from '../../lib/analytics';
-
-// Порядок категорий для радара (6 основных, без BODY_COMPOSITION)
-const RADAR_CODES = [
-  'STRENGTH',
-  'POWER',
-  'SPEED',
-  'AGILITY',
-  'VOLLEYBALL',
-  'MOBILITY_STABILITY',
-];
-
-function radarPolygon(values: number[], cx: number, cy: number, r: number): string {
-  return values
-    .map((v, i) => {
-      const angle = (Math.PI / 180) * (60 * i - 90);
-      const rr = (r * v) / 100;
-      return `${(cx + rr * Math.cos(angle)).toFixed(1)},${(cy + rr * Math.sin(angle)).toFixed(1)}`;
-    })
-    .join(' ');
-}
+import RadarChart from '../../components/RadarChart';
 
 export default async function AnalyticsPage({
   searchParams,
@@ -47,7 +28,6 @@ export default async function AnalyticsPage({
   const tests = await prisma.test.findMany({
     where: { deletedAt: null },
     orderBy: { name: 'asc' },
-    include: { categoryRel: true },
   });
   const selectedTest =
     tests.find((t) => t.id === searchParams.testId) ??
@@ -68,13 +48,10 @@ export default async function AnalyticsPage({
   const allNorms = await prisma.norm.findMany({ where: { deletedAt: null } });
   const normByKey = new Map(allNorms.map((n) => [`${n.position}|${n.testCode}`, n]));
 
-  const allCategories = await prisma.testCategory.findMany({
-    where: { active: true },
-    orderBy: { sortOrder: 'asc' },
+  const radarCategories = await prisma.testCategory.findMany({
+    where: { active: true, includeInRadar: true },
+    orderBy: [{ radarOrder: 'asc' }, { sortOrder: 'asc' }],
   });
-  const radarCategories = RADAR_CODES
-    .map((code) => allCategories.find((c) => c.code === code))
-    .filter((c): c is NonNullable<typeof c> => c !== undefined);
   const radarCatIds = new Set(radarCategories.map((c) => c.id));
 
   const allPlayers = await prisma.player.findMany({
@@ -82,7 +59,7 @@ export default async function AnalyticsPage({
     include: {
       testSessions: {
         where: { deletedAt: null },
-        include: { testResults: { include: { test: { include: { categoryRel: true } } } } },
+        include: { testResults: { include: { test: true } } },
       },
     },
   });
@@ -90,7 +67,7 @@ export default async function AnalyticsPage({
   const sessionsAsc = await prisma.testSession.findMany({
     where: { playerId: player.id, deletedAt: null },
     orderBy: { DateTime: 'asc' },
-    include: { testResults: { include: { test: { include: { categoryRel: true } } } } },
+    include: { testResults: { include: { test: true } } },
   });
 
   const latest = new Map<
@@ -168,13 +145,14 @@ export default async function AnalyticsPage({
     }
   }
 
-
-  const radarOrder = radarCategories.map((c) =>
-    catAcc.has(c.id) ? Math.round(catAcc.get(c.id)!.sum / catAcc.get(c.id)!.count) : 0
-  );
-  const teamOrder = radarCategories.map((c) =>
-    teamAcc.has(c.id) ? Math.round(teamAcc.get(c.id)!.sum / teamAcc.get(c.id)!.count) : 0
-  );
+  const values = radarCategories.map((c) => {
+    const acc = catAcc.get(c.id);
+    return acc ? Math.round(acc.sum / acc.count) : 0;
+  });
+  const teamValues = radarCategories.map((c) => {
+    const acc = teamAcc.get(c.id);
+    return acc ? Math.round(acc.sum / acc.count) : 0;
+  });
 
   const points = sessionsAsc
     .map((s) => {
@@ -230,51 +208,19 @@ export default async function AnalyticsPage({
           <h2 className="mb-2 text-xl font-bold">
             Профиль: {player.lastName} {player.firstName}
           </h2>
-          <svg viewBox="0 0 260 240" className="w-full">
-            {[25, 50, 75, 100].map((lvl) => (
-              <polygon
-                key={lvl}
-                points={radarPolygon([lvl, lvl, lvl, lvl, lvl, lvl], 130, 120, 90)}
-                fill="none"
-                stroke="#e5e7eb"
-                strokeWidth="1"
-              />
-            ))}
-            <polygon
-              points={radarPolygon(teamOrder, 130, 120, 90)}
-              fill="rgba(107, 114, 128, 0.12)"
-              stroke="#9ca3af"
-              strokeWidth="1.5"
-              strokeDasharray="4 3"
+          {radarCategories.length >= 3 ? (
+            <RadarChart
+              categories={radarCategories.map((c) => ({ id: c.id, name: c.name }))}
+              values={values}
+              teamValues={teamValues}
+              playerLabel={`${player.lastName} ${player.firstName}`}
             />
-            {radarCategories.map((c, order) => {
-              const angle = (Math.PI / 180) * (60 * order - 90);
-              const lx = 130 + 108 * Math.cos(angle);
-              const ly = 120 + 108 * Math.sin(angle);
-              const acc = catAcc.get(c.id);
-              const pct = acc ? Math.round(acc.sum / acc.count) : null;
-              return (
-                <text key={c.id} x={lx} y={ly} fontSize="9" textAnchor="middle" fill="#6b7280">
-                  {c.name} {pct !== null ? pct : '—'}
-                </text>
-              );
-            })}            <polygon
-              points={radarPolygon(radarOrder, 130, 120, 90)}
-              fill="rgba(200, 16, 46, 0.18)"
-              stroke="#c8102e"
-              strokeWidth="2"
-            />
-          </svg>
-          <div className="mt-2 flex items-center gap-4 text-xs text-gray-600">
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-2 rounded-full" style={{ background: 'var(--red)' }} />
-              {player.lastName} {player.firstName}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
-              Средний по команде (последние тесты)
-            </span>
-          </div>
+          ) : (
+            <p className="text-sm text-gray-500">
+              Профиль спортсмена не настроен. Включите минимум три категории в «Тесты →
+              Категории».
+            </p>
+          )}
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-6">

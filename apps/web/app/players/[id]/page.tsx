@@ -2,6 +2,7 @@ import { prisma } from '../../../lib/prisma';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PrintButton from './print-button';
+import RadarChart from '../../../components/RadarChart';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -40,15 +41,6 @@ const sessionStatusLabels: Record<string, string> = {
   RESTRICTED: 'Ограничение',
 };
 
-const RADAR_CODES = [
-  'STRENGTH',
-  'POWER',
-  'SPEED',
-  'AGILITY',
-  'VOLLEYBALL',
-  'MOBILITY_STABILITY',
-];
-
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('ru-RU');
@@ -86,16 +78,6 @@ function computePercentile(
   return 50;
 }
 
-function radarPolygon(values: number[], cx: number, cy: number, r: number): string {
-  return values
-    .map((v, i) => {
-      const angle = (Math.PI / 180) * (60 * i - 90);
-      const rr = (r * v) / 100;
-      return `${(cx + rr * Math.cos(angle)).toFixed(1)},${(cy + rr * Math.sin(angle)).toFixed(1)}`;
-    })
-    .join(' ');
-}
-
 export default async function PlayerCardPage({ params }: { params: { id: string } }) {
   const player = await prisma.player.findUnique({
     where: { id: params.id },
@@ -104,7 +86,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
       testSessions: {
         where: { deletedAt: null },
         orderBy: { DateTime: 'desc' },
-        include: { testResults: { include: { test: { include: { categoryRel: true } } } } },
+        include: { testResults: { include: { test: true } } },
       },
       goals: { include: { test: true } },
     },
@@ -115,13 +97,10 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
   const allNorms = await prisma.norm.findMany({ where: { deletedAt: null } });
   const normByKey = new Map(allNorms.map((n) => [`${n.position}|${n.testCode}`, n]));
 
-  const allCategories = await prisma.testCategory.findMany({
-    where: { active: true },
-    orderBy: { sortOrder: 'asc' },
+  const radarCategories = await prisma.testCategory.findMany({
+    where: { active: true, includeInRadar: true },
+    orderBy: [{ radarOrder: 'asc' }, { sortOrder: 'asc' }],
   });
-  const radarCategories = RADAR_CODES
-    .map((code) => allCategories.find((c) => c.code === code))
-    .filter((c): c is NonNullable<typeof c> => c !== undefined);
   const radarCatIds = new Set(radarCategories.map((c) => c.id));
 
   const allPlayers = await prisma.player.findMany({
@@ -129,7 +108,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
     include: {
       testSessions: {
         where: { deletedAt: null },
-        include: { testResults: { include: { test: { include: { categoryRel: true } } } } },
+        include: { testResults: { include: { test: true } } },
       },
     },
   });
@@ -205,6 +184,15 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
     }
   }
 
+  const values = radarCategories.map((c) => {
+    const acc = catAcc.get(c.id);
+    return acc ? Math.round(acc.sum / acc.count) : 0;
+  });
+  const teamValues = radarCategories.map((c) => {
+    const acc = teamAcc.get(c.id);
+    return acc ? Math.round(acc.sum / acc.count) : 0;
+  });
+
   const cats = radarCategories
     .filter((c) => catAcc.has(c.id))
     .map((c) => ({
@@ -212,13 +200,6 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
       label: c.name,
       pct: Math.round(catAcc.get(c.id)!.sum / catAcc.get(c.id)!.count),
     }));
-
-  const radarOrder = radarCategories.map((c) =>
-    catAcc.has(c.id) ? Math.round(catAcc.get(c.id)!.sum / catAcc.get(c.id)!.count) : 0
-  );
-  const teamOrder = radarCategories.map((c) =>
-    teamAcc.has(c.id) ? Math.round(teamAcc.get(c.id)!.sum / teamAcc.get(c.id)!.count) : 0
-  );
 
   const strengths = [...cats].sort((a, b) => b.pct - a.pct).slice(0, 3);
   const zones = [...cats].sort((a, b) => a.pct - b.pct).slice(0, 3);
@@ -304,64 +285,33 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
         </div>
       </div>
 
-      {cats.length > 0 && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-lg bg-white p-6 shadow">
-            <h2 className="mb-2 text-xl font-bold">Профиль игрока</h2>
-            <svg viewBox="0 0 260 240" className="w-full">
-              {[25, 50, 75, 100].map((lvl) => (
-                <polygon
-                  key={lvl}
-                  points={radarPolygon([lvl, lvl, lvl, lvl, lvl, lvl], 130, 120, 90)}
-                  fill="none"
-                  stroke="#e5e7eb"
-                  strokeWidth="1"
-                />
-              ))}
-              <polygon
-                points={radarPolygon(teamOrder, 130, 120, 90)}
-                fill="rgba(107, 114, 128, 0.12)"
-                stroke="#9ca3af"
-                strokeWidth="1.5"
-                strokeDasharray="4 3"
-              />
-              {radarCategories.map((c, order) => {
-                const angle = (Math.PI / 180) * (60 * order - 90);
-                const lx = 130 + 108 * Math.cos(angle);
-                const ly = 120 + 108 * Math.sin(angle);
-                const acc = catAcc.get(c.id);
-                const pct = acc ? Math.round(acc.sum / acc.count) : null;
-                return (
-                  <text key={c.id} x={lx} y={ly} fontSize="9" textAnchor="middle" fill="#6b7280">
-                    {c.name} {pct !== null ? pct : '—'}
-                  </text>
-                );
-              })}
-              <polygon
-                points={radarPolygon(radarOrder, 130, 120, 90)}
-                fill="rgba(200, 16, 46, 0.18)"
-                stroke="#c8102e"
-                strokeWidth="2"
-              />
-            </svg>
-            <div className="mt-2 flex items-center gap-4 text-xs text-gray-600">
-              <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-full" style={{ background: 'var(--red)' }} />
-                Игрок
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
-                Средний по команде (последние тесты)
-              </span>
-            </div>
-            <p className="mt-2 text-xs text-gray-500">
-              Средний процентиль (0–100) относительно нормативов амплуа «{positionLabels[player.position]}».
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-lg bg-white p-6 shadow">
+          <h2 className="mb-2 text-xl font-bold">Профиль игрока</h2>
+          {radarCategories.length >= 3 ? (
+            <RadarChart
+              categories={radarCategories.map((c) => ({ id: c.id, name: c.name }))}
+              values={values}
+              teamValues={teamValues}
+              playerLabel="Игрок"
+            />
+          ) : (
+            <p className="text-sm text-gray-500">
+              Профиль спортсмена не настроен. Включите минимум три категории в «Тесты →
+              Категории».
             </p>
-          </div>
+          )}
+          <p className="mt-2 text-xs text-gray-500">
+            Средний процентиль (0–100) относительно нормативов амплуа «{positionLabels[player.position]}».
+          </p>
+        </div>
 
-          <div className="space-y-6">
-            <div className="rounded-lg bg-white p-6 shadow">
-              <h2 className="mb-3 text-xl font-bold">Сильные стороны</h2>
+        <div className="space-y-6">
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h2 className="mb-3 text-xl font-bold">Сильные стороны</h2>
+            {strengths.length === 0 ? (
+              <p className="text-sm text-gray-500">Нет данных по категориям профиля.</p>
+            ) : (
               <ul className="space-y-2">
                 {strengths.map((s) => (
                   <li key={s.key} className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2">
@@ -370,9 +320,13 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
                   </li>
                 ))}
               </ul>
-            </div>
-            <div className="rounded-lg bg-white p-6 shadow">
-              <h2 className="mb-3 text-xl font-bold">Зоны роста</h2>
+            )}
+          </div>
+          <div className="rounded-lg bg-white p-6 shadow">
+            <h2 className="mb-3 text-xl font-bold">Зоны роста</h2>
+            {zones.length === 0 ? (
+              <p className="text-sm text-gray-500">Нет данных по категориям профиля.</p>
+            ) : (
               <ul className="space-y-2">
                 {zones.map((s) => (
                   <li key={s.key} className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2">
@@ -381,13 +335,13 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 text-xs text-gray-500">
-                Категории с самым низким процентилем — фокус ближайшего микроцикла.
-              </p>
-            </div>
+            )}
+            <p className="mt-3 text-xs text-gray-500">
+              Категории с самым низким процентилем — фокус ближайшего микроцикла.
+            </p>
           </div>
         </div>
-      )}
+      </div>
 
       {pbList.length > 0 && (
         <div className="rounded-lg bg-white p-6 shadow">
