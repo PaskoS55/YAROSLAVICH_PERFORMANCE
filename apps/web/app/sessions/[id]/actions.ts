@@ -3,6 +3,7 @@
 import { prisma } from '../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { computeQcStatus, syncQcFlag } from '../../../lib/qc';
+import { syncGoalsForResult } from '../../../lib/goals';
 
 export async function saveResults(
   sessionId: string,
@@ -58,6 +59,7 @@ export async function saveResults(
         },
       });
       await syncQcFlag(tx, result.id, test, e.value, qcStatus);
+      await syncGoalsForResult(tx, session.playerId, e.testId, e.value);
     }
   });
 

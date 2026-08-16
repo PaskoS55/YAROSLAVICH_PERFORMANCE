@@ -3,6 +3,7 @@
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { computeQcStatus, syncQcFlag } from '../../lib/qc';
+import { syncGoalsForResult } from '../../lib/goals';
 
 export type ImportRow = {
   playerCode: string;
@@ -96,6 +97,7 @@ export async function importRows(rows: ImportRow[]) {
           },
         });
         await syncQcFlag(tx, result.id, test, r.value, qcStatus);
+        await syncGoalsForResult(tx, player.id, test.id, r.value);
       });
       ok += 1;
     } catch {

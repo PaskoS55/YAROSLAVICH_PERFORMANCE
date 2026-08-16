@@ -3,6 +3,7 @@
 import { prisma } from '../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { computeQcStatus, syncQcFlag } from '../../../lib/qc';
+import { syncGoalsForResult } from '../../../lib/goals';
 
 type Phase = 'PRESEASON' | 'CAMP' | 'INSEASON' | 'POSTSEASON' | 'RECOVERY';
 const PHASES = new Set<string>(['PRESEASON', 'CAMP', 'INSEASON', 'POSTSEASON', 'RECOVERY']);
@@ -86,6 +87,7 @@ export async function saveTeamResults(params: {
         },
       });
       await syncQcFlag(tx, result.id, test, e.value, qcStatus);
+      await syncGoalsForResult(tx, e.playerId, test.id, e.value);
 
       out.push({ playerId: e.playerId, sessionId: session.sessionId, created });
     }
