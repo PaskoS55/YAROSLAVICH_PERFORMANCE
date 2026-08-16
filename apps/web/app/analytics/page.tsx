@@ -59,7 +59,7 @@ export default async function AnalyticsPage({
     include: {
       testSessions: {
         where: { deletedAt: null },
-        include: { testResults: { include: { test: true } } },
+        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
       },
     },
   });
@@ -67,7 +67,7 @@ export default async function AnalyticsPage({
   const sessionsAsc = await prisma.testSession.findMany({
     where: { playerId: player.id, deletedAt: null },
     orderBy: { DateTime: 'asc' },
-    include: { testResults: { include: { test: true } } },
+    include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
   });
 
   const latest = new Map<

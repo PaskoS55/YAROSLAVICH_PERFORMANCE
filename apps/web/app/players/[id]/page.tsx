@@ -86,7 +86,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
       testSessions: {
         where: { deletedAt: null },
         orderBy: { DateTime: 'desc' },
-        include: { testResults: { include: { test: true } } },
+        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
       },
       goals: { include: { test: true } },
     },
@@ -108,7 +108,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
     include: {
       testSessions: {
         where: { deletedAt: null },
-        include: { testResults: { include: { test: true } } },
+        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
       },
     },
   });

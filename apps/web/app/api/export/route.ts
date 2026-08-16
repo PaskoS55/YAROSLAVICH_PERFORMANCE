@@ -12,6 +12,8 @@ function csvResponse(lines: string[], filename: string) {
 
 const num = (v: number) => String(v).replace('.', ',');
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type');
@@ -22,7 +24,11 @@ export async function GET(req: Request) {
       where: { deletedAt: null },
       orderBy: { playerId: 'asc' },
       include: {
-        testSessions: { orderBy: { DateTime: 'desc' }, include: { testResults: true } },
+        testSessions: {
+          where: { deletedAt: null },
+          orderBy: { DateTime: 'desc' },
+          include: { testResults: { where: { deletedAt: null } } },
+        },
       },
     });
     const tests = await prisma.test.findMany({
@@ -43,7 +49,9 @@ export async function GET(req: Request) {
         return v === undefined ? '' : num(v);
       });
       lines.push(
-        [`${p.lastName} ${p.firstName} ${p.middleName ?? ''}`.trim(), p.playerId, ...cells].join(';')
+        [`${p.lastName} ${p.firstName} ${p.middleName ?? ''}`.trim(), p.playerId, ...cells].join(
+          ';'
+        )
       );
     }
     return csvResponse(lines, 'team_summary.csv');
@@ -52,9 +60,12 @@ export async function GET(req: Request) {
   if (type === 'session' && id) {
     const session = await prisma.testSession.findUnique({
       where: { id },
-      include: { player: true, testResults: { include: { test: true } } },
+      include: {
+        player: true,
+        testResults: { where: { deletedAt: null }, include: { test: true } },
+      },
     });
-    if (!session) return new Response('Not found', { status: 404 });
+    if (!session || session.deletedAt) return new Response('Not found', { status: 404 });
     const lines = [
       `Сессия;${session.sessionId}`,
       `Игрок;${session.player.lastName} ${session.player.firstName}`,
@@ -73,12 +84,13 @@ export async function GET(req: Request) {
       where: { id },
       include: {
         testSessions: {
+          where: { deletedAt: null },
           orderBy: { DateTime: 'asc' },
-          include: { testResults: { include: { test: true } } },
+          include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
         },
       },
     });
-    if (!player) return new Response('Not found', { status: 404 });
+    if (!player || player.deletedAt) return new Response('Not found', { status: 404 });
     const lines = [
       `Игрок;${player.lastName} ${player.firstName} ${player.middleName ?? ''}`,
       `ID;${player.playerId}`,

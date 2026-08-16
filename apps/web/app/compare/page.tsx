@@ -14,7 +14,7 @@ export default async function ComparePage({
       testSessions: {
         where: { deletedAt: null },
         orderBy: { DateTime: 'desc' },
-        include: { testResults: { include: { test: true } } },
+        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
       },
     },
   });
