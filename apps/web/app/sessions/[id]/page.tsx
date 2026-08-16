@@ -13,7 +13,7 @@ const phaseLabels: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   FULL: 'Полное',
-  PARTIAL: 'Частичное',
+  PARTIAL: 'Частично',
   INCOMPLETE: 'Не завершено',
   RESTRICTED: 'Ограничение',
 };
@@ -38,45 +38,88 @@ export default async function SessionPage({ params }: { params: { id: string } }
 
   if (!session || session.deletedAt) notFound();
 
-  const tests = await prisma.test.findMany({
+  const activeTests = await prisma.test.findMany({
     where: { deletedAt: null },
     orderBy: { code: 'asc' },
   });
 
   const results = await prisma.testResult.findMany({
     where: { testSessionId: session.id, deletedAt: null },
+    include: { test: true },
   });
 
   const existing: Record<string, number> = {};
   for (const r of results) existing[r.testId] = r.value;
 
-  const fillPct = Math.round((results.length / Math.max(tests.length, 1)) * 100);
+  // Историческая целостность: активные тесты + архивные, по которым в сессии есть результат
+  const byId = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      unit: string;
+      qcMin: number | null;
+      qcMax: number | null;
+      archived: boolean;
+    }
+  >();
+  for (const t of activeTests) {
+    byId.set(t.id, {
+      id: t.id,
+      name: t.name,
+      unit: t.unit,
+      qcMin: t.qcMin,
+      qcMax: t.qcMax,
+      archived: false,
+    });
+  }
+  for (const r of results) {
+    if (!byId.has(r.testId)) {
+      byId.set(r.testId, {
+        id: r.test.id,
+        name: r.test.name,
+        unit: r.test.unit,
+        qcMin: r.test.qcMin,
+        qcMax: r.test.qcMax,
+        archived: true,
+      });
+    }
+  }
+  const rows = [...byId.values()];
+  const fillPct = Math.min(100, Math.round((results.length / Math.max(rows.length, 1)) * 100));
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between text-sm text-gray-500">
+    <div className="space-y-5 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
         <div>
-          <Link href="/sessions" className="text-blue-600 hover:underline">Тестирования</Link>
-          {' / '}{session.sessionId}
+          <Link href="/sessions" className="font-medium hover:underline">
+            Тестирования
+          </Link>{' '}
+          / {session.sessionId}
         </div>
         <div>
           Заполнено тестов: <b className="text-gray-900">{results.length}</b> из{' '}
-          <b className="text-gray-900">{tests.length}</b>
+          <b className="text-gray-900">{rows.length}</b>
         </div>
       </div>
 
-      <div className="flex items-center justify-between rounded-lg bg-white p-6 shadow">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white p-6">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{session.sessionId}</h1>
-            <span className={`rounded-full px-2 py-1 text-xs font-semibold ${statusColors[session.status]}`}>
+            <span
+              className={`rounded-full px-2 py-1 text-xs font-semibold ${statusColors[session.status]}`}
+            >
               {statusLabels[session.status]}
             </span>
           </div>
           <div className="mt-2 text-sm text-gray-600">
             Дата: <b>{fmtDate(session.DateTime)}</b> · Фаза:{' '}
             <b>{phaseLabels[session.phase] ?? session.phase}</b> · Игрок:{' '}
-            <Link href={`/players/${session.player.id}`} className="text-blue-600 hover:underline">
+            <Link
+              href={`/players/${session.player.id}`}
+              className="font-medium text-gray-900 hover:underline"
+            >
               {session.player.lastName} {session.player.firstName}
             </Link>
           </div>
@@ -89,20 +132,9 @@ export default async function SessionPage({ params }: { params: { id: string } }
         </div>
       </div>
 
-      <div className="rounded-lg bg-white p-6 shadow">
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-xl font-bold">Ввод результатов</h2>
-        <ResultsForm
-          sessionId={session.id}
-          playerId={session.playerId}
-          tests={tests.map((t) => ({
-            id: t.id,
-            name: t.name,
-            unit: t.unit,
-            qcMin: t.qcMin,
-            qcMax: t.qcMax,
-          }))}
-          existing={existing}
-        />
+        <ResultsForm sessionId={session.id} tests={rows} existing={existing} />
       </div>
     </div>
   );
