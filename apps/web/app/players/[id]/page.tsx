@@ -186,11 +186,11 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
 
   const values = radarCategories.map((c) => {
     const acc = catAcc.get(c.id);
-    return acc ? Math.round(acc.sum / acc.count) : 0;
+    return acc ? Math.round(acc.sum / acc.count) : null;
   });
   const teamValues = radarCategories.map((c) => {
     const acc = teamAcc.get(c.id);
-    return acc ? Math.round(acc.sum / acc.count) : 0;
+    return acc ? Math.round(acc.sum / acc.count) : null;
   });
 
   const cats = radarCategories

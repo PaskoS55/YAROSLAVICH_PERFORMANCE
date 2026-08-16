@@ -147,11 +147,11 @@ export default async function AnalyticsPage({
 
   const values = radarCategories.map((c) => {
     const acc = catAcc.get(c.id);
-    return acc ? Math.round(acc.sum / acc.count) : 0;
+    return acc ? Math.round(acc.sum / acc.count) : null;
   });
   const teamValues = radarCategories.map((c) => {
     const acc = teamAcc.get(c.id);
-    return acc ? Math.round(acc.sum / acc.count) : 0;
+    return acc ? Math.round(acc.sum / acc.count) : null;
   });
 
   const points = sessionsAsc

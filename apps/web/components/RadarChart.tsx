@@ -7,16 +7,17 @@ export default function RadarChart({
   playerLabel,
 }: {
   categories: { id: string; name: string }[];
-  values: number[];
-  teamValues: number[];
+  values: (number | null)[];
+  teamValues: (number | null)[];
   playerLabel: string;
 }) {
   const n = categories.length;
   const angle = (i: number) => (Math.PI / 180) * ((360 / n) * i - 90);
-  const polygon = (vals: number[]) =>
+  const polygon = (vals: (number | null)[]) =>
     vals
       .map((v, i) => {
-        const rr = (90 * Math.max(0, Math.min(100, v))) / 100;
+        const num = v ?? 0;
+        const rr = (90 * Math.max(0, Math.min(100, num))) / 100;
         return `${(130 + rr * Math.cos(angle(i))).toFixed(1)},${(120 + rr * Math.sin(angle(i))).toFixed(1)}`;
       })
       .join(' ');
@@ -46,7 +47,7 @@ export default function RadarChart({
           const val = values[i];
           return (
             <text key={c.id} x={lx} y={ly} fontSize="9" textAnchor="middle" fill="#6b7280">
-              {c.name} {val > 0 ? val : '—'}
+              {c.name} {val !== null ? val : '—'}
             </text>
           );
         })}
