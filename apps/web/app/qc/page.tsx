@@ -16,9 +16,9 @@ const reasonLabels: Record<string, string> = {
   'manual:verified': 'Проверено: значение верное',
   'manual:fixed': 'Исправлено в исходных данных',
   'manual:other': 'Другое',
+  'auto:fixed': 'Исправлено в исходных данных (автоматически)',
   manual: 'Решено вручную',
 };
-
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('ru-RU');
