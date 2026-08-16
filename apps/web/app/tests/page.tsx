@@ -1,6 +1,6 @@
 ﻿import { prisma } from '../../lib/prisma';
 import Link from 'next/link';
-import { updateCategories } from './category-actions';
+import CategoryManager from './category-manager';
 
 const directionLabels: Record<string, string> = {
   HIGHER_IS_BETTER: '↑ больше — лучше',
@@ -132,43 +132,15 @@ export default async function TestsPage({
         </table>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="mb-1 text-lg font-bold">Категории</h2>
-        <p className="mb-4 text-sm text-gray-500">
-          Отметьте, какие категории входят в профиль спортсмена на радаре, и задайте порядок
-          осей. Новые категории по умолчанию не попадают на радар — включайте их осознанно.
-        </p>
-        <form action={updateCategories} className="space-y-2">
-          {categories.map((c) => (
-            <div
-              key={c.id}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 px-3 py-2"
-            >
-              <input type="hidden" name="catId" value={c.id} />
-              <label className="flex flex-1 items-center gap-2 text-sm text-gray-700">
-                <input
-                  type="checkbox"
-                  name={`inc_${c.id}`}
-                  defaultChecked={c.includeInRadar}
-                  className="h-4 w-4"
-                />
-                {c.name}
-                <span className="font-mono text-xs text-gray-400">{c.code}</span>
-              </label>
-              <label className="flex items-center gap-2 text-xs text-gray-500">
-                Порядок на радаре
-                <input
-                  type="number"
-                  name={`ord_${c.id}`}
-                  defaultValue={c.radarOrder ?? ''}
-                  className="w-16 rounded-lg border border-gray-200 px-2 py-1 text-sm"
-                />
-              </label>
-            </div>
-          ))}
-          <button className="btn-primary">Сохранить категории</button>
-        </form>
-      </div>
+      <CategoryManager
+        categories={categories.map((c) => ({
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          includeInRadar: c.includeInRadar,
+          radarOrder: c.radarOrder,
+        }))}
+      />
     </div>
   );
 }
