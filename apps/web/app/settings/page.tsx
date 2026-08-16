@@ -6,6 +6,7 @@ import {
   resetDemoData,
 } from './actions';
 import ResetButton from './reset-button';
+import RestoreButton from './restore-button';
 
 const field = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm';
 const label = 'block text-xs font-medium text-gray-500';
@@ -154,8 +155,10 @@ export default async function SettingsPage() {
         >
           Скачать резервную копию
         </a>
+        <div className="mt-4 border-t border-gray-100 pt-4">
+          <RestoreButton />
+        </div>
       </div>
-
       <div className="rounded-lg border-2 border-red-200 bg-red-50 p-6">
         <h2 className="mb-2 text-lg font-bold text-red-900">⚠ Опасная зона</h2>
         <p className="mb-3 text-sm text-red-800">

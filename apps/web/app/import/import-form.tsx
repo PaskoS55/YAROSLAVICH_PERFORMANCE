@@ -25,14 +25,14 @@ export default function ImportForm() {
           date: cells[1] || '',
           testCode: cells[2] || '',
           value: 0,
+          phase: cells[4] || '',
           valid: false,
-          problem: 'Недостаточно колонок: ожидается 4',
+          problem: 'Недостаточно колонок: ожидается минимум 4',
         });
         return;
       }
-      const [playerCode, date, testCode, valueStr] = cells;
+      const [playerCode, date, testCode, valueStr, phaseStr = ''] = cells;
       const value = Number(valueStr.replace(',', '.'));
-      // Пропускаем заголовок (первая строка, если значение не число)
       if (idx === 0 && Number.isNaN(value)) return;
       const problems: string[] = [];
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
@@ -44,6 +44,7 @@ export default function ImportForm() {
         date,
         testCode,
         value: Number.isNaN(value) ? 0 : value,
+        phase: phaseStr,
         valid: problems.length === 0,
         problem: problems.join('; '),
       });
@@ -68,11 +69,12 @@ export default function ImportForm() {
     if (valid.length === 0) return;
     setBusy(true);
     const res = await importRows(
-      valid.map(({ playerCode, date, testCode, value }) => ({
+      valid.map(({ playerCode, date, testCode, value, phase }) => ({
         playerCode,
         date,
         testCode,
         value,
+        phase,
       }))
     );
     setResult(res);
@@ -119,6 +121,7 @@ export default function ImportForm() {
                 <th className="py-1 pr-4">Дата</th>
                 <th className="py-1 pr-4">Тест</th>
                 <th className="py-1 pr-4">Значение</th>
+                <th className="py-1 pr-4">Фаза</th>
                 <th className="py-1">Статус</th>
               </tr>
             </thead>
@@ -132,6 +135,9 @@ export default function ImportForm() {
                   <td className="py-1 pr-4 font-mono">
                     {r.valid || r.value !== 0 ? r.value : '—'}
                   </td>
+                  <td className="py-1 pr-4 text-xs text-gray-500">
+                    {r.phase || <span className="text-gray-400">INSEASON</span>}
+                  </td>
                   <td className="py-1">
                     {r.valid ? (
                       <span className="text-gray-600">Готово</span>
@@ -140,7 +146,8 @@ export default function ImportForm() {
                     )}
                   </td>
                 </tr>
-              ))}            </tbody>
+              ))}
+            </tbody>
           </table>
         </div>
       )}
