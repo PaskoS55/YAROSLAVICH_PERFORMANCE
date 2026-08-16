@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const [
     organizations,
@@ -20,7 +22,7 @@ export async function GET() {
     auditLogs,
   ] = await Promise.all([
     prisma.organization.findMany(),
-    prisma.team.findMany(),
+    prisma.team.findMany({ include: { seasons: { select: { id: true } } } }),
     prisma.season.findMany(),
     prisma.testCategory.findMany({ orderBy: { sortOrder: 'asc' } }),
     prisma.player.findMany(),
@@ -36,12 +38,18 @@ export async function GET() {
     prisma.auditLog.findMany(),
   ]);
 
+  // Связь Team ↔ Season — implicit many-to-many Prisma.
+  // findMany() её не возвращает, поэтому формируем явно для полного бэкапа.
+  const teamSeasonLinks = teams.flatMap((t) =>
+    t.seasons.map((s) => ({ teamId: t.id, seasonId: s.id }))
+  );
+
   const backup = {
     exportedAt: new Date().toISOString(),
     brand: 'PASKO PERFORMANCE',
-    version: 2,
+    version: 3,
     organizations,
-    teams,
+    teams: teams.map(({ seasons: _s, ...rest }) => rest),
     seasons,
     testCategories,
     players,
@@ -55,6 +63,7 @@ export async function GET() {
     qcFlags,
     importJobs,
     auditLogs,
+    teamSeasonLinks,
   };
 
   const filename = `pasko-performance-backup-${new Date().toISOString().slice(0, 10)}.json`;

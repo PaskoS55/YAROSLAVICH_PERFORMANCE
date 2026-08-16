@@ -29,7 +29,10 @@ export default function RestoreButton() {
       const res = await fetch('/api/restore', {
         method: 'POST',
         body: text,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Restore-Confirm': 'ВОССТАНОВИТЬ',
+        },
       });
       const data = await res.json();
       if (!res.ok) {
@@ -37,7 +40,7 @@ export default function RestoreButton() {
       } else {
         setMsg({
           kind: 'ok',
-          text: `Восстановлено: категорий — ${data.restored.testCategories}, тестов — ${data.restored.tests}, игроков — ${data.restored.players}, сессий — ${data.restored.testSessions}, результатов — ${data.restored.testResults}.`,
+          text: `Восстановлено: категорий — ${data.restored.testCategories}, тестов — ${data.restored.tests}, игроков — ${data.restored.players}, сессий — ${data.restored.testSessions}, результатов — ${data.restored.testResults}, связей Team↔Season — ${data.restored.teamSeasonLinks}.`,
         });
         router.refresh();
       }

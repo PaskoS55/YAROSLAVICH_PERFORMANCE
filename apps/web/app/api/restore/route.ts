@@ -3,37 +3,51 @@ import { prisma } from '../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 
 export async function POST(req: Request) {
-  let backup: Record<string, unknown> & { brand?: string; tests?: unknown[] };
+  // Серверная проверка подтверждения — нельзя обойти прямым POST
+  const confirm = req.headers.get('X-Restore-Confirm');
+  if (confirm !== 'ВОССТАНОВИТЬ') {
+    return NextResponse.json(
+      { error: 'Восстановление не подтверждено. Требуется X-Restore-Confirm.' },
+      { status: 400 }
+    );
+  }
+
+  let backup: Record<string, unknown>;
   try {
     backup = await req.json();
   } catch {
     return NextResponse.json({ error: 'Некорректный JSON-файл.' }, { status: 400 });
   }
 
-  if (backup?.brand !== 'PASKO PERFORMANCE' || !Array.isArray(backup?.tests)) {
+  if (
+    (backup as { brand?: string }).brand !== 'PASKO PERFORMANCE' ||
+    !Array.isArray((backup as { tests?: unknown }).tests)
+  ) {
     return NextResponse.json(
       { error: 'Файл не похож на резервную копию PASKO PERFORMANCE.' },
       { status: 400 }
     );
   }
 
-  const arr = (k: string) => (Array.isArray(backup[k]) ? (backup[k] as object[]) : []);
+  const arr = <T>(k: string): T[] =>
+    Array.isArray(backup[k]) ? (backup[k] as T[]) : [];
 
-  const organizations = arr('organizations');
-  const teams = arr('teams');
-  const seasons = arr('seasons');
-  const testCategories = arr('testCategories');
-  const players = arr('players');
-  const tests = arr('tests');
-  const norms = arr('norms');
-  const testSessions = arr('testSessions');
-  const testResults = arr('testResults');
-  const bodyCompositions = arr('bodyCompositions');
-  const playerGoals = arr('playerGoals');
-  const equipment = arr('equipment');
-  const qcFlags = arr('qcFlags');
-  const importJobs = arr('importJobs');
-  const auditLogs = arr('auditLogs');
+  const organizations = arr<Record<string, unknown>>('organizations');
+  const teams = arr<Record<string, unknown>>('teams');
+  const seasons = arr<Record<string, unknown>>('seasons');
+  const testCategories = arr<Record<string, unknown>>('testCategories');
+  const players = arr<Record<string, unknown>>('players');
+  const tests = arr<Record<string, unknown>>('tests');
+  const norms = arr<Record<string, unknown>>('norms');
+  const testSessions = arr<Record<string, unknown>>('testSessions');
+  const testResults = arr<Record<string, unknown>>('testResults');
+  const bodyCompositions = arr<Record<string, unknown>>('bodyCompositions');
+  const playerGoals = arr<Record<string, unknown>>('playerGoals');
+  const equipment = arr<Record<string, unknown>>('equipment');
+  const qcFlags = arr<Record<string, unknown>>('qcFlags');
+  const importJobs = arr<Record<string, unknown>>('importJobs');
+  const auditLogs = arr<Record<string, unknown>>('auditLogs');
+  const teamSeasonLinks = arr<{ teamId: string; seasonId: string }>('teamSeasonLinks');
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -54,7 +68,7 @@ export async function POST(req: Request) {
       await tx.importJob.deleteMany();
       await tx.auditLog.deleteMany();
 
-      // Вставляем родителей → детей, сохраняя исходные id и связи
+      // Вставляем родителей → детей, сохраняя исходные id
       if (organizations.length) await tx.organization.createMany({ data: organizations });
       if (teams.length) await tx.team.createMany({ data: teams });
       if (seasons.length) await tx.season.createMany({ data: seasons });
@@ -71,6 +85,16 @@ export async function POST(req: Request) {
       if (qcFlags.length) await tx.qCFlag.createMany({ data: qcFlags });
       if (importJobs.length) await tx.importJob.createMany({ data: importJobs });
       if (auditLogs.length) await tx.auditLog.createMany({ data: auditLogs });
+
+      // Восстанавливаем implicit many-to-many Team ↔ Season
+      for (const link of teamSeasonLinks) {
+        if (link.teamId && link.seasonId) {
+          await tx.team.update({
+            where: { id: link.teamId },
+            data: { seasons: { connect: { id: link.seasonId } } },
+          });
+        }
+      }
     });
   } catch {
     return NextResponse.json(
@@ -102,6 +126,7 @@ export async function POST(req: Request) {
       players: players.length,
       testSessions: testSessions.length,
       testResults: testResults.length,
+      teamSeasonLinks: teamSeasonLinks.length,
     },
   });
 }
