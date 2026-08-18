@@ -13,10 +13,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Проверяем наличие валидной сессии (не сам пароль, а флаг)
   const token = request.cookies.get('yp_auth')?.value;
-  const expected = process.env.AUTH_PASSWORD ?? 'yaroslavich2026';
 
-  if (!expected || token !== expected) {
+  if (token !== 'authenticated') {
     return NextResponse.redirect(new URL('/login', request.url));
   }
   return NextResponse.next();

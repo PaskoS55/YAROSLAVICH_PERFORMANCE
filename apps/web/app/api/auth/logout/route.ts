@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 
 async function doLogout(req: Request) {
   const res = NextResponse.redirect(new URL('/login', req.url), 303);
-  res.cookies.delete('yp_auth');
+  const isProduction = process.env.NODE_ENV === 'production';
+  res.cookies.delete({
+    name: 'yp_auth',
+    path: '/',
+    secure: isProduction,
+  });
   return res;
 }
 
