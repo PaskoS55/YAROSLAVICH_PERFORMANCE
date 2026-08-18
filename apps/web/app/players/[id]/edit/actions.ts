@@ -3,37 +3,50 @@
 import { prisma } from '../../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { validatePlayerFields } from '../../../../lib/player';
 
 export async function updatePlayer(formData: FormData) {
   const id = String(formData.get('id'));
-  const playerId = String(formData.get('playerId') ?? '').trim();
-  const firstName = String(formData.get('firstName') ?? '').trim();
-  const lastName = String(formData.get('lastName') ?? '').trim();
-  const middleName = String(formData.get('middleName') ?? '').trim();
-  const position = String(formData.get('position') ?? '').trim();
-  const status = String(formData.get('status')) as 'ACTIVE' | 'INJURED' | 'LIMITED' | 'INACTIVE';
-  const numberStr = String(formData.get('number') ?? '').trim();
-  const heightStr = String(formData.get('height') ?? '').trim();
-  const birthDateStr = String(formData.get('birthDate') ?? '').trim();
-  const joinedDateStr = String(formData.get('joinedDate') ?? '').trim();
-  const comment = String(formData.get('comment') ?? '').trim();
 
-  if (!playerId || !firstName || !lastName || !position) return;
+  const existing = await prisma.player.findFirst({ where: { id, deletedAt: null } });
+  if (!existing) return { error: 'Игрок не найден или удалён.' };
+
+  const v = validatePlayerFields(formData);
+  if (!v.ok) return { error: v.error };
+  const d = v.data as {
+    lastName: string;
+    firstName: string;
+    middleName: string | null;
+    playerIdInput: string;
+    position: string;
+    status: string;
+    height: number | null;
+    number: number | null;
+    birthDate: Date | null;
+    joinedDate: Date | null;
+    comment: string | null;
+  };
+
+  const code = d.playerIdInput || existing.playerId;
+  if (code !== existing.playerId) {
+    const dup = await prisma.player.findFirst({ where: { playerId: code, deletedAt: null } });
+    if (dup) return { error: `Игрок с кодом «${code}» уже существует.` };
+  }
 
   await prisma.player.update({
     where: { id },
     data: {
-      playerId,
-      firstName,
-      lastName,
-      middleName: middleName || null,
-      position,
-      status,
-      number: numberStr ? parseInt(numberStr, 10) : null,
-      height: heightStr ? parseInt(heightStr, 10) : null,
-      birthDate: birthDateStr ? new Date(birthDateStr) : null,
-      joinedDate: joinedDateStr ? new Date(joinedDateStr) : null,
-      comment: comment || null,
+      playerId: code,
+      firstName: d.firstName,
+      lastName: d.lastName,
+      middleName: d.middleName,
+      position: d.position,
+      status: d.status as 'ACTIVE' | 'INJURED' | 'LIMITED' | 'INACTIVE',
+      number: d.number,
+      height: d.height,
+      birthDate: d.birthDate,
+      joinedDate: d.joinedDate,
+      comment: d.comment,
     },
   });
 
@@ -47,10 +60,10 @@ export async function updatePlayer(formData: FormData) {
 
 export async function archivePlayer(formData: FormData) {
   const id = String(formData.get('id'));
-  await prisma.player.update({
-    where: { id },
-    data: { deletedAt: new Date() },
-  });
+  const existing = await prisma.player.findFirst({ where: { id, deletedAt: null } });
+  if (!existing) return { error: 'Игрок не найден или уже удалён.' };
+
+  await prisma.player.update({ where: { id }, data: { deletedAt: new Date() } });
   revalidatePath('/players', 'layout');
   revalidatePath('/team');
   revalidatePath('/', 'layout');
@@ -59,10 +72,10 @@ export async function archivePlayer(formData: FormData) {
 
 export async function restorePlayer(formData: FormData) {
   const id = String(formData.get('id'));
-  await prisma.player.update({
-    where: { id },
-    data: { deletedAt: null },
-  });
+  const existing = await prisma.player.findFirst({ where: { id, NOT: { deletedAt: null } } });
+  if (!existing) return { error: 'Игрок не найден или не удалён.' };
+
+  await prisma.player.update({ where: { id }, data: { deletedAt: null } });
   revalidatePath('/players', 'layout');
   revalidatePath('/team');
   revalidatePath('/', 'layout');

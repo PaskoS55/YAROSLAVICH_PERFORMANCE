@@ -3,22 +3,27 @@
 import { prisma } from '../../../lib/prisma';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { validatePlayerFields } from '../../../lib/player';
 
 export async function createPlayer(formData: FormData) {
-  const lastName = String(formData.get('lastName') ?? '').trim();
-  const firstName = String(formData.get('firstName') ?? '').trim();
-  if (!lastName || !firstName) return;
-
-  const middleName = String(formData.get('middleName') ?? '').trim() || null;
-  const playerIdInput = String(formData.get('playerId') ?? '').trim();
-  const position = String(formData.get('position') ?? 'outside_hitter');
-  const heightStr = String(formData.get('height') ?? '').trim();
-  const birthStr = String(formData.get('birthDate') ?? '').trim();
+  const v = validatePlayerFields(formData);
+  if (!v.ok) {
+    return { error: v.error };
+  }
+  const d = v.data as {
+    lastName: string;
+    firstName: string;
+    middleName: string | null;
+    playerIdInput: string;
+    position: string;
+    height: number | null;
+    birthDate: Date | null;
+  };
 
   const team = await prisma.team.findFirst();
-  if (!team) return;
+  if (!team) return { error: 'Команда не настроена — создайте её в настройках.' };
 
-  let code = playerIdInput;
+  let code = d.playerIdInput;
   if (!code) {
     let n = (await prisma.player.count()) + 1;
     code = `P${String(n).padStart(3, '0')}`;
@@ -26,23 +31,26 @@ export async function createPlayer(formData: FormData) {
       n += 1;
       code = `P${String(n).padStart(3, '0')}`;
     }
+  } else {
+    const dup = await prisma.player.findFirst({ where: { playerId: code, deletedAt: null } });
+    if (dup) return { error: `Игрок с кодом «${code}» уже существует.` };
   }
 
   await prisma.player.create({
     data: {
       playerId: code,
-      lastName,
-      firstName,
-      middleName,
-      position,
-      height: heightStr ? Number(heightStr) : null,
-      birthDate: birthStr ? new Date(birthStr) : null,
+      lastName: d.lastName,
+      firstName: d.firstName,
+      middleName: d.middleName,
+      position: d.position,
+      height: d.height,
+      birthDate: d.birthDate,
       status: 'ACTIVE',
       teamId: team.id,
     },
   });
 
-  revalidatePath('/players');
+  revalidatePath('/players', 'layout');
   revalidatePath('/team');
   revalidatePath('/', 'layout');
   redirect('/players');
