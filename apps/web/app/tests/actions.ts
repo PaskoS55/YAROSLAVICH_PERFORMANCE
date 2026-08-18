@@ -103,7 +103,7 @@ function parseNumericFields(formData: FormData): NumericFields | { error: string
   };
 }
 
-export type TestState = { error: string } | { ok: boolean } | null;
+export type TestState = { ok?: boolean; error?: string } | null;
 
 export async function createTest(_state: TestState, formData: FormData): Promise<TestState> {
   const name = str(formData.get('name'));
