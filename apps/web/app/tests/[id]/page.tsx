@@ -56,6 +56,8 @@ export default async function EditTestPage({ params }: { params: { id: string } 
           qcDescription: test.qcDescription,
           changeThreshold: test.changeThreshold,
           cv: test.cv,
+          alertBelow: test.alertBelow,
+          alertAbove: test.alertAbove,
           equipment: test.equipment,
           source: test.source,
           comment: test.comment,
