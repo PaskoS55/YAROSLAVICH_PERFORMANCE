@@ -45,10 +45,10 @@ export function validatePlayerFields(formData: FormData): PlayerValidation {
   if (!STATUSES.has(status)) return { ok: false, error: 'Некорректный статус.' };
 
   const height = parseRange(str(formData.get('height')), 100, 250, 'Рост');
-  if (typeof height === 'object' && 'error' in height) return { ok: false, error: height.error };
+  if (height !== null && typeof height === 'object') return { ok: false, error: height.error };
 
-  const number = parseRange(str(formData.get('number')), 1, 99, 'Номер');
-  if (typeof number === 'object' && 'error' in number) return { ok: false, error: number.error };
+    const number = parseRange(str(formData.get('number')), 1, 99, 'Номер');
+  if (number !== null && typeof number === 'object') return { ok: false, error: number.error };
 
   const birthDateStr = str(formData.get('birthDate'));
   const birthDate = birthDateStr ? parseDate(birthDateStr) : null;
