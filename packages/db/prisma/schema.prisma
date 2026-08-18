@@ -166,8 +166,10 @@ model Test {
   norms           Norm[]
   testResults     TestResult[]
   goals           PlayerGoal[]
-  changeThreshold Float?
+   changeThreshold Float?
   cv              Float?
+  alertBelow      Float?
+  alertAbove      Float?
   protocolData    String?       @db.Text
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
