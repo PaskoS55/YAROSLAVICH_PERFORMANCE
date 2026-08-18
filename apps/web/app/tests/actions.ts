@@ -103,7 +103,9 @@ function parseNumericFields(formData: FormData): NumericFields | { error: string
   };
 }
 
-export async function createTest(formData: FormData) {
+export type TestState = { error: string } | { ok: boolean } | null;
+
+export async function createTest(_state: TestState, formData: FormData): Promise<TestState> {
   const name = str(formData.get('name'));
   if (!name) return { error: 'Укажите название теста.' };
   const code = str(formData.get('code')).toUpperCase();
@@ -151,7 +153,7 @@ export async function createTest(formData: FormData) {
   return { ok: true };
 }
 
-export async function updateTest(formData: FormData) {
+export async function updateTest(_state: TestState, formData: FormData): Promise<TestState> {
   const id = str(formData.get('id'));
   const test = await prisma.test.findUnique({
     where: { id },
