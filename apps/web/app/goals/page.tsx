@@ -30,6 +30,8 @@ const statusLabel: Record<string, string> = {
   WORK: 'В работе',
 };
 
+type StatusKey = 'DONE' | 'OVERDUE' | 'SOON' | 'WORK';
+
 export default async function GoalsPage({
   searchParams,
 }: {
@@ -54,15 +56,33 @@ export default async function GoalsPage({
     orderBy: { targetDate: 'asc' },
   });
 
-  const goals = [];
-  for (const g of goalsRaw) {
-    const last = await prisma.testResult.findFirst({
-      where: { playerId: g.playerId, testId: g.testId, deletedAt: null },
-      orderBy: { testSession: { DateTime: 'desc' } },
-    });
-    const current = last?.value ?? null;
+  // Один запрос вместо N+1: последние результаты по всем парам (playerId, testId)
+  const playerIds = [...new Set(goalsRaw.map((g) => g.playerId))];
+  const testIds = [...new Set(goalsRaw.map((g) => g.testId))];
+  const results = await prisma.testResult.findMany({
+    where: {
+      playerId: { in: playerIds },
+      testId: { in: testIds },
+      deletedAt: null,
+    },
+    orderBy: { testSession: { DateTime: 'desc' } },
+  });
+  const latestByPair = new Map<string, number>();
+  for (const r of results) {
+    const key = `${r.playerId}|${r.testId}`;
+    if (!latestByPair.has(key)) latestByPair.set(key, r.value);
+  }
 
-    let statusKey: 'DONE' | 'OVERDUE' | 'SOON' | 'WORK';
+  const goals: ((typeof goalsRaw)[number] & {
+    current: number | null;
+    statusKey: StatusKey;
+    pct: number;
+  })[] = [];
+
+  for (const g of goalsRaw) {
+    const current = latestByPair.get(`${g.playerId}|${g.testId}`) ?? null;
+
+    let statusKey: StatusKey;
     if (g.achieved) {
       statusKey = 'DONE';
     } else {
@@ -152,7 +172,7 @@ export default async function GoalsPage({
         {chips.map((c) => (
           <Link
             key={c.key}
-            href={`/goals${c.key === 'ALL' ? '' : `?f=${c.key}`}`}
+                        href={(c.key === 'ALL' ? '/goals' : `/goals?f=${c.key}`) as any}
             className={`rounded-full border px-3 py-1 text-sm ${
               f === c.key
                 ? 'chip-active'

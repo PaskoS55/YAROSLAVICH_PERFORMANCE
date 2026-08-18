@@ -23,7 +23,7 @@ export async function login(formData: FormData) {
   }
 
   if (safeCompare(password, expected)) {
-    const sessionToken = createSession();
+    const sessionToken = await createSession();
     const isProduction = process.env.NODE_ENV === 'production';
     cookies().set('yp_auth', sessionToken, {
       httpOnly: true,

@@ -1,8 +1,6 @@
-import { createHmac } from 'crypto';
-
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 дней
 
-function getSecret(): string {
+async function getSecret(): Promise<string> {
   const secret = process.env.AUTH_SESSION_SECRET;
   if (!secret) {
     throw new Error('AUTH_SESSION_SECRET not set in environment variables');
@@ -10,30 +8,38 @@ function getSecret(): string {
   return secret;
 }
 
-export function createSession(): string {
+async function sign(payload: string, secret: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payload));
+  return Array.from(new Uint8Array(signature))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export async function createSession(): Promise<string> {
   const exp = Date.now() + SESSION_TTL_SECONDS * 1000;
   const payload = `${exp}`;
-  const hmac = createHmac('sha256', getSecret())
-    .update(payload)
-    .digest('hex');
+  const secret = await getSecret();
+  const hmac = await sign(payload, secret);
   return `${payload}.${hmac}`;
 }
 
-export function verifySession(token: string): boolean {
+export async function verifySession(token: string): Promise<boolean> {
   try {
     const parts = token.split('.');
     if (parts.length !== 2) return false;
     const [payload, signature] = parts;
     const exp = parseInt(payload, 10);
-    if (Number.isNaN(exp)) return false;
-    if (Date.now() > exp) return false; // Истёк
-
-    const expectedSig = createHmac('sha256', getSecret())
-      .update(payload)
-      .digest('hex');
-    if (signature !== expectedSig) return false; // Неверная подпись
-
-    return true;
+    if (Number.isNaN(exp) || Date.now() > exp) return false;
+    const secret = await getSecret();
+    const expectedSig = await sign(payload, secret);
+    return signature === expectedSig;
   } catch {
     return false;
   }

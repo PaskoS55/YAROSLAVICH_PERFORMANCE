@@ -5,14 +5,20 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { validatePlayerFields } from '../../../../lib/player';
 
-export async function updatePlayer(formData: FormData) {
+export async function updatePlayer(formData: FormData): Promise<void> {
   const id = String(formData.get('id'));
 
   const existing = await prisma.player.findFirst({ where: { id, deletedAt: null } });
-  if (!existing) return { error: 'Игрок не найден или удалён.' };
+  if (!existing) {
+    console.error('updatePlayer: игрок не найден или удалён.');
+    return;
+  }
 
   const v = validatePlayerFields(formData);
-  if (!v.ok) return { error: v.error };
+  if (!v.ok) {
+    console.error('updatePlayer:', v.error);
+    return;
+  }
   const d = v.data as {
     lastName: string;
     firstName: string;
@@ -30,7 +36,10 @@ export async function updatePlayer(formData: FormData) {
   const code = d.playerIdInput || existing.playerId;
   if (code !== existing.playerId) {
     const dup = await prisma.player.findFirst({ where: { playerId: code, deletedAt: null } });
-    if (dup) return { error: `Игрок с кодом «${code}» уже существует.` };
+    if (dup) {
+      console.error(`updatePlayer: игрок с кодом «${code}» уже существует.`);
+      return;
+    }
   }
 
   await prisma.player.update({
@@ -58,10 +67,13 @@ export async function updatePlayer(formData: FormData) {
   redirect(`/players/${id}`);
 }
 
-export async function archivePlayer(formData: FormData) {
+export async function archivePlayer(formData: FormData): Promise<void> {
   const id = String(formData.get('id'));
   const existing = await prisma.player.findFirst({ where: { id, deletedAt: null } });
-  if (!existing) return { error: 'Игрок не найден или уже удалён.' };
+  if (!existing) {
+    console.error('archivePlayer: игрок не найден или уже удалён.');
+    return;
+  }
 
   await prisma.player.update({ where: { id }, data: { deletedAt: new Date() } });
   revalidatePath('/players', 'layout');
@@ -70,10 +82,13 @@ export async function archivePlayer(formData: FormData) {
   redirect('/players');
 }
 
-export async function restorePlayer(formData: FormData) {
+export async function restorePlayer(formData: FormData): Promise<void> {
   const id = String(formData.get('id'));
   const existing = await prisma.player.findFirst({ where: { id, NOT: { deletedAt: null } } });
-  if (!existing) return { error: 'Игрок не найден или не удалён.' };
+  if (!existing) {
+    console.error('restorePlayer: игрок не найден или не удалён.');
+    return;
+  }
 
   await prisma.player.update({ where: { id }, data: { deletedAt: null } });
   revalidatePath('/players', 'layout');

@@ -1,9 +1,25 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
+import type {
+  Organization,
+  Team,
+  Season,
+  TestCategory,
+  Player,
+  Test,
+  Norm,
+  TestSession,
+  TestResult,
+  BodyComposition,
+  PlayerGoal,
+  Equipment,
+  QCFlag,
+  ImportJob,
+  AuditLog,
+} from '@prisma/client';
 
 export async function POST(req: Request) {
-  // Серверная проверка подтверждения — нельзя обойти прямым POST
   const confirm = req.headers.get('X-Restore-Confirm');
   if (confirm !== 'ВОССТАНОВИТЬ') {
     return NextResponse.json(
@@ -29,29 +45,27 @@ export async function POST(req: Request) {
     );
   }
 
-  const arr = <T>(k: string): T[] =>
-    Array.isArray(backup[k]) ? (backup[k] as T[]) : [];
+  const arr = <T>(k: string): T[] => (Array.isArray(backup[k]) ? (backup[k] as T[]) : []);
 
-  const organizations = arr<Record<string, unknown>>('organizations');
-  const teams = arr<Record<string, unknown>>('teams');
-  const seasons = arr<Record<string, unknown>>('seasons');
-  const testCategories = arr<Record<string, unknown>>('testCategories');
-  const players = arr<Record<string, unknown>>('players');
-  const tests = arr<Record<string, unknown>>('tests');
-  const norms = arr<Record<string, unknown>>('norms');
-  const testSessions = arr<Record<string, unknown>>('testSessions');
-  const testResults = arr<Record<string, unknown>>('testResults');
-  const bodyCompositions = arr<Record<string, unknown>>('bodyCompositions');
-  const playerGoals = arr<Record<string, unknown>>('playerGoals');
-  const equipment = arr<Record<string, unknown>>('equipment');
-  const qcFlags = arr<Record<string, unknown>>('qcFlags');
-  const importJobs = arr<Record<string, unknown>>('importJobs');
-  const auditLogs = arr<Record<string, unknown>>('auditLogs');
+  const organizations = arr<Organization>('organizations');
+  const teams = arr<Team>('teams');
+  const seasons = arr<Season>('seasons');
+  const testCategories = arr<TestCategory>('testCategories');
+  const players = arr<Player>('players');
+  const tests = arr<Test>('tests');
+  const norms = arr<Norm>('norms');
+  const testSessions = arr<TestSession>('testSessions');
+  const testResults = arr<TestResult>('testResults');
+  const bodyCompositions = arr<BodyComposition>('bodyCompositions');
+  const playerGoals = arr<PlayerGoal>('playerGoals');
+  const equipment = arr<Equipment>('equipment');
+  const qcFlags = arr<QCFlag>('qcFlags');
+  const importJobs = arr<ImportJob>('importJobs');
+  const auditLogs = arr<AuditLog>('auditLogs');
   const teamSeasonLinks = arr<{ teamId: string; seasonId: string }>('teamSeasonLinks');
 
   try {
     await prisma.$transaction(async (tx) => {
-      // Удаляем детей → родителей
       await tx.qCFlag.deleteMany();
       await tx.testResult.deleteMany();
       await tx.bodyComposition.deleteMany();
@@ -68,7 +82,6 @@ export async function POST(req: Request) {
       await tx.importJob.deleteMany();
       await tx.auditLog.deleteMany();
 
-      // Вставляем родителей → детей, сохраняя исходные id
       if (organizations.length) await tx.organization.createMany({ data: organizations });
       if (teams.length) await tx.team.createMany({ data: teams });
       if (seasons.length) await tx.season.createMany({ data: seasons });
@@ -83,10 +96,20 @@ export async function POST(req: Request) {
         await tx.bodyComposition.createMany({ data: bodyCompositions });
       if (playerGoals.length) await tx.playerGoal.createMany({ data: playerGoals });
       if (qcFlags.length) await tx.qCFlag.createMany({ data: qcFlags });
-      if (importJobs.length) await tx.importJob.createMany({ data: importJobs });
-      if (auditLogs.length) await tx.auditLog.createMany({ data: auditLogs });
+      
+      // importJobs и auditLogs могут содержать JSON null — используем create по одному
+      for (const job of importJobs) {
+        await tx.importJob.create({
+          data: {
+            ...job,
+            errors: job.errors ?? undefined,
+          } as any,
+        });
+      }
+      for (const log of auditLogs) {
+        await tx.auditLog.create({ data: log as any });
+      }
 
-      // Восстанавливаем implicit many-to-many Team ↔ Season
       for (const link of teamSeasonLinks) {
         if (link.teamId && link.seasonId) {
           await tx.team.update({

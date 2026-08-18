@@ -55,12 +55,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
       testSessions: {
         where: { deletedAt: null },
         orderBy: { DateTime: 'desc' },
-        include: {
-          testResults: {
-            where: { deletedAt: null },
-            include: { test: true },
-          },
-        },
+        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
       },
       goals: { include: { test: true } },
     },
@@ -82,12 +77,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
     include: {
       testSessions: {
         where: { deletedAt: null },
-        include: {
-          testResults: {
-            where: { deletedAt: null },
-            include: { test: true },
-          },
-        },
+        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
       },
     },
   });
@@ -124,9 +114,8 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
     }
   }
 
-  // Динамические предупреждения: пороги настроены в конструкторе теста
   const alerts: string[] = [];
-  for (const { value, name, unit, alertBelow, alertAbove } of latest.values()) {
+  for (const { value, name, unit, alertBelow, alertAbove } of Array.from(latest.values())) {
     if (alertBelow !== null && value <= alertBelow) {
       alerts.push(
         `Низкий результат по тесту «${name}» (${value} ${unit} при пороге ${alertBelow}) — консультация специалиста.`
@@ -140,7 +129,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
   }
 
   const catAcc = new Map<string, { sum: number; count: number }>();
-  for (const { value, code, categoryId, direction } of latest.values()) {
+  for (const { value, code, categoryId, direction } of Array.from(latest.values())) {
     if (!categoryId || !radarCatIds.has(categoryId)) continue;
     const pct = computePercentile(value, normByKey.get(`${player.position}|${code}`) ?? null, direction);
     if (pct === null) continue;
@@ -172,7 +161,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
       }
     }
     const pCat = new Map<string, { sum: number; count: number }>();
-    for (const { value, code, categoryId, direction } of tLatest.values()) {
+    for (const { value, code, categoryId, direction } of Array.from(tLatest.values())) {
       if (!categoryId || !radarCatIds.has(categoryId)) continue;
       const pct = computePercentile(value, normByKey.get(`${tp.position}|${code}`) ?? null, direction);
       if (pct === null) continue;
@@ -181,7 +170,7 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
       acc.count += 1;
       pCat.set(categoryId, acc);
     }
-    for (const [catId, acc] of pCat) {
+    for (const [catId, acc] of Array.from(pCat)) {
       const t = teamAcc.get(catId) ?? { sum: 0, count: 0 };
       t.sum += acc.sum / acc.count;
       t.count += 1;

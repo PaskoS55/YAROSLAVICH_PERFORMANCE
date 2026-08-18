@@ -9,7 +9,12 @@ const toDate = (s: string) => (s === '' ? null : new Date(s + 'T12:00:00.000Z'))
 
 const ALLOWED = new Set(['ACTIVE', 'MAINTENANCE', 'BROKEN', 'RETIRED']);
 
-export async function createEquipment(formData: FormData) {
+export type EquipmentState = { ok?: boolean; error?: string } | null;
+
+export async function createEquipment(
+  _state: EquipmentState,
+  formData: FormData
+): Promise<EquipmentState> {
   const code = str(formData.get('code')).toUpperCase();
   const name = str(formData.get('name'));
   if (!code || !name) return { error: 'Укажите код и название.' };
@@ -33,7 +38,10 @@ export async function createEquipment(formData: FormData) {
   return { ok: true };
 }
 
-export async function updateEquipment(formData: FormData) {
+export async function updateEquipment(
+  _state: EquipmentState,
+  formData: FormData
+): Promise<EquipmentState> {
   const id = str(formData.get('id'));
   if (!id) return { error: 'Запись не найдена.' };
   const code = str(formData.get('code')).toUpperCase();

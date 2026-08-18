@@ -88,7 +88,7 @@ export default async function AnalyticsPage({
   }
 
   const catAcc = new Map<string, { sum: number; count: number }>();
-  for (const { value, testCode, categoryId, direction } of latest.values()) {
+  for (const { value, testCode, categoryId, direction } of Array.from(latest.values())) {
     if (!categoryId || !radarCatIds.has(categoryId)) continue;
     const pct = computePercentile(
       value,
@@ -124,7 +124,7 @@ export default async function AnalyticsPage({
       }
     }
     const pCat = new Map<string, { sum: number; count: number }>();
-    for (const { value, testCode, categoryId, direction } of tLatest.values()) {
+    for (const { value, testCode, categoryId, direction } of Array.from(tLatest.values())) {
       if (!categoryId || !radarCatIds.has(categoryId)) continue;
       const pct = computePercentile(
         value,
@@ -137,7 +137,7 @@ export default async function AnalyticsPage({
       acc.count += 1;
       pCat.set(categoryId, acc);
     }
-    for (const [catId, acc] of pCat) {
+    for (const [catId, acc] of Array.from(pCat)) {
       const t = teamAcc.get(catId) ?? { sum: 0, count: 0 };
       t.sum += acc.sum / acc.count;
       t.count += 1;

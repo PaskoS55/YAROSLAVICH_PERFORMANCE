@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { verifySession } from './lib/session';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Открытые пути: вход, auth-API и статические файлы
@@ -16,7 +16,7 @@ export function middleware(request: NextRequest) {
 
   // Проверяем подписанную сессию
   const token = request.cookies.get('yp_auth')?.value;
-  if (!token || !verifySession(token)) {
+  if (!token || !(await verifySession(token))) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
   return NextResponse.next();

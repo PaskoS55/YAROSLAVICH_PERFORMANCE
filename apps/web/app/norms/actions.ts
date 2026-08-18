@@ -80,8 +80,7 @@ export async function createNorms(_state: NormState, formData: FormData): Promis
     if (values.some((v) => !Number.isFinite(v)))
       return { error: `Заполните все пять значений для позиции «${positionLabels[pos]}».` };
     const orderError = checkOrder(test.direction, values);
-    if (orderError)
-      return { error: `«${positionLabels[pos]}»: ${orderError}` };
+    if (orderError) return { error: `«${positionLabels[pos]}»: ${orderError}` };
     const existing = await prisma.norm.findFirst({
       where: { testCode, position: pos, deletedAt: null },
     });
@@ -92,7 +91,7 @@ export async function createNorms(_state: NormState, formData: FormData): Promis
 
   await prisma.norm.createMany({
     data: rows.map((r) => ({
-      testCode,
+      testCode: testCode,
       position: r.position,
       anchor10: r.values[0],
       anchor25: r.values[1],

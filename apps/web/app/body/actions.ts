@@ -11,7 +11,7 @@ const num = (v: FormDataEntryValue | null) => {
   return s === '' ? null : Number(s);
 };
 
-export async function createBodyComposition(formData: FormData) {
+export async function createBodyComposition(formData: FormData): Promise<void> {
   const playerId = String(formData.get('playerId') ?? '');
   const dateStr = String(formData.get('date') ?? '');
   const mass = num(formData.get('mass'));
@@ -21,73 +21,105 @@ export async function createBodyComposition(formData: FormData) {
   const phaseStr = String(formData.get('sessionPhase') ?? 'INSEASON').toUpperCase();
 
   // Валидация
-  if (!playerId || !dateStr) return { error: 'Игрок и дата обязательны.' };
-  if (mass === null || fat === null || ffm === null)
-    return { error: 'Масса, жир и БЖМ обязательны.' };
-  if (!Number.isFinite(mass) || !Number.isFinite(fat) || !Number.isFinite(ffm))
-    return { error: 'Все значения должны быть числами.' };
-  if (mass <= 0 || mass > 300) return { error: 'Масса должна быть от 0 до 300 кг.' };
-  if (fat < 0 || fat > 60) return { error: 'Процент жира должен быть от 0 до 60%.' };
-  if (ffm <= 0 || ffm > 300) return { error: 'БЖМ должна быть от 0 до 300 кг.' };
-  if (phase !== null && (!Number.isFinite(phase) || phase < 0 || phase > 15))
-    return { error: 'Фазовый угол должен быть от 0 до 15°.' };
-  if (!PHASES.has(phaseStr)) return { error: 'Некорректная фаза сезона.' };
+  if (!playerId || !dateStr) {
+    console.error('Body composition: игрок и дата обязательны.');
+    return;
+  }
+  if (mass === null || fat === null || ffm === null) {
+    console.error('Body composition: масса, жир и БЖМ обязательны.');
+    return;
+  }
+  if (!Number.isFinite(mass) || !Number.isFinite(fat) || !Number.isFinite(ffm)) {
+    console.error('Body composition: все значения должны быть числами.');
+    return;
+  }
+  if (mass <= 0 || mass > 300) {
+    console.error('Body composition: масса должна быть от 0 до 300 кг.');
+    return;
+  }
+  if (fat < 0 || fat > 60) {
+    console.error('Body composition: процент жира должен быть от 0 до 60%.');
+    return;
+  }
+  if (ffm <= 0 || ffm > 300) {
+    console.error('Body composition: БЖМ должна быть от 0 до 300 кг.');
+    return;
+  }
+  if (phase !== null && (!Number.isFinite(phase) || phase < 0 || phase > 15)) {
+    console.error('Body composition: фазовый угол должен быть от 0 до 15°.');
+    return;
+  }
+  if (!PHASES.has(phaseStr)) {
+    console.error('Body composition: некорректная фаза сезона.');
+    return;
+  }
 
   const date = new Date(dateStr + 'T12:00:00.000Z');
-  if (Number.isNaN(date.getTime())) return { error: 'Некорректная дата.' };
+  if (Number.isNaN(date.getTime())) {
+    console.error('Body composition: некорректная дата.');
+    return;
+  }
 
   const player = await prisma.player.findFirst({
     where: { id: playerId, deletedAt: null },
   });
-  if (!player) return { error: 'Игрок не найден или удалён.' };
+  if (!player) {
+    console.error('Body composition: игрок не найден или удалён.');
+    return;
+  }
 
   const season = await prisma.season.findFirst();
-  if (!season) return { error: 'Не настроен сезон — создайте его в настройках.' };
+  if (!season) {
+    console.error('Body composition: не настроен сезон.');
+    return;
+  }
 
-  // Атомарная запись: сессия + body composition
-  await prisma.$transaction(async (tx) => {
-    let session = await tx.testSession.findFirst({
-      where: {
-        playerId,
-        DateTime: date,
-        phase: phaseStr as Phase,
-        deletedAt: null,
-      },
-    });
-
-    if (!session) {
-      let n = (await tx.testSession.count()) + 1;
-      let sessionId = `S${String(n).padStart(3, '0')}`;
-      while (await tx.testSession.findUnique({ where: { sessionId } })) {
-        n += 1;
-        sessionId = `S${String(n).padStart(3, '0')}`;
-      }
-      session = await tx.testSession.create({
-        data: {
-          sessionId,
+  try {
+    await prisma.$transaction(async (tx) => {
+      let session = await tx.testSession.findFirst({
+        where: {
+          playerId,
           DateTime: date,
           phase: phaseStr as Phase,
-          playerId,
-          teamId: player.teamId,
-          seasonId: season.id,
+          deletedAt: null,
         },
       });
-    }
 
-    await tx.bodyComposition.create({
-      data: {
-        playerId,
-        testSessionId: session.id,
-        mass_kg: mass,
-        fat_pct: fat,
-        ffm_kg: ffm,
-        phase_angle: phase,
-      },
+      if (!session) {
+        let n = (await tx.testSession.count()) + 1;
+        let sessionId = `S${String(n).padStart(3, '0')}`;
+        while (await tx.testSession.findUnique({ where: { sessionId } })) {
+          n += 1;
+          sessionId = `S${String(n).padStart(3, '0')}`;
+        }
+        session = await tx.testSession.create({
+          data: {
+            sessionId,
+            DateTime: date,
+            phase: phaseStr as Phase,
+            playerId,
+            teamId: player.teamId,
+            seasonId: season.id,
+          },
+        });
+      }
+
+      await tx.bodyComposition.create({
+        data: {
+          playerId,
+          testSessionId: session.id,
+          mass_kg: mass,
+          fat_pct: fat,
+          ffm_kg: ffm,
+          phase_angle: phase,
+        },
+      });
     });
-  });
 
-  revalidatePath('/body');
-  revalidatePath('/players', 'layout');
-  revalidatePath('/analytics', 'layout');
-  return { ok: true };
+    revalidatePath('/body');
+    revalidatePath('/players', 'layout');
+    revalidatePath('/analytics', 'layout');
+  } catch (err) {
+    console.error('Body composition: ошибка записи', err);
+  }
 }
