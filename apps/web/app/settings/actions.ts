@@ -6,9 +6,12 @@ import { revalidatePath } from 'next/cache';
 const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 const toDate = (s: string) => (s ? new Date(s + 'T12:00:00.000Z') : null);
 
-export async function updateOrganization(formData: FormData) {
+export async function updateOrganization(formData: FormData): Promise<void> {
   const name = str(formData.get('name'));
-  if (!name) return { error: 'Название обязательно.' };
+  if (!name) {
+    console.error('updateOrganization: название обязательно.');
+    return;
+  }
 
   const org = await prisma.organization.findFirst();
   if (org) {
@@ -18,12 +21,14 @@ export async function updateOrganization(formData: FormData) {
   }
   revalidatePath('/settings');
   revalidatePath('/team', 'layout');
-  return { ok: true };
 }
 
-export async function updateTeam(formData: FormData) {
+export async function updateTeam(formData: FormData): Promise<void> {
   const name = str(formData.get('name'));
-  if (!name) return { error: 'Название обязательно.' };
+  if (!name) {
+    console.error('updateTeam: название обязательно.');
+    return;
+  }
 
   // Team требует organizationId — находим или создаём Organization
   let org = await prisma.organization.findFirst();
@@ -45,24 +50,31 @@ export async function updateTeam(formData: FormData) {
   }
   revalidatePath('/settings');
   revalidatePath('/team', 'layout');
-  return { ok: true };
 }
 
-export async function updateSeason(formData: FormData) {
+export async function updateSeason(formData: FormData): Promise<void> {
   const name = str(formData.get('name'));
   const startDate = str(formData.get('startDate'));
   const endDate = str(formData.get('endDate'));
 
-  if (!name) return { error: 'Название сезона обязательно.' };
-  if (!startDate || !endDate) return { error: 'Укажите даты начала и окончания.' };
+  if (!name) {
+    console.error('updateSeason: название сезона обязательно.');
+    return;
+  }
+  if (!startDate || !endDate) {
+    console.error('updateSeason: укажите даты начала и окончания.');
+    return;
+  }
 
   const start = toDate(startDate);
   const end = toDate(endDate);
   if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return { error: 'Некорректные даты.' };
+    console.error('updateSeason: некорректные даты.');
+    return;
   }
   if (end < start) {
-    return { error: 'Окончание сезона не может быть раньше начала.' };
+    console.error('updateSeason: окончание сезона не может быть раньше начала.');
+    return;
   }
 
   const season = await prisma.season.findFirst();
@@ -76,10 +88,9 @@ export async function updateSeason(formData: FormData) {
   }
 
   revalidatePath('/settings');
-  return { ok: true };
 }
 
-export async function resetDemoData() {
+export async function resetDemoData(): Promise<void> {
   // Удаляем рабочие данные, но сохраняем нормативы, справочник тестов и оборудование
   // Порядок: дети → родители (BodyComposition имеет FK на TestSession)
   await prisma.qCFlag.deleteMany();
@@ -95,5 +106,4 @@ export async function resetDemoData() {
   revalidatePath('/players', 'layout');
   revalidatePath('/sessions', 'layout');
   revalidatePath('/settings');
-  return { ok: true };
 }
