@@ -25,11 +25,23 @@ export async function updateTeam(formData: FormData) {
   const name = str(formData.get('name'));
   if (!name) return { error: 'Название обязательно.' };
 
+  // Team требует organizationId — находим или создаём Organization
+  let org = await prisma.organization.findFirst();
+  if (!org) {
+    org = await prisma.organization.create({ data: { name: 'Организация', code: 'ORG' } });
+  }
+
   const team = await prisma.team.findFirst();
   if (team) {
     await prisma.team.update({ where: { id: team.id }, data: { name } });
   } else {
-    await prisma.team.create({ data: { name, code: 'TEAM' } });
+    await prisma.team.create({
+      data: {
+        name,
+        code: 'TEAM',
+        organizationId: org.id,
+      },
+    });
   }
   revalidatePath('/settings');
   revalidatePath('/team', 'layout');
@@ -69,11 +81,12 @@ export async function updateSeason(formData: FormData) {
 
 export async function resetDemoData() {
   // Удаляем рабочие данные, но сохраняем нормативы, справочник тестов и оборудование
+  // Порядок: дети → родители (BodyComposition имеет FK на TestSession)
   await prisma.qCFlag.deleteMany();
   await prisma.playerGoal.deleteMany();
   await prisma.testResult.deleteMany();
-  await prisma.testSession.deleteMany();
   await prisma.bodyComposition.deleteMany();
+  await prisma.testSession.deleteMany();
   await prisma.player.deleteMany();
   await prisma.importJob.deleteMany();
   await prisma.auditLog.deleteMany();
