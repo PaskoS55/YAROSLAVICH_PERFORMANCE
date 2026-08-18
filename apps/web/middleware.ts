@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { verifySession } from './lib/session';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Открытые пути: вход, auth-API и статические файлы (логотип и т.п.)
+  // Открытые пути: вход, auth-API и статические файлы
   if (
     pathname.startsWith('/login') ||
     pathname.startsWith('/api/auth') ||
@@ -13,10 +14,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Проверяем наличие валидной сессии (не сам пароль, а флаг)
+  // Проверяем подписанную сессию
   const token = request.cookies.get('yp_auth')?.value;
-
-  if (token !== 'authenticated') {
+  if (!token || !verifySession(token)) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
   return NextResponse.next();
