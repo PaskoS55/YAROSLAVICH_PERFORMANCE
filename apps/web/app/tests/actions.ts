@@ -204,11 +204,13 @@ export async function updateTest(formData: FormData) {
   return { ok: true };
 }
 
-export async function archiveTest(formData: FormData) {
+export async function archiveTest(formData: FormData): Promise<void> {
   const id = str(formData.get('id'));
   const test = await prisma.test.findUnique({ where: { id } });
-  if (!test) return { error: 'Тест не найден.' };
+  if (!test) {
+    console.error('archiveTest: тест не найден.');
+    return;
+  }
   await prisma.test.update({ where: { id }, data: { deletedAt: new Date() } });
   revalidateAll();
-  return { ok: true };
 }
