@@ -5,10 +5,11 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { validatePlayerFields } from '../../../lib/player';
 
-export async function createPlayer(formData: FormData) {
+export async function createPlayer(formData: FormData): Promise<void> {
   const v = validatePlayerFields(formData);
   if (!v.ok) {
-    return { error: v.error };
+    console.error('createPlayer:', v.error);
+    return;
   }
   const d = v.data as {
     lastName: string;
@@ -17,11 +18,17 @@ export async function createPlayer(formData: FormData) {
     playerIdInput: string;
     position: string;
     height: number | null;
+    number: number | null;
     birthDate: Date | null;
+    joinedDate: Date | null;
+    comment: string | null;
   };
 
   const team = await prisma.team.findFirst();
-  if (!team) return { error: 'Команда не настроена — создайте её в настройках.' };
+  if (!team) {
+    console.error('createPlayer: команда не настроена — создайте её в настройках.');
+    return;
+  }
 
   let code = d.playerIdInput;
   if (!code) {
@@ -33,7 +40,10 @@ export async function createPlayer(formData: FormData) {
     }
   } else {
     const dup = await prisma.player.findFirst({ where: { playerId: code, deletedAt: null } });
-    if (dup) return { error: `Игрок с кодом «${code}» уже существует.` };
+    if (dup) {
+      console.error(`createPlayer: игрок с кодом «${code}» уже существует.`);
+      return;
+    }
   }
 
   await prisma.player.create({
@@ -44,7 +54,10 @@ export async function createPlayer(formData: FormData) {
       middleName: d.middleName,
       position: d.position,
       height: d.height,
+      number: d.number,
       birthDate: d.birthDate,
+      joinedDate: d.joinedDate,
+      comment: d.comment,
       status: 'ACTIVE',
       teamId: team.id,
     },
