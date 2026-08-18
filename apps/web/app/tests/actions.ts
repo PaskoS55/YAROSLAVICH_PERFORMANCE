@@ -3,6 +3,7 @@
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
+import type { Direction } from '@prisma/client';
 
 const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 
@@ -129,7 +130,7 @@ export async function createTest(formData: FormData) {
       code,
       name,
       unit,
-      direction,
+      direction: direction as Direction,
       categoryId: cat,
       isSystem: false,
       createdBy: 'coach',
@@ -185,7 +186,7 @@ export async function updateTest(formData: FormData) {
     data: {
       name,
       unit,
-      direction,
+      direction: direction as Direction,
       categoryId: cat,
       qcMin: nums.qcMin,
       qcMax: nums.qcMax,
