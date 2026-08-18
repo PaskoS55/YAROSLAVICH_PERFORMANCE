@@ -8,7 +8,6 @@ const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 
 type NumParse = { value: number | null } | { error: string };
 
-// Пусто → null (допустимо). Нечисловое значение → ошибка, а не молчаливый null.
 function parseNum(s: string, label: string): NumParse {
   const t = s.replace(',', '.');
   if (t === '') return { value: null };
@@ -27,6 +26,7 @@ function revalidateAll() {
   revalidatePath('/analytics', 'layout');
   revalidatePath('/compare');
   revalidatePath('/goals', 'layout');
+  revalidatePath('/players', 'layout');
 }
 
 async function resolveCategory(formData: FormData): Promise<string | { error: string }> {
@@ -72,6 +72,8 @@ type NumericFields = {
   qcMax: number | null;
   changeThreshold: number | null;
   cv: number | null;
+  alertBelow: number | null;
+  alertAbove: number | null;
 };
 
 function parseNumericFields(formData: FormData): NumericFields | { error: string } {
@@ -83,6 +85,10 @@ function parseNumericFields(formData: FormData): NumericFields | { error: string
   if ('error' in changeThreshold) return changeThreshold;
   const cv = parseNum(str(formData.get('cv')), 'CV');
   if ('error' in cv) return cv;
+  const alertBelow = parseNum(str(formData.get('alertBelow')), 'Порог «ниже»');
+  if ('error' in alertBelow) return alertBelow;
+  const alertAbove = parseNum(str(formData.get('alertAbove')), 'Порог «выше»');
+  if ('error' in alertAbove) return alertAbove;
   if (qcMin.value !== null && qcMax.value !== null && qcMin.value > qcMax.value) {
     return { error: 'QC минимум больше QC максимума.' };
   }
@@ -91,6 +97,8 @@ function parseNumericFields(formData: FormData): NumericFields | { error: string
     qcMax: qcMax.value,
     changeThreshold: changeThreshold.value,
     cv: cv.value,
+    alertBelow: alertBelow.value,
+    alertAbove: alertAbove.value,
   };
 }
 
@@ -130,6 +138,8 @@ export async function createTest(formData: FormData) {
       qcDescription: str(formData.get('qcDescription')) || null,
       changeThreshold: nums.changeThreshold,
       cv: nums.cv,
+      alertBelow: nums.alertBelow,
+      alertAbove: nums.alertAbove,
       equipment: str(formData.get('equipment')) || null,
       source: str(formData.get('source')) || null,
       comment: str(formData.get('comment')) || null,
@@ -182,6 +192,8 @@ export async function updateTest(formData: FormData) {
       qcDescription: str(formData.get('qcDescription')) || null,
       changeThreshold: nums.changeThreshold,
       cv: nums.cv,
+      alertBelow: nums.alertBelow,
+      alertAbove: nums.alertAbove,
       equipment: str(formData.get('equipment')) || null,
       source: str(formData.get('source')) || null,
       comment: str(formData.get('comment')) || null,

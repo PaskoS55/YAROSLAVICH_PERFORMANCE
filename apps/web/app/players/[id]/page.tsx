@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PrintButton from './print-button';
 import RadarChart from '../../../components/RadarChart';
+import { computePercentile } from '../../../lib/analytics';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -46,38 +47,6 @@ function fmtDate(d: Date | null | undefined) {
   return new Date(d).toLocaleDateString('ru-RU');
 }
 
-function computePercentile(
-  value: number,
-  norm: {
-    anchor10: number;
-    anchor25: number;
-    anchor50: number;
-    anchor75: number;
-    anchor90: number;
-  } | null,
-  direction: string
-): number | null {
-  if (!norm) return null;
-  const anchors = [
-    { v: norm.anchor10 },
-    { v: norm.anchor25 },
-    { v: norm.anchor50 },
-    { v: norm.anchor75 },
-    { v: norm.anchor90 },
-  ].sort((a, b) => a.v - b.v);
-  const seq = direction === 'LOWER_IS_BETTER' ? [90, 75, 50, 25, 10] : [10, 25, 50, 75, 90];
-  const pts = anchors.map((a, i) => ({ v: a.v, p: seq[i] }));
-  if (value <= pts[0].v) return pts[0].p;
-  if (value >= pts[4].v) return pts[4].p;
-  for (let i = 0; i < 4; i++) {
-    if (value >= pts[i].v && value <= pts[i + 1].v) {
-      const ratio = (value - pts[i].v) / (pts[i + 1].v - pts[i].v);
-      return Math.round(pts[i].p + ratio * (pts[i + 1].p - pts[i].p));
-    }
-  }
-  return 50;
-}
-
 export default async function PlayerCardPage({ params }: { params: { id: string } }) {
   const player = await prisma.player.findUnique({
     where: { id: params.id },
@@ -86,7 +55,12 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
       testSessions: {
         where: { deletedAt: null },
         orderBy: { DateTime: 'desc' },
-        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
+        include: {
+          testResults: {
+            where: { deletedAt: null },
+            include: { test: true },
+          },
+        },
       },
       goals: { include: { test: true } },
     },
@@ -108,7 +82,12 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
     include: {
       testSessions: {
         where: { deletedAt: null },
-        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
+        include: {
+          testResults: {
+            where: { deletedAt: null },
+            include: { test: true },
+          },
+        },
       },
     },
   });
@@ -117,7 +96,16 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
 
   const latest = new Map<
     string,
-    { value: number; code: string; categoryId: string | null; direction: string }
+    {
+      value: number;
+      code: string;
+      name: string;
+      unit: string;
+      categoryId: string | null;
+      direction: string;
+      alertBelow: number | null;
+      alertAbove: number | null;
+    }
   >();
   for (const s of player.testSessions) {
     for (const r of s.testResults) {
@@ -125,14 +113,31 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
         latest.set(r.testId, {
           value: r.value,
           code: r.test.code,
+          name: r.test.name,
+          unit: r.test.unit,
           categoryId: r.test.categoryId,
           direction: r.test.direction,
+          alertBelow: r.test.alertBelow,
+          alertAbove: r.test.alertAbove,
         });
       }
     }
   }
-  const latestByCode = new Map<string, number>();
-  for (const { value, code } of latest.values()) latestByCode.set(code, value);
+
+  // Динамические предупреждения: пороги настроены в конструкторе теста
+  const alerts: string[] = [];
+  for (const { value, name, unit, alertBelow, alertAbove } of latest.values()) {
+    if (alertBelow !== null && value <= alertBelow) {
+      alerts.push(
+        `Низкий результат по тесту «${name}» (${value} ${unit} при пороге ${alertBelow}) — консультация специалиста.`
+      );
+    }
+    if (alertAbove !== null && value >= alertAbove) {
+      alerts.push(
+        `Высокий результат по тесту «${name}» (${value} ${unit} при пороге ${alertAbove}) — консультация специалиста.`
+      );
+    }
+  }
 
   const catAcc = new Map<string, { sum: number; count: number }>();
   for (const { value, code, categoryId, direction } of latest.values()) {
@@ -217,16 +222,6 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
     }
   }
   const pbList = [...pbMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-
-  const alerts: string[] = [];
-  const mobOhs = latestByCode.get('MOB_OHS');
-  const mobSl = latestByCode.get('MOB_SL');
-  if (mobOhs !== undefined && mobOhs <= 4) {
-    alerts.push(`Низкий балл мобильности в приседе с палкой (${mobOhs}/10) — консультация специалиста.`);
-  }
-  if (mobSl !== undefined && mobSl <= 4) {
-    alerts.push(`Низкий балл выпада в линию (${mobSl}/10) — консультация специалиста.`);
-  }
 
   return (
     <div className="space-y-6 p-6">
