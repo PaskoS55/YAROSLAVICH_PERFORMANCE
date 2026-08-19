@@ -9,8 +9,9 @@ function fmtDateInput(d: Date | null | undefined) {
   return new Date(d).toISOString().split('T')[0];
 }
 
-export default async function EditPlayerPage({ params }: { params: { id: string } }) {
-  const player = await prisma.player.findUnique({ where: { id: params.id } });
+export default async function EditPlayerPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const player = await prisma.player.findUnique({ where: { id } });
   if (!player) notFound();
 
   return (

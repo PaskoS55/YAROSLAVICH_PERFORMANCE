@@ -6,13 +6,14 @@ import RadarChart from '../../components/RadarChart';
 export default async function AnalyticsPage({
   searchParams,
 }: {
-  searchParams: { playerId?: string; testId?: string };
+  searchParams: Promise<{ playerId?: string; testId?: string }>;
 }) {
+  const query = await searchParams;
   const players = await prisma.player.findMany({
     where: { deletedAt: null },
     orderBy: { lastName: 'asc' },
   });
-  const player = players.find((p) => p.id === searchParams.playerId) ?? players[0];
+  const player = players.find((p) => p.id === query.playerId) ?? players[0];
 
   if (!player) {
     return (
@@ -30,7 +31,7 @@ export default async function AnalyticsPage({
     orderBy: { name: 'asc' },
   });
   const selectedTest =
-    tests.find((t) => t.id === searchParams.testId) ??
+    tests.find((t) => t.id === query.testId) ??
     tests.find((t) => t.code === 'AGI_505') ??
     tests[0];
 
@@ -59,7 +60,9 @@ export default async function AnalyticsPage({
     include: {
       testSessions: {
         where: { deletedAt: null },
-        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
+        include: {
+          testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
+        },
       },
     },
   });
@@ -67,7 +70,9 @@ export default async function AnalyticsPage({
   const sessionsAsc = await prisma.testSession.findMany({
     where: { playerId: player.id, deletedAt: null },
     orderBy: { DateTime: 'asc' },
-    include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
+    include: {
+      testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
+    },
   });
 
   const latest = new Map<

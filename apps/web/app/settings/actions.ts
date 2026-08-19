@@ -93,14 +93,16 @@ export async function updateSeason(formData: FormData): Promise<void> {
 export async function resetDemoData(): Promise<void> {
   // Удаляем рабочие данные, но сохраняем нормативы, справочник тестов и оборудование
   // Порядок: дети → родители (BodyComposition имеет FK на TestSession)
-  await prisma.qCFlag.deleteMany();
-  await prisma.playerGoal.deleteMany();
-  await prisma.testResult.deleteMany();
-  await prisma.bodyComposition.deleteMany();
-  await prisma.testSession.deleteMany();
-  await prisma.player.deleteMany();
-  await prisma.importJob.deleteMany();
-  await prisma.auditLog.deleteMany();
+  await prisma.$transaction(async (tx) => {
+    await tx.qCFlag.deleteMany();
+    await tx.playerGoal.deleteMany();
+    await tx.testResult.deleteMany();
+    await tx.bodyComposition.deleteMany();
+    await tx.testSession.deleteMany();
+    await tx.player.deleteMany();
+    await tx.importJob.deleteMany();
+    await tx.auditLog.deleteMany();
+  });
 
   revalidatePath('/', 'layout');
   revalidatePath('/players', 'layout');

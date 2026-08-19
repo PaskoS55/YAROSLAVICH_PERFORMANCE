@@ -4,8 +4,10 @@
   "scripts": {
     "dev": "cd apps/web && npm run dev",
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test:run --workspaces --if-present",
+    "typecheck": "tsc --noEmit -p apps/web/tsconfig.json --incremental false",
     "db:migrate": "cd packages/db && npx prisma migrate dev",
+    "db:deploy": "cd packages/db && npx prisma migrate deploy",
     "db:seed": "cd packages/db && npx prisma db seed",
     "db:studio": "cd packages/db && npx prisma studio",
     "lint": "npm run lint --workspaces --if-present",
@@ -19,16 +21,16 @@
     "@types/node": "^20.11.17",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
-    "eslint": "^8.56.0",
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.3.1",
     "prettier": "^3.2.5",
     "tsx": "^4.23.12",
     "typescript": "^5.3.3",
-    "vitest": "^1.3.1"
+    "vite": "7.3.6",
+    "vitest": "3.2.6"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.19.0"
   },
   "allowScripts": {
     "@prisma/client@5.22.0": true,

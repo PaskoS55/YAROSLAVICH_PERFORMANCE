@@ -30,7 +30,7 @@ export async function saveResults(
 
   // Новые результаты по архивному тесту добавлять нельзя; исправление истории — можно
   const existing = await prisma.testResult.findMany({
-    where: { testSessionId: session.id, testId: { in: testIds }, deletedAt: null },
+    where: { testSessionId: session.id, testId: { in: testIds } },
     select: { testId: true },
   });
   const existingIds = new Set(existing.map((r) => r.testId));
@@ -49,7 +49,7 @@ export async function saveResults(
         where: {
           testSessionId_testId: { testSessionId: session.id, testId: e.testId },
         },
-        update: { value: e.value, qcStatus },
+        update: { value: e.value, qcStatus, deletedAt: null },
         create: {
           value: e.value,
           qcStatus,

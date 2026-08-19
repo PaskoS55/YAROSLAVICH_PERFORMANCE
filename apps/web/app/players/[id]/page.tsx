@@ -47,15 +47,18 @@ function fmtDate(d: Date | null | undefined) {
   return new Date(d).toLocaleDateString('ru-RU');
 }
 
-export default async function PlayerCardPage({ params }: { params: { id: string } }) {
+export default async function PlayerCardPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const player = await prisma.player.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       team: true,
       testSessions: {
         where: { deletedAt: null },
         orderBy: { DateTime: 'desc' },
-        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
+        include: {
+          testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
+        },
       },
       goals: { include: { test: true } },
     },
@@ -77,7 +80,9 @@ export default async function PlayerCardPage({ params }: { params: { id: string 
     include: {
       testSessions: {
         where: { deletedAt: null },
-        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
+        include: {
+          testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
+        },
       },
     },
   });

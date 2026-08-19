@@ -39,9 +39,15 @@ export async function createPlayer(formData: FormData): Promise<void> {
       code = `P${String(n).padStart(3, '0')}`;
     }
   } else {
-    const dup = await prisma.player.findFirst({ where: { playerId: code, deletedAt: null } });
+    const dup = await prisma.player.findUnique({
+      where: { teamId_playerId: { teamId: team.id, playerId: code } },
+    });
     if (dup) {
-      console.error(`createPlayer: игрок с кодом «${code}» уже существует.`);
+      console.error(
+        dup.deletedAt
+          ? `createPlayer: игрок с кодом «${code}» находится в архиве — восстановите его.`
+          : `createPlayer: игрок с кодом «${code}» уже существует.`
+      );
       return;
     }
   }

@@ -19,10 +19,11 @@ function fmtDate(d: Date | null | undefined) {
 export default async function SessionsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; phase?: string };
+  searchParams: Promise<{ q?: string; phase?: string }>;
 }) {
-  const q = (searchParams.q ?? '').trim().toLowerCase();
-  const phase = searchParams.phase ?? 'ALL';
+  const query = await searchParams;
+  const q = (query.q ?? '').trim().toLowerCase();
+  const phase = query.phase ?? 'ALL';
 
   const all = await prisma.testSession.findMany({
     where: { deletedAt: null },
@@ -63,7 +64,7 @@ export default async function SessionsPage({
         </svg>
         <input
           name="q"
-          defaultValue={searchParams.q ?? ''}
+          defaultValue={query.q ?? ''}
           placeholder="Поиск по игроку или ID сессии… (Enter)"
           className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
         />

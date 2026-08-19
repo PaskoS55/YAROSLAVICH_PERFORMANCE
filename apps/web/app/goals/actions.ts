@@ -62,6 +62,7 @@ export async function syncGoals() {
       playerId: { in: playerIds },
       testId: { in: testIds },
       deletedAt: null,
+      qcStatus: 'PASSED',
     },
     orderBy: { testSession: { DateTime: 'desc' } },
   });

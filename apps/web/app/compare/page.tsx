@@ -5,8 +5,9 @@ import { computePercentile, fmtVal } from '../../lib/analytics';
 export default async function ComparePage({
   searchParams,
 }: {
-  searchParams: { a?: string; b?: string };
+  searchParams: Promise<{ a?: string; b?: string }>;
 }) {
+  const query = await searchParams;
   const players = await prisma.player.findMany({
     where: { deletedAt: null },
     orderBy: { lastName: 'asc' },
@@ -14,7 +15,9 @@ export default async function ComparePage({
       testSessions: {
         where: { deletedAt: null },
         orderBy: { DateTime: 'desc' },
-        include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
+        include: {
+          testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
+        },
       },
     },
   });
@@ -28,12 +31,12 @@ export default async function ComparePage({
     );
   }
 
-  const a = players.find((p) => p.id === searchParams.a) ?? players[0];
+  const a = players.find((p) => p.id === query.a) ?? players[0];
   const b =
-    players.find((p) => p.id === searchParams.b && p.id !== a.id) ??
+    players.find((p) => p.id === query.b && p.id !== a.id) ??
     players.find((p) => p.id !== a.id)!;
 
-  const same = !!searchParams.a && searchParams.a === searchParams.b;
+  const same = !!query.a && query.a === query.b;
 
   const norms = await prisma.norm.findMany({ where: { deletedAt: null } });
   const normByKey = new Map(norms.map((n) => [`${n.position}|${n.testCode}`, n]));

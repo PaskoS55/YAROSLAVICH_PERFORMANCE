@@ -20,23 +20,27 @@ export async function GET() {
     qcFlags,
     importJobs,
     auditLogs,
-  ] = await Promise.all([
-    prisma.organization.findMany(),
-    prisma.team.findMany({ include: { seasons: { select: { id: true } } } }),
-    prisma.season.findMany(),
-    prisma.testCategory.findMany({ orderBy: { sortOrder: 'asc' } }),
-    prisma.player.findMany(),
-    prisma.test.findMany(),
-    prisma.norm.findMany(),
-    prisma.testSession.findMany(),
-    prisma.testResult.findMany(),
-    prisma.bodyComposition.findMany(),
-    prisma.playerGoal.findMany(),
-    prisma.equipment.findMany(),
-    prisma.qCFlag.findMany(),
-    prisma.importJob.findMany(),
-    prisma.auditLog.findMany(),
-  ]);
+  ] = await prisma.$transaction(
+    async (tx) =>
+      Promise.all([
+        tx.organization.findMany(),
+        tx.team.findMany({ include: { seasons: { select: { id: true } } } }),
+        tx.season.findMany(),
+        tx.testCategory.findMany({ orderBy: { sortOrder: 'asc' } }),
+        tx.player.findMany(),
+        tx.test.findMany(),
+        tx.norm.findMany(),
+        tx.testSession.findMany(),
+        tx.testResult.findMany(),
+        tx.bodyComposition.findMany(),
+        tx.playerGoal.findMany(),
+        tx.equipment.findMany(),
+        tx.qCFlag.findMany(),
+        tx.importJob.findMany(),
+        tx.auditLog.findMany(),
+      ]),
+    { isolationLevel: 'RepeatableRead' }
+  );
 
   // Связь Team ↔ Season — implicit many-to-many Prisma.
   // findMany() её не возвращает, поэтому формируем явно для полного бэкапа.

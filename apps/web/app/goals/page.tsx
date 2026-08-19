@@ -35,9 +35,10 @@ type StatusKey = 'DONE' | 'OVERDUE' | 'SOON' | 'WORK';
 export default async function GoalsPage({
   searchParams,
 }: {
-  searchParams: { f?: string };
+  searchParams: Promise<{ f?: string }>;
 }) {
-  const f = searchParams.f ?? 'ALL';
+  const query = await searchParams;
+  const f = query.f ?? 'ALL';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -64,6 +65,7 @@ export default async function GoalsPage({
       playerId: { in: playerIds },
       testId: { in: testIds },
       deletedAt: null,
+      qcStatus: 'PASSED',
     },
     orderBy: { testSession: { DateTime: 'desc' } },
   });
