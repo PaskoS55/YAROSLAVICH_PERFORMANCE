@@ -26,10 +26,11 @@ const statusColors: Record<string, string> = {
 export default async function PlayersPage({
   searchParams,
 }: {
-  searchParams: { status?: string; q?: string };
+  searchParams: Promise<{ status?: string; q?: string }>;
 }) {
-  const status = searchParams.status ?? 'ALL';
-  const q = (searchParams.q ?? '').trim().toLowerCase();
+  const query = await searchParams;
+  const status = query.status ?? 'ALL';
+  const q = (query.q ?? '').trim().toLowerCase();
 
   const all = await prisma.player.findMany({
     where: { deletedAt: null },
@@ -78,7 +79,7 @@ export default async function PlayersPage({
         </svg>
         <input
           name="q"
-          defaultValue={searchParams.q ?? ''}
+          defaultValue={query.q ?? ''}
           placeholder="Поиск: фамилия, имя или ID… (Enter)"
           className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm"
         />

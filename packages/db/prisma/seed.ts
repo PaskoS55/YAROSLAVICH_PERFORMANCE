@@ -5,8 +5,10 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Начинаем заполнение базы данных...');
 
+  await prisma.$transaction(async (tx) => {
+
   // 1. Организация
-  const org = await prisma.organization.create({
+  const org = await tx.organization.create({
     data: {
       name: 'ВК Ярославич',
       code: 'YAROSLAVICH',
@@ -15,7 +17,7 @@ async function main() {
   console.log('✓ Организация создана:', org.name);
 
   // 2. Команда
-  const team = await prisma.team.create({
+  const team = await tx.team.create({
     data: {
       name: 'Ярославич (основной состав)',
       code: 'YAR_MAIN',
@@ -25,7 +27,7 @@ async function main() {
   console.log('✓ Команда создана:', team.name);
 
   // 3. Сезон
-  const season = await prisma.season.create({
+  const season = await tx.season.create({
     data: {
       name: '2026/27',
       startDate: new Date('2026-08-01'),
@@ -37,7 +39,7 @@ async function main() {
 
   // 4. Игроки
   const players = await Promise.all([
-    prisma.player.create({
+    tx.player.create({
       data: {
         playerId: 'P001',
         firstName: 'Иван',
@@ -51,7 +53,7 @@ async function main() {
         teamId: team.id,
       },
     }),
-    prisma.player.create({
+    tx.player.create({
       data: {
         playerId: 'P002',
         firstName: 'Алексей',
@@ -65,7 +67,7 @@ async function main() {
         teamId: team.id,
       },
     }),
-    prisma.player.create({
+    tx.player.create({
       data: {
         playerId: 'P003',
         firstName: 'Дмитрий',
@@ -79,7 +81,7 @@ async function main() {
         teamId: team.id,
       },
     }),
-    prisma.player.create({
+    tx.player.create({
       data: {
         playerId: 'P004',
         firstName: 'Михаил',
@@ -96,178 +98,195 @@ async function main() {
   ]);
   console.log('✓ Создано 4 игрока');
 
+  const categorySpecs = [
+    ['STRENGTH', 'Сила'],
+    ['POWER', 'Мощность'],
+    ['SPEED', 'Скорость'],
+    ['AGILITY', 'Ловкость'],
+    ['VOLLEYBALL', 'Волейбол'],
+    ['MOBILITY_STABILITY', 'Мобильность и стабильность'],
+    ['BODY_COMPOSITION', 'Состав тела'],
+  ] as const;
+  const categories = new Map<string, string>();
+  for (const [index, [code, name]] of categorySpecs.entries()) {
+    const category = await tx.testCategory.create({
+      data: { code, name, sortOrder: index + 1, includeInRadar: code !== 'BODY_COMPOSITION' },
+    });
+    categories.set(code, category.id);
+  }
+
   // 5. Тесты
   const tests = await Promise.all([
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'STR_PULL',
         name: 'Становая тяга',
-        category: 'STRENGTH',
+        categoryId: categories.get('STRENGTH')!,
         direction: 'HIGHER_IS_BETTER',
         unit: 'kg',
         qcMin: 80,
         qcMax: 250,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'STR_SQUAT',
         name: 'Приседания со штангой',
-        category: 'STRENGTH',
+        categoryId: categories.get('STRENGTH')!,
         direction: 'HIGHER_IS_BETTER',
         unit: 'kg',
         qcMin: 60,
         qcMax: 220,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'PWR_CMJ',
         name: 'Прыжок вверх (CMJ)',
-        category: 'POWER',
+        categoryId: categories.get('POWER')!,
         direction: 'HIGHER_IS_BETTER',
         unit: 'cm',
         qcMin: 20,
         qcMax: 80,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'PWR_BJ',
         name: 'Прыжок в длину с места',
-        category: 'POWER',
+        categoryId: categories.get('POWER')!,
         direction: 'HIGHER_IS_BETTER',
         unit: 'cm',
         qcMin: 180,
         qcMax: 320,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'SPD_10',
         name: 'Спринт 10 м',
-        category: 'SPEED',
+        categoryId: categories.get('SPEED')!,
         direction: 'LOWER_IS_BETTER',
         unit: 'sec',
         qcMin: 1.4,
         qcMax: 2.2,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'SPD_20',
         name: 'Спринт 20 м',
-        category: 'SPEED',
+        categoryId: categories.get('SPEED')!,
         direction: 'LOWER_IS_BETTER',
         unit: 'sec',
         qcMin: 2.8,
         qcMax: 4.0,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'AGI_TTEST',
         name: 'T-тест',
-        category: 'AGILITY',
+        categoryId: categories.get('AGILITY')!,
         direction: 'LOWER_IS_BETTER',
         unit: 'sec',
         qcMin: 8.5,
         qcMax: 12.0,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'AGI_505',
         name: '505 тест',
-        category: 'AGILITY',
+        categoryId: categories.get('AGILITY')!,
         direction: 'LOWER_IS_BETTER',
         unit: 'sec',
         qcMin: 2.0,
         qcMax: 3.5,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'VB_APP',
         name: 'Нападающий удар (высота)',
-        category: 'VOLLEYBALL',
+        categoryId: categories.get('VOLLEYBALL')!,
         direction: 'HIGHER_IS_BETTER',
         unit: 'cm',
         qcMin: 280,
         qcMax: 370,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'VB_BLOCK',
         name: 'Блок (высота)',
-        category: 'VOLLEYBALL',
+        categoryId: categories.get('VOLLEYBALL')!,
         direction: 'HIGHER_IS_BETTER',
         unit: 'cm',
         qcMin: 270,
         qcMax: 350,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'VB_SERVE',
         name: 'Скорость подачи',
-        category: 'VOLLEYBALL',
+        categoryId: categories.get('VOLLEYBALL')!,
         direction: 'HIGHER_IS_BETTER',
         unit: 'km/h',
         qcMin: 70,
         qcMax: 140,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'MOB_OHS',
         name: 'Присед с палкой над головой',
-        category: 'MOBILITY_STABILITY',
+        categoryId: categories.get('MOBILITY_STABILITY')!,
         direction: 'CONTEXTUAL',
         unit: 'score',
         qcMin: 0,
         qcMax: 10,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'MOB_SL',
         name: 'Выпад в линию',
-        category: 'MOBILITY_STABILITY',
+        categoryId: categories.get('MOBILITY_STABILITY')!,
         direction: 'CONTEXTUAL',
         unit: 'score',
         qcMin: 0,
         qcMax: 10,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'BC_MASS',
         name: 'Масса тела',
-        category: 'BODY_COMPOSITION',
+        categoryId: categories.get('BODY_COMPOSITION')!,
         direction: 'CONTEXTUAL',
         unit: 'kg',
         qcMin: 60,
         qcMax: 120,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'BC_FAT',
         name: 'Процент жира',
-        category: 'BODY_COMPOSITION',
+        categoryId: categories.get('BODY_COMPOSITION')!,
         direction: 'LOWER_IS_BETTER',
         unit: '%',
         qcMin: 5,
         qcMax: 25,
       },
     }),
-    prisma.test.create({
+    tx.test.create({
       data: {
         code: 'BC_FFM',
         name: 'Безжировая масса',
-        category: 'BODY_COMPOSITION',
+        categoryId: categories.get('BODY_COMPOSITION')!,
         direction: 'HIGHER_IS_BETTER',
         unit: 'kg',
         qcMin: 50,
@@ -284,7 +303,7 @@ async function main() {
   for (let i = 0; i < players.length; i++) {
     for (let j = 0; j < dates.length; j++) {
       const sessionNum = i * 2 + j + 1;
-      const session = await prisma.testSession.create({
+      const session = await tx.testSession.create({
         data: {
           sessionId: `S${String(sessionNum).padStart(3, '0')}`,
           DateTime: dates[j],
@@ -330,7 +349,7 @@ async function main() {
         const testDataItem = testData.find(t => t.code === test.code);
         if (testDataItem) {
           const value = testDataItem.base + (Math.random() - 0.5) * testDataItem.variance * 2;
-          await prisma.testResult.create({
+          await tx.testResult.create({
             data: {
               value: Number(value.toFixed(2)),
               testId: test.id,
@@ -347,7 +366,7 @@ async function main() {
         const testDataItem = testData.find(t => t.code === test.code);
         if (testDataItem) {
           const value = testDataItem.base + (Math.random() - 0.5) * testDataItem.variance * 2;
-          await prisma.testResult.create({
+          await tx.testResult.create({
             data: {
               value: Number(value.toFixed(2)),
               testId: test.id,
@@ -369,7 +388,7 @@ async function main() {
     for (const pos of positions) {
       const testDataItem = testData.find(t => t.code === test.code);
       if (testDataItem) {
-        await prisma.norm.create({
+        await tx.norm.create({
           data: {
             testCode: test.code,
             position: pos,
@@ -399,7 +418,7 @@ async function main() {
           ? testDataItem.base - testDataItem.variance * 0.3
           : testDataItem.base + testDataItem.variance * 0.3;
         
-        await prisma.playerGoal.create({
+        await tx.playerGoal.create({
           data: {
             playerId: player.id,
             testId: test.id,
@@ -414,6 +433,7 @@ async function main() {
   console.log(`✓ Создано ${goalsCount} целей`);
 
   console.log('\n✅ База данных успешно заполнена демо-данными!');
+  }, { maxWait: 10_000, timeout: 60_000 });
 }
 
 main()

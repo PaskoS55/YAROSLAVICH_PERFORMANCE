@@ -81,17 +81,11 @@ export async function createBodyComposition(formData: FormData): Promise<void> {
           playerId,
           DateTime: date,
           phase: phaseStr as Phase,
-          deletedAt: null,
         },
       });
 
       if (!session) {
-        let n = (await tx.testSession.count()) + 1;
-        let sessionId = `S${String(n).padStart(3, '0')}`;
-        while (await tx.testSession.findUnique({ where: { sessionId } })) {
-          n += 1;
-          sessionId = `S${String(n).padStart(3, '0')}`;
-        }
+        const sessionId = `S-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
         session = await tx.testSession.create({
           data: {
             sessionId,
@@ -101,6 +95,11 @@ export async function createBodyComposition(formData: FormData): Promise<void> {
             teamId: player.teamId,
             seasonId: season.id,
           },
+        });
+      } else if (session.deletedAt) {
+        session = await tx.testSession.update({
+          where: { id: session.id },
+          data: { deletedAt: null, teamId: player.teamId, seasonId: season.id },
         });
       }
 

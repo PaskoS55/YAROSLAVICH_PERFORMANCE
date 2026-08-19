@@ -61,15 +61,10 @@ export async function importRows(rows: ImportRow[]) {
       // Каждая строка атомарна: сессия + результат + QC-флаг либо целиком, либо нет
       await prisma.$transaction(async (tx) => {
         let session = await tx.testSession.findFirst({
-          where: { playerId: player.id, DateTime: date, phase, deletedAt: null },
+          where: { playerId: player.id, DateTime: date, phase },
         });
         if (!session) {
-          let n = (await tx.testSession.count()) + 1;
-          let sessionId = `S${String(n).padStart(3, '0')}`;
-          while (await tx.testSession.findUnique({ where: { sessionId } })) {
-            n += 1;
-            sessionId = `S${String(n).padStart(3, '0')}`;
-          }
+          const sessionId = `S-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
           session = await tx.testSession.create({
             data: {
               sessionId,
@@ -80,6 +75,11 @@ export async function importRows(rows: ImportRow[]) {
               seasonId: season.id,
             },
           });
+        } else if (session.deletedAt) {
+          session = await tx.testSession.update({
+            where: { id: session.id },
+            data: { deletedAt: null, teamId: player.teamId, seasonId: season.id },
+          });
         }
 
         const qcStatus = computeQcStatus(test, r.value);
@@ -87,7 +87,7 @@ export async function importRows(rows: ImportRow[]) {
           where: {
             testSessionId_testId: { testSessionId: session.id, testId: test.id },
           },
-          update: { value: r.value, qcStatus },
+          update: { value: r.value, qcStatus, deletedAt: null, playerId: player.id },
           create: {
             value: r.value,
             qcStatus,

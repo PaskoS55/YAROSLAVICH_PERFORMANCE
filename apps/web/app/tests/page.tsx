@@ -11,9 +11,10 @@ const directionLabels: Record<string, string> = {
 export default async function TestsPage({
   searchParams,
 }: {
-  searchParams: { archived?: string };
+  searchParams: Promise<{ archived?: string }>;
 }) {
-  const showArchived = searchParams.archived === '1';
+  const query = await searchParams;
+  const showArchived = query.archived === '1';
   const tests = await prisma.test.findMany({
     where: showArchived ? { NOT: { deletedAt: null } } : { deletedAt: null },
     orderBy: [{ isSystem: 'desc' }, { code: 'asc' }],

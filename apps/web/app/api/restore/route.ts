@@ -21,7 +21,7 @@ import type {
 
 export async function POST(req: Request) {
   const confirm = req.headers.get('X-Restore-Confirm');
-  if (confirm !== 'ВОССТАНОВИТЬ') {
+  if (confirm !== 'RESTORE') {
     return NextResponse.json(
       { error: 'Восстановление не подтверждено. Требуется X-Restore-Confirm.' },
       { status: 400 }
@@ -63,6 +63,108 @@ export async function POST(req: Request) {
   const importJobs = arr<ImportJob>('importJobs');
   const auditLogs = arr<AuditLog>('auditLogs');
   const teamSeasonLinks = arr<{ teamId: string; seasonId: string }>('teamSeasonLinks');
+
+  const requiredArrays = [
+    'organizations',
+    'teams',
+    'seasons',
+    'testCategories',
+    'players',
+    'tests',
+    'norms',
+    'testSessions',
+    'testResults',
+    'bodyCompositions',
+    'playerGoals',
+    'equipment',
+    'qcFlags',
+    'importJobs',
+    'auditLogs',
+    'teamSeasonLinks',
+  ];
+  const malformedArray = requiredArrays.find((key) => !Array.isArray(backup[key]));
+  if ((backup as { version?: unknown }).version !== 3 || malformedArray) {
+    return NextResponse.json(
+      { error: 'Неподдерживаемая версия или неполная структура резервной копии.' },
+      { status: 400 }
+    );
+  }
+
+  const ids = <T extends { id: string }>(rows: T[]) => new Set(rows.map((row) => row.id));
+  const duplicateId = <T extends { id: string }>(rows: T[]) =>
+    rows.some((row, index) => !row.id || rows.findIndex((candidate) => candidate.id === row.id) !== index);
+  const organizationIds = ids(organizations);
+  const teamIds = ids(teams);
+  const seasonIds = ids(seasons);
+  const categoryIds = ids(testCategories);
+  const playerIds = ids(players);
+  const testIds = ids(tests);
+  const sessionIds = ids(testSessions);
+  const resultIds = ids(testResults);
+  const equipmentIds = ids(equipment);
+  const sessionById = new Map(testSessions.map((session) => [session.id, session]));
+
+  const invalidIds = [
+    organizations,
+    teams,
+    seasons,
+    testCategories,
+    players,
+    tests,
+    norms,
+    testSessions,
+    testResults,
+    bodyCompositions,
+    playerGoals,
+    equipment,
+    qcFlags,
+    importJobs,
+    auditLogs,
+  ].some((rows) => duplicateId(rows as { id: string }[]));
+  const invalidReferences =
+    teams.some((team) => !organizationIds.has(team.organizationId)) ||
+    players.some((player) => !teamIds.has(player.teamId)) ||
+    tests.some((test) => test.categoryId !== null && !categoryIds.has(test.categoryId)) ||
+    testSessions.some(
+      (session) =>
+        !playerIds.has(session.playerId) ||
+        !teamIds.has(session.teamId) ||
+        !seasonIds.has(session.seasonId) ||
+        players.find((player) => player.id === session.playerId)?.teamId !== session.teamId
+    ) ||
+    testResults.some((result) => {
+      const session = sessionById.get(result.testSessionId);
+      return (
+        !session ||
+        !testIds.has(result.testId) ||
+        !playerIds.has(result.playerId) ||
+        session.playerId !== result.playerId ||
+        (result.equipmentId !== null && !equipmentIds.has(result.equipmentId))
+      );
+    }) ||
+    bodyCompositions.some(
+      (body) =>
+        !playerIds.has(body.playerId) ||
+        !sessionIds.has(body.testSessionId) ||
+        sessionById.get(body.testSessionId)?.playerId !== body.playerId
+    ) ||
+    playerGoals.some((goal) => !playerIds.has(goal.playerId) || !testIds.has(goal.testId)) ||
+    norms.some((norm) => norm.testId !== null && !testIds.has(norm.testId)) ||
+    qcFlags.some((flag) => !resultIds.has(flag.testResultId)) ||
+    teamSeasonLinks.some((link) => !teamIds.has(link.teamId) || !seasonIds.has(link.seasonId));
+  const duplicateBusinessKeys =
+    new Set(players.map((player) => `${player.teamId}\u0000${player.playerId}`)).size !== players.length ||
+    new Set(testSessions.map((session) => `${session.playerId}\u0000${session.DateTime}\u0000${session.phase}`))
+      .size !== testSessions.length ||
+    new Set(testResults.map((result) => `${result.testSessionId}\u0000${result.testId}`)).size !==
+      testResults.length;
+
+  if (invalidIds || invalidReferences || duplicateBusinessKeys) {
+    return NextResponse.json(
+      { error: 'Резервная копия содержит дубликаты или несогласованные связи.' },
+      { status: 400 }
+    );
+  }
 
   try {
     await prisma.$transaction(async (tx) => {

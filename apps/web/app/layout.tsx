@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+
+export const dynamic = 'force-dynamic';
 import { AppShell } from '../components/layout/AppShell';
 
 const inter = Inter({

@@ -30,9 +30,10 @@ function fmtDate(d: Date | null | undefined) {
   return new Date(d).toLocaleDateString('ru-RU');
 }
 
-export default async function SessionPage({ params }: { params: { id: string } }) {
+export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await prisma.testSession.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { player: true },
   });
 

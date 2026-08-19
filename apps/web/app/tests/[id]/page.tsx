@@ -3,9 +3,10 @@ import { notFound } from 'next/navigation';
 import TestEditor, { ArchiveButton } from '../test-editor';
 import { archiveTest } from '../actions';
 
-export default async function EditTestPage({ params }: { params: { id: string } }) {
+export default async function EditTestPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const test = await prisma.test.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { _count: { select: { testResults: true } } },
   });
   if (!test) notFound();

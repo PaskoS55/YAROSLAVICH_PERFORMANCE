@@ -42,11 +42,15 @@ export async function createPlayer(formData: FormData): Promise<void> {
     return;
   }
 
-  const exists = await prisma.player.findFirst({
-    where: { playerId, teamId: team.id, deletedAt: null },
+  const exists = await prisma.player.findUnique({
+    where: { teamId_playerId: { teamId: team.id, playerId } },
   });
   if (exists) {
-    console.error(`createPlayer: игрок с ID ${playerId} уже существует.`);
+    console.error(
+      exists.deletedAt
+        ? `createPlayer: игрок с ID ${playerId} находится в архиве — восстановите его.`
+        : `createPlayer: игрок с ID ${playerId} уже существует.`
+    );
     return;
   }
 

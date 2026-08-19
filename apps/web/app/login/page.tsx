@@ -1,10 +1,11 @@
 import { login } from './actions';
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: Promise<{ error?: string }>;
 }) {
+  const query = await searchParams;
   return (
     <div className="login-wrap">
       <div className="login-card">
@@ -12,7 +13,7 @@ export default function LoginPage({
         <img src="/logo.png" alt="ВК Ярославич" className="login-logo" />
                 <h1 className="login-title">PASKO PERFORMANCE</h1>
         <p className="login-sub">Система функциональной и кондиционной подготовки</p>
-        {searchParams.error && (
+        {query.error && (
           <div className="login-error">Неверный пароль. Попробуйте ещё раз.</div>
         )}
         <form action={login} className="login-form">
