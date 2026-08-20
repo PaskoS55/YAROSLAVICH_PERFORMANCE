@@ -11,7 +11,7 @@ import { waitForNextReadiness } from '../dist/main/runtime-readiness.js';
 import { classifyNavigation } from '../dist/main/url-policy.js';
 
 test('resolves development and manifest-driven packaged runtime paths', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'yaroslavich-packaged-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'pasko-performance-packaged-'));
   const web = path.join(root, 'web');
   const server = path.join(web, 'nested', 'server.js');
   await mkdir(path.dirname(server), { recursive: true });

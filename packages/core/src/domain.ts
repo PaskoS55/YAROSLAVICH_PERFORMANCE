@@ -1,4 +1,4 @@
-// Domain types for YAROSLAVICH PERFORMANCE
+// Domain types for PASKO PERFORMANCE PLATFORM
 
 export type Direction = 'HIGHER_IS_BETTER' | 'LOWER_IS_BETTER' | 'CONTEXTUAL';
 

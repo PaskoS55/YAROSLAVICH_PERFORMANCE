@@ -1,4 +1,4 @@
-// Schema for YAROSLAVICH PERFORMANCE
+// Schema for PASKO PERFORMANCE PLATFORM
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,8 +13,6 @@ enum Direction {
   LOWER_IS_BETTER
   CONTEXTUAL
 }
-
-
 
 enum ChangeStatus {
   SIGNIFICANT_IMPROVEMENT
@@ -63,13 +61,17 @@ enum SessionSource {
 }
 
 model Organization {
-  id        String    @id @default(cuid())
-  name      String
-  code      String    @unique
-  teams     Team[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? @map("deleted_at")
+  id             String    @id @default(cuid())
+  name           String
+  shortName      String?   @map("short_name")
+  code           String    @unique
+  logoAssetKey   String?   @map("logo_asset_key")
+  primaryColor   String?   @map("primary_color")
+  secondaryColor String?   @map("secondary_color")
+  teams          Team[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime? @map("deleted_at")
 
   @@map("organizations")
 }
@@ -146,6 +148,7 @@ model TestCategory {
 
   @@map("test_categories")
 }
+
 model Test {
   id              String        @id @default(cuid())
   code            String        @unique
@@ -166,7 +169,7 @@ model Test {
   norms           Norm[]
   testResults     TestResult[]
   goals           PlayerGoal[]
-   changeThreshold Float?
+  changeThreshold Float?
   cv              Float?
   alertBelow      Float?
   alertAbove      Float?

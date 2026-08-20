@@ -15,7 +15,7 @@ export async function startPackagedNext(serverPath: string): Promise<PackagedNex
     const origin = new URL(`http://127.0.0.1:${port}`);
     const env = buildNextRuntimeEnv(process.env, port);
     console.log('Starting packaged web runtime', getSafeRuntimeEnvLog(env));
-    const child = utilityProcess.fork(serverPath, [], { cwd: path.dirname(serverPath), env, stdio: ['ignore', 'ignore', 'pipe'], serviceName: 'YAROSLAVICH Next Runtime' });
+    const child = utilityProcess.fork(serverPath, [], { cwd: path.dirname(serverPath), env, stdio: ['ignore', 'ignore', 'pipe'], serviceName: 'PASKO Performance Next Runtime' });
     let exited = false;
     let exitCode: number | null = null;
     let diagnostic = '';

@@ -5,7 +5,9 @@ import path from 'node:path';
 import { findAvailableLoopbackPort } from './runtime-port';
 
 export const POSTGRES_MAJOR = '16';
-export const DEFAULT_DATABASE = 'yaroslavich_performance';
+export const DEFAULT_DATABASE = 'pasko_performance';
+export const PRODUCT_DATA_DIRECTORY = 'PaskoPerformance';
+export const LEGACY_DATA_DIRECTORY = 'YaroslavichPerformance';
 export const BOOTSTRAP_USER = 'yp_bootstrap';
 export const APPLICATION_USER = 'yp_app';
 const REQUIRED_BINARIES = ['postgres', 'initdb', 'pg_ctl', 'pg_isready', 'createdb', 'pg_dump', 'pg_restore', 'psql'] as const;
@@ -17,7 +19,7 @@ export interface RunningPostgres { port: number; paths: PostgresPaths; stop: () 
 
 export function resolvePostgresPaths(input: { resourcesPath: string; localAppData: string; dataRoot?: string }): PostgresPaths {
   const runtimeRoot = path.resolve(input.resourcesPath, 'postgres');
-  const userRoot = path.resolve(input.dataRoot ?? path.join(input.localAppData, 'YaroslavichPerformance'));
+  const userRoot = path.resolve(input.dataRoot ?? path.join(input.localAppData, PRODUCT_DATA_DIRECTORY));
   return {
     runtimeRoot,
     bin: Object.fromEntries(REQUIRED_BINARIES.map((name) => [name, path.join(runtimeRoot, 'bin', `${name}.exe`)])) as PostgresPaths['bin'],
@@ -25,6 +27,11 @@ export function resolvePostgresPaths(input: { resourcesPath: string; localAppDat
     logsDirectory: path.join(userRoot, 'logs', 'postgres'),
     runtimeDirectory: path.join(userRoot, 'runtime'),
   };
+}
+
+export function detectLegacyDataRoot(localAppData: string): string | null {
+  const legacy = path.resolve(localAppData, LEGACY_DATA_DIRECTORY);
+  try { return statSync(legacy).isDirectory() ? legacy : null; } catch { return null; }
 }
 
 export function detectClusterState(dataDirectory: string): ClusterState {

@@ -1,4 +1,4 @@
-# YAROSLAVICH PERFORMANCE
+# PASKO PERFORMANCE PLATFORM — VOLLEYBALL
 
 ## Requirements
 
@@ -26,7 +26,7 @@
 
    ```sh
    npm run db:deploy
-   npm run --workspace @yaroslavich/db db:generate
+   npm run --workspace @pasko-performance/db db:generate
    ```
 
 6. Seed a new database once:

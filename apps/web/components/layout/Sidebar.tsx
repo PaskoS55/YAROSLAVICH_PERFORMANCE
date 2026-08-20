@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
 
 interface NavItem {
   href: string;
@@ -77,9 +78,10 @@ interface SidebarProps {
   onToggle: () => void;
   mobileOpen: boolean;
   onMobileClose: () => void;
+  organizationName: string;
 }
 
-export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, organizationName }: SidebarProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -112,13 +114,11 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
     <>
       <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
         <div className="brand">
-          {/* Оригинальный логотип ВК «Ярославич», без изменений */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="ВК Ярославич" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white font-extrabold text-red-700" aria-label="PASKO product placeholder">P</div>
           {!collapsed && (
             <div className="brand-text">
-              <div className="brand-name">ЯРОСЛАВИЧ</div>
-              <div className="brand-sub">by PASKO PERFORMANCE</div>
+              <div className="brand-name">{organizationName}</div>
+              <div className="brand-sub">{PRODUCT_IDENTITY.short}</div>
             </div>
           )}
           <button className="toggle-btn" onClick={onToggle} aria-label="Свернуть меню">
@@ -128,17 +128,16 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: Side
           </button>
         </div>
         {renderNav()}
-        <div className="side-footer">v1.0 · сезон 2026/27</div>
+        <div className="side-footer">v1.0 · {PRODUCT_IDENTITY.vertical}</div>
       </aside>
 
       <div className={`mobile-overlay ${mobileOpen ? '' : 'hidden'}`} onClick={onMobileClose} />
       <div className={`mobile-drawer ${mobileOpen ? 'open' : ''}`}>
         <div className="brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="ВК Ярославич" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white font-extrabold text-red-700" aria-label="PASKO product placeholder">P</div>
           <div className="brand-text">
-            <div className="brand-name">ЯРОСЛАВИЧ</div>
-            <div className="brand-sub">by PASKO PERFORMANCE</div>
+            <div className="brand-name">{organizationName}</div>
+            <div className="brand-sub">{PRODUCT_IDENTITY.short}</div>
           </div>
         </div>
         {renderNav(onMobileClose)}

@@ -1,5 +1,5 @@
 {
-  "name": "@yaroslavich/desktop",
+  "name": "@pasko-performance/desktop",
   "version": "1.0.0",
   "private": true,
   "main": "dist/main/index.js",

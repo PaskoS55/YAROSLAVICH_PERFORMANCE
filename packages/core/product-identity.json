@@ -1,0 +1,14 @@
+{
+  "canonical": "PASKO PERFORMANCE PLATFORM",
+  "vertical": "VOLLEYBALL",
+  "display": "PASKO PERFORMANCE PLATFORM — VOLLEYBALL",
+  "short": "PASKO PERFORMANCE",
+  "electronName": "Pasko Performance Platform",
+  "executableName": "PaskoPerformance",
+  "appUserModelId": "com.pasko.performance",
+  "squirrelName": "pasko_performance",
+  "dataDirectoryName": "PaskoPerformance",
+  "databaseName": "pasko_performance",
+  "backupPrefix": "pasko-performance-backup",
+  "logPrefix": "pasko-performance"
+}

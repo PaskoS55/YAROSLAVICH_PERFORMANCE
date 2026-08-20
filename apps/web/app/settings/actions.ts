@@ -2,6 +2,7 @@
 
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { validateOrganizationBranding } from '@pasko-performance/core/product';
 
 const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 const toDate = (s: string) => (s ? new Date(s + 'T12:00:00.000Z') : null);
@@ -13,11 +14,23 @@ export async function updateOrganization(formData: FormData): Promise<void> {
     return;
   }
 
+  let branding;
+  try {
+    branding = validateOrganizationBranding({
+      shortName: str(formData.get('shortName')),
+      logoAssetKey: str(formData.get('logoAssetKey')),
+      primaryColor: str(formData.get('primaryColor')),
+      secondaryColor: str(formData.get('secondaryColor')),
+    });
+  } catch (error) {
+    console.error('updateOrganization: некорректные параметры бренда.', error);
+    return;
+  }
   const org = await prisma.organization.findFirst();
   if (org) {
-    await prisma.organization.update({ where: { id: org.id }, data: { name } });
+    await prisma.organization.update({ where: { id: org.id }, data: { name, ...branding } });
   } else {
-    await prisma.organization.create({ data: { name, code: 'ORG' } });
+    await prisma.organization.create({ data: { name, code: 'ORG', ...branding } });
   }
   revalidatePath('/settings');
   revalidatePath('/team', 'layout');

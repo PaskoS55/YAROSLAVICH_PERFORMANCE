@@ -1,9 +1,16 @@
 import { PrismaClient } from '@prisma/client';
+import { seedReferenceData } from './reference-data';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('Начинаем заполнение базы данных...');
+
+  if (process.env.PASKO_SEED_MODE !== 'demo') {
+    await prisma.$transaction((tx) => seedReferenceData(tx));
+    console.log('✓ Product + VOLLEYBALL reference data synchronized. Demo data skipped.');
+    return;
+  }
 
   await prisma.$transaction(async (tx) => {
 
@@ -11,7 +18,9 @@ async function main() {
   const org = await tx.organization.create({
     data: {
       name: 'ВК Ярославич',
+      shortName: 'Ярославич',
       code: 'YAROSLAVICH',
+      logoAssetKey: 'organizations/yaroslavich/logo.png',
     },
   });
   console.log('✓ Организация создана:', org.name);
@@ -98,6 +107,9 @@ async function main() {
   ]);
   console.log('✓ Создано 4 игрока');
 
+  /* Reference catalogue is idempotent and shared with production bootstrap. */
+  const { tests } = await seedReferenceData(tx);
+  /*
   const categorySpecs = [
     ['STRENGTH', 'Сила'],
     ['POWER', 'Мощность'],
@@ -294,7 +306,7 @@ async function main() {
       },
     }),
   ]);
-  console.log('✓ Создано 16 тестов');
+  console.log('✓ Создано 16 тестов'); */
 
   // 6. Сессии (8 сессий на двух датах)
   const sessions = [];

@@ -9,7 +9,7 @@ import { assertChecksum, cleanPostgresStaging, findDistributionRoot, pathExists,
 
 const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const manifest = await readPostgresManifest(path.join(desktopRoot, 'postgres-runtime.json'));
-const cacheRoot = path.resolve(process.env.YAROSLAVICH_POSTGRES_CACHE || path.join(desktopRoot, '.cache', 'postgres'));
+const cacheRoot = path.resolve(process.env.PASKO_PERFORMANCE_POSTGRES_CACHE || path.join(desktopRoot, '.cache', 'postgres'));
 const archive = path.join(cacheRoot, manifest.archive);
 const runtimeRoot = path.join(desktopRoot, '.runtime', 'postgres');
 const tempRoot = path.join(desktopRoot, '.runtime', `postgres-extract-${process.pid}`);

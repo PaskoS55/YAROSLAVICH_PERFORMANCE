@@ -6,10 +6,10 @@ import { spawn } from 'node:child_process';
 import { APPLICATION_USER, BOOTSTRAP_USER, DEFAULT_DATABASE, ensureApplicationDatabase, executeSql, initializeCluster, resolvePostgresPaths, startPostgres } from '../dist/main/postgres.js';
 
 const desktopRoot = path.resolve(import.meta.dirname, '..');
-const resourcesPath = process.env.YAROSLAVICH_POSTGRES_RESOURCES
-  ? path.resolve(process.env.YAROSLAVICH_POSTGRES_RESOURCES)
+const resourcesPath = process.env.PASKO_PERFORMANCE_POSTGRES_RESOURCES
+  ? path.resolve(process.env.PASKO_PERFORMANCE_POSTGRES_RESOURCES)
   : path.join(desktopRoot, '.runtime');
-const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'yaroslavich-pg16-integration-'));
+const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'pasko-performance-pg16-integration-'));
 const credentials = { bootstrapPassword: randomBytes(32).toString('base64url'), applicationPassword: randomBytes(32).toString('base64url') };
 const paths = resolvePostgresPaths({ resourcesPath, localAppData: temporaryRoot, dataRoot: temporaryRoot });
 let runtime;

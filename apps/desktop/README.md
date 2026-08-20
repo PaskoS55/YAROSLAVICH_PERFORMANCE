@@ -1,10 +1,10 @@
-# YAROSLAVICH PERFORMANCE Desktop — Phase 1
+# PASKO PERFORMANCE PLATFORM Desktop
 
 This workspace is a secure Electron shell for the existing Next.js application. Phase 1 is a development foundation, not a production installer. It does not package Next.js, PostgreSQL, Prisma migrations, first-run setup, updates, or production runtime services.
 
 Run `npm run desktop:dev` from the repository root. One command starts the web workspace at `http://127.0.0.1:3000`, waits for it, compiles main and preload TypeScript, and starts Electron Forge. It uses the existing development `DATABASE_URL` and does not seed or reset it.
 
-Set `YAROSLAVICH_DESKTOP_DEV_URL` to use another controlled HTTP(S) origin without credentials. Only that exact origin is allowed inside Electron. HTTPS external links open in the system browser; unsafe and arbitrary protocols are blocked.
+Set `PASKO_PERFORMANCE_DESKTOP_DEV_URL` to use another controlled HTTP(S) origin without credentials. Only that exact origin is allowed inside Electron. HTTPS external links open in the system browser; unsafe and arbitrary protocols are blocked.
 
 Security defaults: Node integration off; context isolation, sandbox, and web security on; empty preload API; single-instance lock; DevTools enabled only by the development launcher.
 
@@ -26,4 +26,4 @@ The Windows package includes the complete EDB PostgreSQL 16.14 x64 binary archiv
 
 `npm run desktop:postgres:prepare` downloads to an ignored build cache when necessary, verifies the pinned SHA-256, extracts to a clean staging directory, and validates the complete runtime. `npm run desktop:postgres:verify` rechecks the staged distribution. `npm run desktop:postgres:test` creates only a disposable temporary cluster and verifies initdb, SCRAM authentication, a dynamic `127.0.0.1` listener, database creation, persistence, crash recovery, and fast shutdown using bundled executables.
 
-Persistent application data is designed for `%LOCALAPPDATA%\YaroslavichPerformance\database\pg16`, with PostgreSQL logs under `%LOCALAPPDATA%\YaroslavichPerformance\logs\postgres`. Passwords are supplied by a controlled harness in this phase and are never stored in the repository, logged, or passed in argv. Phase 4 does not connect Next.js to this database, run Prisma migrations, bootstrap reference data, or implement final `safeStorage` credentials; those remain later phases.
+Persistent application data is designed for `%LOCALAPPDATA%\PaskoPerformance\database\pg16`, with PostgreSQL logs under `%LOCALAPPDATA%\PaskoPerformance\logs\postgres`. The former `%LOCALAPPDATA%\YaroslavichPerformance` development path is detected only for diagnostics and is never moved, overwritten, or deleted automatically. Passwords are supplied by a controlled harness and are never stored in the repository, logged, or passed in argv. The Yaroslavich club logo remains an organization/demo asset; a final product icon is a tracked branding TODO.

@@ -7,6 +7,7 @@ import {
 } from './actions';
 import ResetButton from './reset-button';
 import RestoreButton from './restore-button';
+import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
 
 const field = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm';
 const label = 'block text-xs font-medium text-gray-500';
@@ -42,6 +43,18 @@ export default async function SettingsPage() {
             <div>
               <label className={label}>Название</label>
               <input name="name" defaultValue={org?.name ?? ''} required className={field} />
+            </div>
+            <div>
+              <label className={label}>Короткое название</label>
+              <input name="shortName" defaultValue={org?.shortName ?? ''} className={field} />
+            </div>
+            <div>
+              <label className={label}>Ключ логотипа</label>
+              <input name="logoAssetKey" defaultValue={org?.logoAssetKey ?? ''} placeholder="organizations/club/logo.png" className={field} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={label}>Основной цвет</label><input name="primaryColor" defaultValue={org?.primaryColor ?? ''} placeholder="#123ABC" className={field} /></div>
+              <div><label className={label}>Дополнительный цвет</label><input name="secondaryColor" defaultValue={org?.secondaryColor ?? ''} placeholder="#FFFFFF" className={field} /></div>
             </div>
             <div>
               <label className={label}>
@@ -172,7 +185,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="text-xs text-gray-400">
-        <p>Версия системы: PASKO PERFORMANCE v1.0</p>
+        <p>Версия системы: {PRODUCT_IDENTITY.display} v1.0</p>
         <p>
           Создано тренером по функциональной и кондиционной подготовке Пасько Сергеем
         </p>

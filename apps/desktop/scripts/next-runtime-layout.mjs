@@ -1,7 +1,7 @@
 import { lstat, readdir, readFile, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 
-const WEB_PACKAGE_NAME = '@yaroslavich/web';
+const WEB_PACKAGE_NAME = '@pasko-performance/web';
 
 async function pathExists(target) {
   try { await stat(target); return true; } catch (error) {

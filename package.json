@@ -1,5 +1,5 @@
 {
-  "name": "yaroslavich-performance",
+  "name": "pasko-performance-platform",
   "private": true,
   "scripts": {
     "dev": "cd apps/web && npm run dev",
@@ -12,13 +12,13 @@
     "db:studio": "cd packages/db && npx prisma studio",
     "lint": "npm run lint --workspaces --if-present",
     "desktop:dev": "node apps/desktop/scripts/dev.mjs",
-    "desktop:build": "npm run build --workspace @yaroslavich/desktop",
-    "desktop:make": "npm run make --workspace @yaroslavich/desktop",
-    "desktop:web:build": "npm run build --workspace @yaroslavich/web && node apps/desktop/scripts/prepare-next-runtime.mjs && node apps/desktop/scripts/verify-next-runtime.mjs",
+    "desktop:build": "npm run build --workspace @pasko-performance/desktop",
+    "desktop:make": "npm run make --workspace @pasko-performance/desktop",
+    "desktop:web:build": "npm run build --workspace @pasko-performance/web && node apps/desktop/scripts/prepare-next-runtime.mjs && node apps/desktop/scripts/verify-next-runtime.mjs",
     "desktop:postgres:prepare": "node apps/desktop/scripts/prepare-postgres-runtime.mjs",
     "desktop:postgres:verify": "node apps/desktop/scripts/verify-postgres-runtime.mjs",
-    "desktop:postgres:test": "npm run build --workspace @yaroslavich/desktop && node apps/desktop/scripts/test-postgres-runtime.mjs",
-    "desktop:package": "npm run desktop:web:build && npm run desktop:postgres:prepare && npm run desktop:postgres:verify && npm run build --workspace @yaroslavich/desktop && npm run package --workspace @yaroslavich/desktop",
+    "desktop:postgres:test": "npm run build --workspace @pasko-performance/desktop && node apps/desktop/scripts/test-postgres-runtime.mjs",
+    "desktop:package": "npm run desktop:web:build && npm run desktop:postgres:prepare && npm run desktop:postgres:verify && npm run build --workspace @pasko-performance/desktop && npm run package --workspace @pasko-performance/desktop",
     "format": "prettier --write ."
   },
   "workspaces": [

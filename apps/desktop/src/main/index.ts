@@ -5,8 +5,11 @@ import { handleSquirrelStartup } from './squirrel-startup';
 import { startPackagedNext, type PackagedNextRuntime } from './packaged-next';
 import { resolveRuntimeTarget } from './runtime-paths';
 import { classifyNavigation } from './url-policy';
+import { loadProductIdentity } from './product-identity';
 
 if (handleSquirrelStartup()) app.quit();
+const product = loadProductIdentity({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath });
+app.setAppUserModelId(product.appUserModelId);
 const isDevelopment = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
 let nextRuntime: PackagedNextRuntime | null = null;
@@ -44,7 +47,7 @@ async function startApplication(): Promise<void> {
   const target = resolveRuntimeTarget({
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
-    developmentUrl: process.env.YAROSLAVICH_DESKTOP_DEV_URL,
+    developmentUrl: process.env.PASKO_PERFORMANCE_DESKTOP_DEV_URL,
   });
   if (target.kind === 'development') {
     createWindow(target.url);
@@ -55,7 +58,7 @@ async function startApplication(): Promise<void> {
     if (quitting) return;
     mainWindow?.destroy();
     mainWindow = null;
-    dialog.showErrorBox('YAROSLAVICH PERFORMANCE', 'Локальный web-runtime неожиданно завершился. Приложение будет закрыто.');
+    dialog.showErrorBox(product.canonical, 'Локальный web-runtime неожиданно завершился. Приложение будет закрыто.');
     app.quit();
   });
   createWindow(nextRuntime.origin);
@@ -81,7 +84,7 @@ if (!app.requestSingleInstanceLock()) {
     const logsPath = app.getPath('logs');
     mkdirSync(logsPath, { recursive: true });
     appendFileSync(path.join(logsPath, 'runtime.log'), `${new Date().toISOString()} packaged startup failed: ${message}${cause ? `; ${cause}` : ''}\n`);
-    dialog.showErrorBox('YAROSLAVICH PERFORMANCE', 'Не удалось запустить локальный web-runtime. Приложение будет закрыто.');
+    dialog.showErrorBox(product.canonical, 'Не удалось запустить локальный web-runtime. Приложение будет закрыто.');
     app.quit();
   });
   app.on('activate', () => {

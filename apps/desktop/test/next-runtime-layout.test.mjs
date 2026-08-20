@@ -12,12 +12,12 @@ import {
 } from '../scripts/next-runtime-layout.mjs';
 
 async function fixture() {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'yaroslavich-runtime-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'pasko-performance-runtime-'));
   const standalone = path.join(root, 'standalone');
   const app = path.join(standalone, 'nested', 'web');
   await mkdir(app, { recursive: true });
   await writeFile(path.join(app, 'server.js'), '');
-  await writeFile(path.join(app, 'package.json'), JSON.stringify({ name: '@yaroslavich/web' }));
+  await writeFile(path.join(app, 'package.json'), JSON.stringify({ name: '@pasko-performance/web' }));
   return { root, standalone, app };
 }
 
@@ -27,7 +27,7 @@ test('finds the validated standalone server without assuming its nesting', async
 });
 
 test('fails clearly when server.js is absent', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'yaroslavich-empty-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'pasko-performance-empty-'));
   await assert.rejects(findStandaloneServer(root), /found 0/);
 });
 
@@ -41,7 +41,7 @@ test('creates public and static targets relative to the discovered server', asyn
 });
 
 test('cleans only a staging child and rejects paths outside its allowed root', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'yaroslavich-clean-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'pasko-performance-clean-'));
   const allowed = path.join(root, '.runtime');
   const staging = path.join(allowed, 'web');
   const sentinel = path.join(root, 'keep.txt');

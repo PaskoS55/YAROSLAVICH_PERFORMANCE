@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error('npm_execpath is required; start this script through npm');
-const internalUrl = process.env.YAROSLAVICH_DESKTOP_DEV_URL || 'http://127.0.0.1:3000';
+const internalUrl = process.env.PASKO_PERFORMANCE_DESKTOP_DEV_URL || 'http://127.0.0.1:3000';
 const children = new Set();
 let stopping = false;
 
@@ -33,9 +33,9 @@ async function waitForWeb(url, child) {
   throw new Error(`Next dev server did not become ready at ${url}`);
 }
 process.on('SIGINT', () => shutdown(130)); process.on('SIGTERM', () => shutdown(143));
-const web = start(['run', 'dev', '--workspace', '@yaroslavich/web', '--', '--hostname', '127.0.0.1']);
+const web = start(['run', 'dev', '--workspace', '@pasko-performance/web', '--', '--hostname', '127.0.0.1']);
 try {
   await waitForWeb(internalUrl, web);
-  const desktop = start(['run', 'dev', '--workspace', '@yaroslavich/desktop'], { YAROSLAVICH_DESKTOP_DEV_URL: internalUrl });
+  const desktop = start(['run', 'dev', '--workspace', '@pasko-performance/desktop'], { PASKO_PERFORMANCE_DESKTOP_DEV_URL: internalUrl });
   desktop.on('exit', (code) => shutdown(code ?? 1)); web.on('exit', (code) => shutdown(code ?? 1));
 } catch (error) { console.error(error instanceof Error ? error.message : error); shutdown(1); }
