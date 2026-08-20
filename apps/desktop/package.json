@@ -9,6 +9,7 @@
     "lint": "eslint src scripts test forge.config.cjs",
     "test:run": "npm run build && node --test test/*.test.mjs",
     "dev": "npm run build && node scripts/start-forge.mjs",
+    "package": "electron-forge package",
     "make": "npm run build && electron-forge make"
   },
   "devDependencies": {
@@ -17,6 +18,5 @@
     "@electron-forge/maker-zip": "7.11.2",
     "@electron-forge/plugin-auto-unpack-natives": "7.11.2",
     "electron": "43.4.1"
-  },
-  "dependencies": { "electron-squirrel-startup": "1.0.1" }
+  }
 }

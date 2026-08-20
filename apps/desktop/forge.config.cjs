@@ -1,7 +1,11 @@
 const { AutoUnpackNativesPlugin } = require('@electron-forge/plugin-auto-unpack-natives');
 
 module.exports = {
-  packagerConfig: { asar: true },
+  packagerConfig: {
+    asar: true,
+    extraResource: ['.runtime/web'],
+    ignore: [/^\/\.runtime(?:\/|$)/],
+  },
   rebuildConfig: {},
   makers: [
     { name: '@electron-forge/maker-squirrel', config: { name: 'yaroslavich_performance' } },

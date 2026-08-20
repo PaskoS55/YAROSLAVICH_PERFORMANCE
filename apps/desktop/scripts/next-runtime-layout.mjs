@@ -85,6 +85,7 @@ export async function verifyPreparedRuntime(plan) {
     path.join(plan.stagingRoot, 'node_modules', 'next'),
     path.join(plan.stagingRoot, 'node_modules', '@prisma', 'client'),
     path.join(plan.stagingRoot, 'node_modules', '.prisma', 'client'),
+    path.join(plan.stagingRoot, 'runtime-manifest.json'),
   ];
   for (const target of required) {
     if (!(await pathExists(target))) throw new Error(`Required prepared runtime path is missing: ${target}`);

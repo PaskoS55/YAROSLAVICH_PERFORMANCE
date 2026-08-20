@@ -1,18 +1,22 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, dialog, shell } from 'electron';
+import { appendFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
-import started from 'electron-squirrel-startup';
-import { classifyNavigation, getInternalUrl } from './url-policy';
+import { handleSquirrelStartup } from './squirrel-startup';
+import { startPackagedNext, type PackagedNextRuntime } from './packaged-next';
+import { resolveRuntimeTarget } from './runtime-paths';
+import { classifyNavigation } from './url-policy';
 
-if (started) app.quit();
-const internalUrl = getInternalUrl();
-const isDevelopment = process.env.YAROSLAVICH_DESKTOP_DEV === '1';
+if (handleSquirrelStartup()) app.quit();
+const isDevelopment = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
+let nextRuntime: PackagedNextRuntime | null = null;
+let quitting = false;
 
 function openExternal(target: string): void {
   void shell.openExternal(target).catch((error: unknown) => console.error('Unable to open external URL', error));
 }
 
-function createWindow(): void {
+function createWindow(internalUrl: URL): void {
   mainWindow = new BrowserWindow({
     width: 1440, height: 900, minWidth: 1024, minHeight: 700, show: false,
     webPreferences: {
@@ -36,6 +40,27 @@ function createWindow(): void {
   void mainWindow.loadURL(internalUrl.toString());
 }
 
+async function startApplication(): Promise<void> {
+  const target = resolveRuntimeTarget({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    developmentUrl: process.env.YAROSLAVICH_DESKTOP_DEV_URL,
+  });
+  if (target.kind === 'development') {
+    createWindow(target.url);
+    return;
+  }
+  nextRuntime = await startPackagedNext(target.serverPath);
+  nextRuntime.process.once('exit', () => {
+    if (quitting) return;
+    mainWindow?.destroy();
+    mainWindow = null;
+    dialog.showErrorBox('YAROSLAVICH PERFORMANCE', 'Локальный web-runtime неожиданно завершился. Приложение будет закрыто.');
+    app.quit();
+  });
+  createWindow(nextRuntime.origin);
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -44,9 +69,23 @@ if (!app.requestSingleInstanceLock()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show(); mainWindow.focus();
   });
-  app.whenReady().then(() => {
-    createWindow();
-    app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  app.on('before-quit', () => {
+    quitting = true;
+    nextRuntime?.stop();
+    nextRuntime = null;
+  });
+  app.whenReady().then(startApplication).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : 'Unknown packaged runtime error';
+    const cause = error instanceof Error && error.cause instanceof Error ? error.cause.message : undefined;
+    console.error('Packaged runtime startup failed', { message, cause });
+    const logsPath = app.getPath('logs');
+    mkdirSync(logsPath, { recursive: true });
+    appendFileSync(path.join(logsPath, 'runtime.log'), `${new Date().toISOString()} packaged startup failed: ${message}${cause ? `; ${cause}` : ''}\n`);
+    dialog.showErrorBox('YAROSLAVICH PERFORMANCE', 'Не удалось запустить локальный web-runtime. Приложение будет закрыто.');
+    app.quit();
+  });
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0 && !quitting && !app.isPackaged) void startApplication();
   });
   app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 }

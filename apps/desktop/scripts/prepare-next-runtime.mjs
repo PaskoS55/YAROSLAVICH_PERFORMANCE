@@ -1,4 +1,4 @@
-import { cp, mkdir } from 'node:fs/promises';
+import { cp, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -28,6 +28,7 @@ await mkdir(stagingRoot, { recursive: true });
 await cp(plan.standaloneSource, plan.stagingRoot, { recursive: true, dereference: true });
 await cp(plan.publicSource, plan.publicTarget, { recursive: true, dereference: true });
 await cp(plan.staticSource, plan.staticTarget, { recursive: true, dereference: true });
+await writeFile(path.join(plan.stagingRoot, 'runtime-manifest.json'), `${JSON.stringify({ server: plan.relativeServer }, null, 2)}\n`);
 const result = await verifyPreparedRuntime(plan);
 
 console.log(`Prepared standalone server: ${plan.stagedServer}`);

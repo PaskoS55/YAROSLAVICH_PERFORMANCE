@@ -15,3 +15,7 @@ Commands: `npm run desktop:build`, `npm run desktop:make`, and the workspace `ty
 Run `npm run desktop:web:build` from the repository root. It builds the actual Next.js 16 standalone output, discovers the web `server.js`, recreates `apps/desktop/.runtime/web`, copies the complete traced runtime plus `public` and `.next/static` at the locations expected by that server, and verifies the artifact. The staging directory is generated and ignored by Git.
 
 Phase 2 still uses the developer-installed Node.js to run this artifact. Electron process management and packaging a Node runtime belong to a later phase.
+
+## Packaged runtime
+
+Run `npm run desktop:package` to rebuild and verify the standalone web runtime, compile Electron, and create an unpacked Forge application. In packaged mode Electron starts `server.js` with `utilityProcess.fork`, waits for `/login` on a dynamically selected `127.0.0.1` port, and only then shows the BrowserWindow. The packaged runtime does not invoke `node`, npm, npx, or Next from `PATH`.
