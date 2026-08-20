@@ -54,3 +54,7 @@ Use a production PostgreSQL URL and supply unique production values for `AUTH_PA
 ## Backup and restore
 
 Create backups from Settings before migrations or destructive maintenance. Restore accepts only version 3 backups produced by this application and validates their entity relationships before replacing data.
+
+## Product assets
+
+Official product assets are immutable approved masters. Do not regenerate, redraw, distort, or modify their proportions. Organization assets are maintained separately from PASKO product branding and must never replace the product favicon or executable icon.

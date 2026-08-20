@@ -2,6 +2,13 @@ import identity from '../product-identity.json';
 
 export const PRODUCT_IDENTITY = Object.freeze(identity);
 
+export const PRODUCT_ASSETS = Object.freeze({
+  logoLight: '/brand/pasko/pasko-logo-on-light.png',
+  logoDark: '/brand/pasko/pasko-logo-on-dark.png',
+  logoMaster: '/brand/pasko/pasko-performance-volleyball-master.png',
+  mark: '/brand/pasko/pasko-mark-master.png',
+});
+
 export type OrganizationBranding = {
   shortName?: string | null;
   logoAssetKey?: string | null;

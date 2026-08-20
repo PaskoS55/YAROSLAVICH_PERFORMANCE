@@ -133,30 +133,31 @@ body {
   padding: 12px 14px;
   border-bottom: 1px solid #1f2126;
 }
-.brand img {
+.product-mark {
   width: 42px;
   height: 42px;
   object-fit: contain;
-  border-radius: 10px;
-  background: #fff;
-  padding: 3px;
   flex-shrink: 0;
+}
+.product-wordmark {
+  width: 142px;
+  height: auto;
+  object-fit: contain;
+  object-position: left center;
 }
 .brand-text {
   flex: 1;
   min-width: 0;
 }
 .brand-name {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #a7abb3;
+  letter-spacing: 0.08em;
   white-space: nowrap;
-}
-.brand-sub {
-  font-size: 9px;
-  color: #8b8f96;
-  letter-spacing: 0.22em;
-  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .toggle-btn {
   background: none;
@@ -352,11 +353,11 @@ body {
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
   text-align: center;
 }
-.login-logo {
-  width: 88px;
-  height: 88px;
+.login-product-logo {
+  width: min(100%, 270px);
+  height: auto;
   object-fit: contain;
-  margin: 0 auto 16px;
+  margin: 0 auto 18px;
   display: block;
 }
 .login-title {

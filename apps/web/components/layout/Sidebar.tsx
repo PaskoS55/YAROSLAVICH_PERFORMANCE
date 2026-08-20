@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
+import { PRODUCT_ASSETS, PRODUCT_IDENTITY } from '@pasko-performance/core/product';
 
 interface NavItem {
   href: string;
@@ -114,11 +115,11 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, organi
     <>
       <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
         <div className="brand">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white font-extrabold text-red-700" aria-label="PASKO product placeholder">P</div>
+          <Image className="product-mark" src={PRODUCT_ASSETS.mark} alt="" width={1254} height={1254} />
           {!collapsed && (
             <div className="brand-text">
+              <Image className="product-wordmark" src={PRODUCT_ASSETS.logoDark} alt={PRODUCT_IDENTITY.display} width={2172} height={724} priority />
               <div className="brand-name">{organizationName}</div>
-              <div className="brand-sub">{PRODUCT_IDENTITY.short}</div>
             </div>
           )}
           <button className="toggle-btn" onClick={onToggle} aria-label="Свернуть меню">
@@ -134,10 +135,10 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, organi
       <div className={`mobile-overlay ${mobileOpen ? '' : 'hidden'}`} onClick={onMobileClose} />
       <div className={`mobile-drawer ${mobileOpen ? 'open' : ''}`}>
         <div className="brand">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white font-extrabold text-red-700" aria-label="PASKO product placeholder">P</div>
+          <Image className="product-mark" src={PRODUCT_ASSETS.mark} alt="" width={1254} height={1254} />
           <div className="brand-text">
+            <Image className="product-wordmark" src={PRODUCT_ASSETS.logoDark} alt={PRODUCT_IDENTITY.display} width={2172} height={724} priority />
             <div className="brand-name">{organizationName}</div>
-            <div className="brand-sub">{PRODUCT_IDENTITY.short}</div>
           </div>
         </div>
         {renderNav(onMobileClose)}
