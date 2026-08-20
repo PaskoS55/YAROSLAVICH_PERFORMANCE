@@ -3,7 +3,7 @@ const { AutoUnpackNativesPlugin } = require('@electron-forge/plugin-auto-unpack-
 module.exports = {
   packagerConfig: {
     asar: true,
-    extraResource: ['.runtime/web'],
+    extraResource: ['.runtime/web', '.runtime/postgres'],
     ignore: [/^\/\.runtime(?:\/|$)/],
   },
   rebuildConfig: {},

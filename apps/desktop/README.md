@@ -19,3 +19,11 @@ Phase 2 still uses the developer-installed Node.js to run this artifact. Electro
 ## Packaged runtime
 
 Run `npm run desktop:package` to rebuild and verify the standalone web runtime, compile Electron, and create an unpacked Forge application. In packaged mode Electron starts `server.js` with `utilityProcess.fork`, waits for `/login` on a dynamically selected `127.0.0.1` port, and only then shows the BrowserWindow. The packaged runtime does not invoke `node`, npm, npx, or Next from `PATH`.
+
+## Embedded PostgreSQL runtime (Phase 4)
+
+The Windows package includes the complete EDB PostgreSQL 16.14 x64 binary archive as `resources/postgres`, outside ASAR. The pinned source and SHA-256 are recorded in `postgres-runtime.json`; EDB does not publish an independent checksum beside this ZIP, so the pinned digest was established from the initial trusted HTTPS download. No PostgreSQL installer or Windows service is used.
+
+`npm run desktop:postgres:prepare` downloads to an ignored build cache when necessary, verifies the pinned SHA-256, extracts to a clean staging directory, and validates the complete runtime. `npm run desktop:postgres:verify` rechecks the staged distribution. `npm run desktop:postgres:test` creates only a disposable temporary cluster and verifies initdb, SCRAM authentication, a dynamic `127.0.0.1` listener, database creation, persistence, crash recovery, and fast shutdown using bundled executables.
+
+Persistent application data is designed for `%LOCALAPPDATA%\YaroslavichPerformance\database\pg16`, with PostgreSQL logs under `%LOCALAPPDATA%\YaroslavichPerformance\logs\postgres`. Passwords are supplied by a controlled harness in this phase and are never stored in the repository, logged, or passed in argv. Phase 4 does not connect Next.js to this database, run Prisma migrations, bootstrap reference data, or implement final `safeStorage` credentials; those remain later phases.

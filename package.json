@@ -15,7 +15,10 @@
     "desktop:build": "npm run build --workspace @yaroslavich/desktop",
     "desktop:make": "npm run make --workspace @yaroslavich/desktop",
     "desktop:web:build": "npm run build --workspace @yaroslavich/web && node apps/desktop/scripts/prepare-next-runtime.mjs && node apps/desktop/scripts/verify-next-runtime.mjs",
-    "desktop:package": "npm run desktop:web:build && npm run build --workspace @yaroslavich/desktop && npm run package --workspace @yaroslavich/desktop",
+    "desktop:postgres:prepare": "node apps/desktop/scripts/prepare-postgres-runtime.mjs",
+    "desktop:postgres:verify": "node apps/desktop/scripts/verify-postgres-runtime.mjs",
+    "desktop:postgres:test": "npm run build --workspace @yaroslavich/desktop && node apps/desktop/scripts/test-postgres-runtime.mjs",
+    "desktop:package": "npm run desktop:web:build && npm run desktop:postgres:prepare && npm run desktop:postgres:verify && npm run build --workspace @yaroslavich/desktop && npm run package --workspace @yaroslavich/desktop",
     "format": "prettier --write ."
   },
   "workspaces": [
