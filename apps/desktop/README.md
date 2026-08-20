@@ -9,3 +9,9 @@ Set `YAROSLAVICH_DESKTOP_DEV_URL` to use another controlled HTTP(S) origin witho
 Security defaults: Node integration off; context isolation, sandbox, and web security on; empty preload API; single-instance lock; DevTools enabled only by the development launcher.
 
 Commands: `npm run desktop:build`, `npm run desktop:make`, and the workspace `typecheck`, `lint`, and `test:run` scripts. Squirrel configuration is prepared, but Phase 1 is not installer-ready.
+
+## Next.js standalone runtime
+
+Run `npm run desktop:web:build` from the repository root. It builds the actual Next.js 16 standalone output, discovers the web `server.js`, recreates `apps/desktop/.runtime/web`, copies the complete traced runtime plus `public` and `.next/static` at the locations expected by that server, and verifies the artifact. The staging directory is generated and ignored by Git.
+
+Phase 2 still uses the developer-installed Node.js to run this artifact. Electron process management and packaging a Node runtime belong to a later phase.

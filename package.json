@@ -14,6 +14,7 @@
     "desktop:dev": "node apps/desktop/scripts/dev.mjs",
     "desktop:build": "npm run build --workspace @yaroslavich/desktop",
     "desktop:make": "npm run make --workspace @yaroslavich/desktop",
+    "desktop:web:build": "npm run build --workspace @yaroslavich/web && node apps/desktop/scripts/prepare-next-runtime.mjs && node apps/desktop/scripts/verify-next-runtime.mjs",
     "format": "prettier --write ."
   },
   "workspaces": [
