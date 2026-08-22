@@ -10,7 +10,7 @@ module.exports = {
     appBundleId: product.appUserModelId,
     name: product.electronName,
     icon: windowsIcon,
-    extraResource: ['.runtime/web', '.runtime/postgres', '../../packages/core/product-identity.json'],
+    extraResource: ['.runtime/web', '.runtime/postgres', '.runtime/db', '../../packages/core/product-identity.json'],
     ignore: [/^\/\.runtime(?:\/|$)/],
   },
   rebuildConfig: {},
