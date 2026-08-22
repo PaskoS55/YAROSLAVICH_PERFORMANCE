@@ -4,8 +4,9 @@ import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
+import type { ReadyAppContext } from '../../lib/app-context-core';
 
-export function AppShell({ children, organizationName }: { children: React.ReactNode; organizationName: string }) {
+export function AppShell({ children, context }: { children: React.ReactNode; context: ReadyAppContext | null }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
@@ -27,7 +28,7 @@ export function AppShell({ children, organizationName }: { children: React.React
         onToggle={() => setCollapsed((c) => !c)}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
-        organizationName={organizationName}
+        organizationName={context?.organizationShortName ?? context?.organizationName ?? 'Организация'}
       />
       <div className={`main ${collapsed ? 'main-collapsed' : ''}`}>
         <header className="topbar">
@@ -46,6 +47,7 @@ export function AppShell({ children, organizationName }: { children: React.React
             <span className="topbar-brand">{PRODUCT_IDENTITY.canonical}</span>
           </div>
           <div className="topbar-right">
+            {context && <a href="/context" className="context-chip"><b>{context.teamName}</b><span>{context.seasonName}</span></a>}
             <span className="topbar-date">{today}</span>
             <form action="/api/auth/logout">
               <button className="logout-btn" type="submit">
@@ -62,7 +64,7 @@ export function AppShell({ children, organizationName }: { children: React.React
             <span className="footer-dot" />
           </div>
           <div className="footer-author">
-            Платформа для тестирования, мониторинга и управления физической подготовкой волейбольных команд
+            {PRODUCT_IDENTITY.creator.creditRu}
           </div>
         </footer>
       </div>

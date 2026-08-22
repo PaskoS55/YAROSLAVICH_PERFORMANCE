@@ -1,4 +1,5 @@
 import { prisma } from '../../lib/prisma';
+import { requireAppContext } from '../../lib/app-context';
 import Link from 'next/link';
 import { createBodyComposition } from './actions';
 import NewMeasureSection from './new-measure-section';
@@ -35,12 +36,20 @@ const field = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm';
 const label = 'block text-xs font-medium text-gray-500';
 
 export default async function BodyCompositionPage() {
+  const context = await requireAppContext();
   const players = await prisma.player.findMany({
-    where: { deletedAt: null },
+    where: { teamId: context.teamId, deletedAt: null },
     orderBy: { playerId: 'asc' },
     include: {
       bodyCompositions: {
-        where: { deletedAt: null },
+        where: {
+          deletedAt: null,
+          testSession: {
+            teamId: context.teamId,
+            seasonId: context.seasonId,
+            deletedAt: null,
+          },
+        },
         orderBy: { createdAt: 'asc' },
         include: { testSession: { select: { DateTime: true, sessionId: true } } },
       },

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings=0"
+    "lint": "eslint . --max-warnings=0",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",

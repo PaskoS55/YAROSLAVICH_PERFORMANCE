@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma';
 import AnalyticsControls from './analytics-controls';
 import { computePercentile, fmtVal } from '../../lib/analytics';
 import RadarChart from '../../components/RadarChart';
+import { requireAppContext } from '../../lib/app-context';
 
 export default async function AnalyticsPage({
   searchParams,
@@ -9,8 +10,9 @@ export default async function AnalyticsPage({
   searchParams: Promise<{ playerId?: string; testId?: string }>;
 }) {
   const query = await searchParams;
+  const context = await requireAppContext();
   const players = await prisma.player.findMany({
-    where: { deletedAt: null },
+    where: { teamId: context.teamId, deletedAt: null },
     orderBy: { lastName: 'asc' },
   });
   const player = players.find((p) => p.id === query.playerId) ?? players[0];
@@ -56,10 +58,10 @@ export default async function AnalyticsPage({
   const radarCatIds = new Set(radarCategories.map((c) => c.id));
 
   const allPlayers = await prisma.player.findMany({
-    where: { deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
+    where: { teamId: context.teamId, deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
     include: {
       testSessions: {
-        where: { deletedAt: null },
+        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
         include: {
           testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
         },
@@ -68,7 +70,7 @@ export default async function AnalyticsPage({
   });
 
   const sessionsAsc = await prisma.testSession.findMany({
-    where: { playerId: player.id, deletedAt: null },
+    where: { playerId: player.id, teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
     orderBy: { DateTime: 'asc' },
     include: {
       testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },

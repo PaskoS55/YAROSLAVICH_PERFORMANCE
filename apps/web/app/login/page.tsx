@@ -37,6 +37,7 @@ export default async function LoginPage({
           </button>
         </form>
         <div className="login-note">{PRODUCT_IDENTITY.vertical} · доступ только для персонала</div>
+        <div className="login-note">{PRODUCT_IDENTITY.creator.creditRu}</div>
       </div>
     </div>
   );

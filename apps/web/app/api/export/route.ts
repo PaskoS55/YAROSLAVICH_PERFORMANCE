@@ -1,4 +1,5 @@
 import { prisma } from '../../../lib/prisma';
+import { requireAppContext } from '../../../lib/app-context';
 
 function csvResponse(lines: string[], filename: string) {
   const csv = '\uFEFF' + lines.join('\r\n');
@@ -15,17 +16,18 @@ const num = (v: number) => String(v).replace('.', ',');
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
+  const context = await requireAppContext();
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type');
   const id = searchParams.get('id');
 
   if (type === 'team') {
     const players = await prisma.player.findMany({
-      where: { deletedAt: null },
+      where: { teamId: context.teamId, deletedAt: null },
       orderBy: { playerId: 'asc' },
       include: {
         testSessions: {
-          where: { deletedAt: null },
+          where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
           orderBy: { DateTime: 'desc' },
           include: { testResults: { where: { deletedAt: null } } },
         },
@@ -58,14 +60,14 @@ export async function GET(req: Request) {
   }
 
   if (type === 'session' && id) {
-    const session = await prisma.testSession.findUnique({
-      where: { id },
+    const session = await prisma.testSession.findFirst({
+      where: { id, teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
       include: {
         player: true,
         testResults: { where: { deletedAt: null }, include: { test: true } },
       },
     });
-    if (!session || session.deletedAt) return new Response('Not found', { status: 404 });
+    if (!session) return new Response('Not found', { status: 404 });
     const lines = [
       `Сессия;${session.sessionId}`,
       `Игрок;${session.player.lastName} ${session.player.firstName}`,
@@ -80,17 +82,17 @@ export async function GET(req: Request) {
   }
 
   if (type === 'player' && id) {
-    const player = await prisma.player.findUnique({
-      where: { id },
+    const player = await prisma.player.findFirst({
+      where: { id, teamId: context.teamId, deletedAt: null },
       include: {
         testSessions: {
-          where: { deletedAt: null },
+          where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
           orderBy: { DateTime: 'asc' },
           include: { testResults: { where: { deletedAt: null }, include: { test: true } } },
         },
       },
     });
-    if (!player || player.deletedAt) return new Response('Not found', { status: 404 });
+    if (!player) return new Response('Not found', { status: 404 });
     const lines = [
       `Игрок;${player.lastName} ${player.firstName} ${player.middleName ?? ''}`,
       `ID;${player.playerId}`,

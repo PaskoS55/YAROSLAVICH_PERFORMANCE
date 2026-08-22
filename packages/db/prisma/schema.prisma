@@ -79,7 +79,7 @@ model Organization {
 model Team {
   id             String        @id @default(cuid())
   name           String
-  code           String        @unique
+  code           String
   organization   Organization  @relation(fields: [organizationId], references: [id])
   organizationId String
   players        Player[]
@@ -89,6 +89,8 @@ model Team {
   updatedAt      DateTime      @updatedAt
   deletedAt      DateTime?     @map("deleted_at")
 
+  @@unique([organizationId, code])
+  @@index([organizationId, deletedAt])
   @@map("teams")
 }
 
@@ -131,6 +133,7 @@ model Player {
   deletedAt        DateTime?         @map("deleted_at")
 
   @@unique([teamId, playerId])
+  @@index([teamId, deletedAt])
   @@map("players")
 }
 
@@ -206,6 +209,7 @@ model TestSession {
   deletedAt        DateTime?         @map("deleted_at")
 
   @@unique([playerId, DateTime, phase])
+  @@index([teamId, seasonId, deletedAt])
   @@map("test_sessions")
 }
 
@@ -233,6 +237,8 @@ model TestResult {
   equipmentId      String?
 
   @@unique([testSessionId, testId])
+  @@index([testSessionId, deletedAt, qcStatus])
+  @@index([playerId, deletedAt, qcStatus])
   @@map("test_results")
 }
 
@@ -271,6 +277,7 @@ model PlayerGoal {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime? @map("deleted_at")
 
+  @@index([playerId, deletedAt])
   @@map("player_goals")
 }
 
@@ -306,6 +313,8 @@ model BodyComposition {
   updatedAt     DateTime    @updatedAt
   deletedAt     DateTime?   @map("deleted_at")
 
+  @@index([playerId, deletedAt])
+  @@index([testSessionId, deletedAt])
   @@map("body_compositions")
 }
 

@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { computeQcStatus, syncQcFlag } from '../../lib/qc';
 import { syncGoalsForResult } from '../../lib/goals';
+import { requireAppContext } from '../../lib/app-context';
 
 export type ImportRow = {
   playerCode: string;
@@ -17,13 +18,9 @@ type Phase = 'PRESEASON' | 'CAMP' | 'INSEASON' | 'POSTSEASON' | 'RECOVERY';
 const PHASES = new Set<string>(['PRESEASON', 'CAMP', 'INSEASON', 'POSTSEASON', 'RECOVERY']);
 
 export async function importRows(rows: ImportRow[]) {
+  const context = await requireAppContext();
   let ok = 0;
   const errors: string[] = [];
-
-  const season = await prisma.season.findFirst();
-  if (!season) {
-    return { ok: 0, errors: ['Не настроен сезон — импорт невозможен. Создайте сезон в настройках.'] };
-  }
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
@@ -42,7 +39,7 @@ export async function importRows(rows: ImportRow[]) {
       const phase = (rawPhase || 'INSEASON') as Phase;
 
       const player = await prisma.player.findFirst({
-        where: { playerId: r.playerCode, deletedAt: null },
+        where: { teamId: context.teamId, playerId: r.playerCode, deletedAt: null },
       });
       const test = await prisma.test.findFirst({
         where: { code: r.testCode, deletedAt: null },
@@ -61,7 +58,7 @@ export async function importRows(rows: ImportRow[]) {
       // Каждая строка атомарна: сессия + результат + QC-флаг либо целиком, либо нет
       await prisma.$transaction(async (tx) => {
         let session = await tx.testSession.findFirst({
-          where: { playerId: player.id, DateTime: date, phase },
+          where: { playerId: player.id, teamId: context.teamId, seasonId: context.seasonId, DateTime: date, phase },
         });
         if (!session) {
           const sessionId = `S-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
@@ -71,14 +68,14 @@ export async function importRows(rows: ImportRow[]) {
               DateTime: date,
               phase,
               playerId: player.id,
-              teamId: player.teamId,
-              seasonId: season.id,
+              teamId: context.teamId,
+              seasonId: context.seasonId,
             },
           });
         } else if (session.deletedAt) {
           session = await tx.testSession.update({
             where: { id: session.id },
-            data: { deletedAt: null, teamId: player.teamId, seasonId: season.id },
+            data: { deletedAt: null, teamId: context.teamId, seasonId: context.seasonId },
           });
         }
 
@@ -97,7 +94,7 @@ export async function importRows(rows: ImportRow[]) {
           },
         });
         await syncQcFlag(tx, result.id, test, r.value, qcStatus);
-        await syncGoalsForResult(tx, player.id, test.id, r.value);
+        await syncGoalsForResult(tx, player.id, test.id, context.seasonId);
       });
       ok += 1;
     } catch {

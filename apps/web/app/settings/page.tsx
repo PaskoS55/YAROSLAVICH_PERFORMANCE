@@ -3,11 +3,15 @@ import {
   updateOrganization,
   updateTeam,
   updateSeason,
+  createTeam,
+  createSeason,
   resetDemoData,
 } from './actions';
 import ResetButton from './reset-button';
 import RestoreButton from './restore-button';
 import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
+import { requireAppContext } from '../../lib/app-context';
+import Link from 'next/link';
 
 const field = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm';
 const label = 'block text-xs font-medium text-gray-500';
@@ -18,14 +22,17 @@ function fmtDate(d: Date | null | undefined) {
 }
 
 export default async function SettingsPage() {
-  const [org, team, season, stats] = await Promise.all([
-    prisma.organization.findFirst(),
-    prisma.team.findFirst(),
-    prisma.season.findFirst(),
+  const context = await requireAppContext();
+  const [org, team, season, teams, seasons, stats] = await Promise.all([
+    prisma.organization.findUnique({ where: { id: context.organizationId } }),
+    prisma.team.findUnique({ where: { id: context.teamId } }),
+    prisma.season.findUnique({ where: { id: context.seasonId } }),
+    prisma.team.findMany({ where: { organizationId: context.organizationId, deletedAt: null }, orderBy: { name: 'asc' } }),
+    prisma.season.findMany({ where: { deletedAt: null, teams: { some: { id: context.teamId } } }, orderBy: { startDate: 'desc' } }),
     Promise.all([
-      prisma.player.count({ where: { deletedAt: null } }),
-      prisma.testSession.count({ where: { deletedAt: null } }),
-      prisma.testResult.count({ where: { deletedAt: null } }),
+      prisma.player.count({ where: { teamId: context.teamId, deletedAt: null } }),
+      prisma.testSession.count({ where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null } }),
+      prisma.testResult.count({ where: { deletedAt: null, testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null } } }),
       prisma.test.count({ where: { deletedAt: null } }),
     ]),
   ]);
@@ -157,10 +164,42 @@ export default async function SettingsPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-3 text-lg font-bold">Команды организации</h2>
+          <ul className="mb-4 space-y-1 text-sm">
+            {teams.map((item) => (
+              <li key={item.id}>{item.name} <span className="font-mono text-gray-400">{item.code}</span>{item.id === context.teamId && ' · активна'}</li>
+            ))}
+          </ul>
+          <form action={createTeam} className="grid grid-cols-2 gap-2">
+            <input name="name" required placeholder="Название" className={field} />
+            <input name="code" required placeholder="CODE" className={field} />
+            <button className="btn-primary col-span-2">Создать команду</button>
+          </form>
+          <Link href="/context" className="mt-3 inline-block text-sm link-action">Сменить команду →</Link>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-3 text-lg font-bold">Сезоны команды</h2>
+          <ul className="mb-4 space-y-1 text-sm">
+            {seasons.map((item) => <li key={item.id}>{item.name}{item.id === context.seasonId && ' · активен'}</li>)}
+          </ul>
+          <form action={createSeason} className="space-y-2">
+            <input name="name" required placeholder="2027/28" className={field} />
+            <div className="grid grid-cols-2 gap-2">
+              <input type="date" name="startDate" required className={field} />
+              <input type="date" name="endDate" required className={field} />
+            </div>
+            <button className="btn-primary">Создать сезон</button>
+          </form>
+          <Link href="/context" className="mt-3 inline-block text-sm link-action">Сменить сезон →</Link>
+        </div>
+      </div>
+
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-lg font-bold">Резервное копирование</h2>
         <p className="mb-3 text-sm text-gray-600">
-          Скачайте полную копию данных в формате JSON для архива или переноса.
+          Installation-wide backup: полная копия всех организаций и команд для администрирования установки.
         </p>
         <a
           href="/api/backup"
@@ -175,7 +214,7 @@ export default async function SettingsPage() {
       <div className="rounded-lg border-2 border-red-200 bg-red-50 p-6">
         <h2 className="mb-2 text-lg font-bold text-red-900">⚠ Опасная зона</h2>
         <p className="mb-3 text-sm text-red-800">
-          Сброс удалит всех игроков, сессии, результаты, цели и замеры. Нормативы, справочник
+          Installation-wide сброс удалит данные всех команд: игроков, сессии, результаты, цели и замеры. Нормативы, справочник
           тестов и оборудование сохранятся. Это действие необратимо — сначала скачайте резервную
           копию.
         </p>
@@ -186,9 +225,9 @@ export default async function SettingsPage() {
 
       <div className="text-xs text-gray-400">
         <p>Версия системы: {PRODUCT_IDENTITY.display} v1.0</p>
-        <p>
-          Создано тренером по функциональной и кондиционной подготовке Пасько Сергеем
-        </p>
+        <p>Product: {PRODUCT_IDENTITY.canonical} · Vertical: {PRODUCT_IDENTITY.vertical}</p>
+        <p>{PRODUCT_IDENTITY.creator.creditRu}</p>
+        <p>{PRODUCT_IDENTITY.creator.creditEn}</p>
       </div>
     </div>
   );

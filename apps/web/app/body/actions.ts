@@ -2,6 +2,7 @@
 
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { requireAppContext } from '../../lib/app-context';
 
 type Phase = 'PRESEASON' | 'CAMP' | 'INSEASON' | 'POSTSEASON' | 'RECOVERY';
 const PHASES = new Set<string>(['PRESEASON', 'CAMP', 'INSEASON', 'POSTSEASON', 'RECOVERY']);
@@ -12,6 +13,7 @@ const num = (v: FormDataEntryValue | null) => {
 };
 
 export async function createBodyComposition(formData: FormData): Promise<void> {
+  const context = await requireAppContext();
   const playerId = String(formData.get('playerId') ?? '');
   const dateStr = String(formData.get('date') ?? '');
   const mass = num(formData.get('mass'));
@@ -61,16 +63,10 @@ export async function createBodyComposition(formData: FormData): Promise<void> {
   }
 
   const player = await prisma.player.findFirst({
-    where: { id: playerId, deletedAt: null },
+    where: { id: playerId, teamId: context.teamId, deletedAt: null },
   });
   if (!player) {
     console.error('Body composition: игрок не найден или удалён.');
-    return;
-  }
-
-  const season = await prisma.season.findFirst();
-  if (!season) {
-    console.error('Body composition: не настроен сезон.');
     return;
   }
 
@@ -81,6 +77,8 @@ export async function createBodyComposition(formData: FormData): Promise<void> {
           playerId,
           DateTime: date,
           phase: phaseStr as Phase,
+          teamId: context.teamId,
+          seasonId: context.seasonId,
         },
       });
 
@@ -92,14 +90,14 @@ export async function createBodyComposition(formData: FormData): Promise<void> {
             DateTime: date,
             phase: phaseStr as Phase,
             playerId,
-            teamId: player.teamId,
-            seasonId: season.id,
+            teamId: context.teamId,
+            seasonId: context.seasonId,
           },
         });
       } else if (session.deletedAt) {
         session = await tx.testSession.update({
           where: { id: session.id },
-          data: { deletedAt: null, teamId: player.teamId, seasonId: season.id },
+          data: { deletedAt: null, teamId: context.teamId, seasonId: context.seasonId },
         });
       }
 

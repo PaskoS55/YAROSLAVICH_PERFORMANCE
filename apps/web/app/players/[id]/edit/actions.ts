@@ -4,11 +4,13 @@ import { prisma } from '../../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { validatePlayerFields } from '../../../../lib/player';
+import { requireAppContext } from '../../../../lib/app-context';
 
 export async function updatePlayer(formData: FormData): Promise<void> {
+  const context = await requireAppContext();
   const id = String(formData.get('id'));
 
-  const existing = await prisma.player.findFirst({ where: { id, deletedAt: null } });
+  const existing = await prisma.player.findFirst({ where: { id, teamId: context.teamId, deletedAt: null } });
   if (!existing) {
     console.error('updatePlayer: игрок не найден или удалён.');
     return;
@@ -74,8 +76,9 @@ export async function updatePlayer(formData: FormData): Promise<void> {
 }
 
 export async function archivePlayer(formData: FormData): Promise<void> {
+  const context = await requireAppContext();
   const id = String(formData.get('id'));
-  const existing = await prisma.player.findFirst({ where: { id, deletedAt: null } });
+  const existing = await prisma.player.findFirst({ where: { id, teamId: context.teamId, deletedAt: null } });
   if (!existing) {
     console.error('archivePlayer: игрок не найден или уже удалён.');
     return;
@@ -89,8 +92,9 @@ export async function archivePlayer(formData: FormData): Promise<void> {
 }
 
 export async function restorePlayer(formData: FormData): Promise<void> {
+  const context = await requireAppContext();
   const id = String(formData.get('id'));
-  const existing = await prisma.player.findFirst({ where: { id, NOT: { deletedAt: null } } });
+  const existing = await prisma.player.findFirst({ where: { id, teamId: context.teamId, NOT: { deletedAt: null } } });
   if (!existing) {
     console.error('restorePlayer: игрок не найден или не удалён.');
     return;

@@ -1,12 +1,14 @@
 import ImportForm from './import-form';
+import { requireAppContext } from '../../lib/app-context';
 
-export default function ImportPage() {
+export default async function ImportPage() {
+  const context = await requireAppContext();
   return (
     <div className="space-y-5 p-6">
       <div>
         <h1 className="text-3xl font-bold">Импорт</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Загрузка результатов тестирования из CSV.
+          Загрузка результатов из CSV в {context.teamName} · {context.seasonName}.
         </p>
       </div>
       <div className="rounded-lg border border-gray-200 bg-white p-6">

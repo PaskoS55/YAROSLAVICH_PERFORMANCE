@@ -5,7 +5,7 @@ import './globals.css';
 export const dynamic = 'force-dynamic';
 import { AppShell } from '../components/layout/AppShell';
 import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
-import { prisma } from '../lib/prisma';
+import { getAppContext } from '../lib/app-context';
 
 const inter = Inter({
   subsets: ['cyrillic', 'latin'],
@@ -30,15 +30,11 @@ export const metadata: Metadata = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const organization = await prisma.organization.findFirst({
-    where: { deletedAt: null },
-    select: { name: true },
-  });
-  const organizationName = organization?.name ?? 'Организация';
+  const context = await getAppContext();
   return (
     <html lang="ru">
       <body className={inter.className}>
-        <AppShell organizationName={organizationName}>{children}</AppShell>
+        <AppShell context={context.status === 'READY' ? context : null}>{children}</AppShell>
       </body>
     </html>
   );

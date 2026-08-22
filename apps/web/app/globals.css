@@ -139,6 +139,9 @@ body {
   object-fit: contain;
   flex-shrink: 0;
 }
+.context-chip { display: flex; flex-direction: column; max-width: 220px; border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; color: var(--ink); text-decoration: none; line-height: 1.2; }
+.context-chip b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.context-chip span { color: var(--muted); font-size: 10px; }
 .product-wordmark {
   width: 142px;
   height: auto;

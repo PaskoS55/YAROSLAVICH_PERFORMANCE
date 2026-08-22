@@ -10,5 +10,13 @@
   "dataDirectoryName": "PaskoPerformance",
   "databaseName": "pasko_performance",
   "backupPrefix": "pasko-performance-backup",
-  "logPrefix": "pasko-performance"
+  "logPrefix": "pasko-performance",
+  "creator": {
+    "nameRu": "Сергей Пасько",
+    "nameEn": "Sergey Pasko",
+    "roleRu": "Тренер по функциональной и кондиционной подготовке",
+    "roleEn": "Strength & Conditioning Coach",
+    "creditRu": "Создано Сергеем Пасько — тренером по функциональной и кондиционной подготовке",
+    "creditEn": "Created by Sergey Pasko — Strength & Conditioning Coach"
+  }
 }

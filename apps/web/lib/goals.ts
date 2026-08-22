@@ -13,7 +13,7 @@ export async function syncGoalsForResult(
   tx: Prisma.TransactionClient,
   playerId: string,
   testId: string,
-  _value: number
+  seasonId: string
 ) {
   const test = await tx.test.findUnique({ where: { id: testId } });
   if (!test) return;
@@ -22,7 +22,13 @@ export async function syncGoalsForResult(
     where: { playerId, testId, deletedAt: null },
   });
   const passedResults = await tx.testResult.findMany({
-    where: { playerId, testId, deletedAt: null, qcStatus: 'PASSED' },
+    where: {
+      playerId,
+      testId,
+      deletedAt: null,
+      qcStatus: 'PASSED',
+      testSession: { seasonId, deletedAt: null },
+    },
     select: { value: true },
   });
 

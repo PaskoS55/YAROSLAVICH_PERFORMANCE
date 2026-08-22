@@ -53,7 +53,16 @@ Use a production PostgreSQL URL and supply unique production values for `AUTH_PA
 
 ## Backup and restore
 
-Create backups from Settings before migrations or destructive maintenance. Restore accepts only version 3 backups produced by this application and validates their entity relationships before replacing data.
+Create backups from Settings before migrations or destructive maintenance. Backup, restore, and reset are installation-wide administrative operations: they include or affect every organization and team. Restore accepts only version 3 backups produced by this application and validates their entity relationships before replacing data.
+
+## Product and club context
+
+- PASKO PERFORMANCE PLATFORM is the immutable product identity; VOLLEYBALL is its current sports vertical.
+- Organization represents a club, Team represents a squad, and Season is the active working season.
+- A signed HttpOnly context cookie selects the active Organization, Team, and Season. This context scopes data but is not user authorization.
+- A database containing exactly one active Organization, Team, and linked Season uses a deterministic fallback. Multiple choices require explicit selection in the context screen.
+- Product creator credit belongs to the product identity and cannot be overridden by organization branding.
+- User/Role authorization, licensing, organization-scoped backup, cloud synchronization, and a complete first-run wizard are deferred to later phases.
 
 ## Product assets
 

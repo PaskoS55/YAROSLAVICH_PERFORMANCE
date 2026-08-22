@@ -103,6 +103,7 @@ export async function POST(req: Request) {
   const resultIds = ids(testResults);
   const equipmentIds = ids(equipment);
   const sessionById = new Map(testSessions.map((session) => [session.id, session]));
+  const teamSeasonKeys = new Set(teamSeasonLinks.map((link) => `${link.teamId}\u0000${link.seasonId}`));
 
   const invalidIds = [
     organizations,
@@ -130,6 +131,7 @@ export async function POST(req: Request) {
         !playerIds.has(session.playerId) ||
         !teamIds.has(session.teamId) ||
         !seasonIds.has(session.seasonId) ||
+        !teamSeasonKeys.has(`${session.teamId}\u0000${session.seasonId}`) ||
         players.find((player) => player.id === session.playerId)?.teamId !== session.teamId
     ) ||
     testResults.some((result) => {
@@ -153,6 +155,9 @@ export async function POST(req: Request) {
     qcFlags.some((flag) => !resultIds.has(flag.testResultId)) ||
     teamSeasonLinks.some((link) => !teamIds.has(link.teamId) || !seasonIds.has(link.seasonId));
   const duplicateBusinessKeys =
+    new Set(organizations.map((organization) => organization.code)).size !== organizations.length ||
+    new Set(teams.map((team) => `${team.organizationId}\u0000${team.code}`)).size !== teams.length ||
+    teamSeasonKeys.size !== teamSeasonLinks.length ||
     new Set(players.map((player) => `${player.teamId}\u0000${player.playerId}`)).size !== players.length ||
     new Set(testSessions.map((session) => `${session.playerId}\u0000${session.DateTime}\u0000${session.phase}`))
       .size !== testSessions.length ||

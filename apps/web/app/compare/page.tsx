@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import CompareControls from './compare-controls';
 import { computePercentile, fmtVal } from '../../lib/analytics';
+import { requireAppContext } from '../../lib/app-context';
 
 export default async function ComparePage({
   searchParams,
@@ -8,12 +9,13 @@ export default async function ComparePage({
   searchParams: Promise<{ a?: string; b?: string }>;
 }) {
   const query = await searchParams;
+  const context = await requireAppContext();
   const players = await prisma.player.findMany({
-    where: { deletedAt: null },
+    where: { teamId: context.teamId, deletedAt: null },
     orderBy: { lastName: 'asc' },
     include: {
       testSessions: {
-        where: { deletedAt: null },
+        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
         orderBy: { DateTime: 'desc' },
         include: {
           testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },

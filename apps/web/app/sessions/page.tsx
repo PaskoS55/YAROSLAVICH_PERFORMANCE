@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma';
 import Link from 'next/link';
+import { requireAppContext } from '../../lib/app-context';
 
 const phaseLabels: Record<string, string> = {
   PRESEASON: 'Предсезонка',
@@ -22,11 +23,12 @@ export default async function SessionsPage({
   searchParams: Promise<{ q?: string; phase?: string }>;
 }) {
   const query = await searchParams;
+  const context = await requireAppContext();
   const q = (query.q ?? '').trim().toLowerCase();
   const phase = query.phase ?? 'ALL';
 
   const all = await prisma.testSession.findMany({
-    where: { deletedAt: null },
+    where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
     orderBy: { DateTime: 'desc' },
     include: {
       player: { select: { id: true, lastName: true, firstName: true, playerId: true } },

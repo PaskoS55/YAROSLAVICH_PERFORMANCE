@@ -4,6 +4,7 @@ import { prisma } from '../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { computeQcStatus, syncQcFlag } from '../../../lib/qc';
 import { syncGoalsForResult } from '../../../lib/goals';
+import { requireAppContext } from '../../../lib/app-context';
 
 type Phase = 'PRESEASON' | 'CAMP' | 'INSEASON' | 'POSTSEASON' | 'RECOVERY';
 const PHASES = new Set<string>(['PRESEASON', 'CAMP', 'INSEASON', 'POSTSEASON', 'RECOVERY']);
@@ -14,6 +15,7 @@ export async function saveTeamResults(params: {
   phase: string;
   entries: { playerId: string; value: number }[];
 }) {
+  const context = await requireAppContext();
   if (!PHASES.has(params.phase)) throw new Error('Некорректная фаза сезона.');
   if (!params.entries.length) throw new Error('Нет ни одного результата для сохранения.');
 
@@ -25,13 +27,9 @@ export async function saveTeamResults(params: {
   const test = await prisma.test.findFirst({ where: { id: params.testId, deletedAt: null } });
   if (!test) throw new Error('Тест не найден или архивирован.');
 
-  const team = await prisma.team.findFirst();
-  const season = await prisma.season.findFirst();
-  if (!team || !season) throw new Error('Команда или сезон не найдены.');
-
   const playerIds = [...new Set(params.entries.map((e) => e.playerId))];
   const players = await prisma.player.findMany({
-    where: { id: { in: playerIds }, deletedAt: null, teamId: team.id },
+    where: { id: { in: playerIds }, deletedAt: null, teamId: context.teamId },
     select: { id: true },
   });
   const validIds = new Set(players.map((p) => p.id));
@@ -48,7 +46,7 @@ export async function saveTeamResults(params: {
 
     for (const e of params.entries) {
       let session = await tx.testSession.findFirst({
-        where: { playerId: e.playerId, DateTime: date, phase },
+        where: { playerId: e.playerId, teamId: context.teamId, seasonId: context.seasonId, DateTime: date, phase },
       });
 
       let created = false;
@@ -60,15 +58,15 @@ export async function saveTeamResults(params: {
             DateTime: date,
             phase,
             playerId: e.playerId,
-            teamId: team.id,
-            seasonId: season.id,
+            teamId: context.teamId,
+            seasonId: context.seasonId,
           },
         });
         created = true;
       } else if (session.deletedAt) {
         session = await tx.testSession.update({
           where: { id: session.id },
-          data: { deletedAt: null, teamId: team.id, seasonId: season.id },
+          data: { deletedAt: null, teamId: context.teamId, seasonId: context.seasonId },
         });
       }
 
@@ -87,7 +85,7 @@ export async function saveTeamResults(params: {
         },
       });
       await syncQcFlag(tx, result.id, test, e.value, qcStatus);
-      await syncGoalsForResult(tx, e.playerId, test.id, e.value);
+      await syncGoalsForResult(tx, e.playerId, test.id, context.seasonId);
 
       out.push({ playerId: e.playerId, sessionId: session.sessionId, created });
     }

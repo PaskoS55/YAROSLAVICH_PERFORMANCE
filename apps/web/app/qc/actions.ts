@@ -3,16 +3,18 @@
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { syncGoalsForResult } from '../../lib/goals';
+import { requireAppContext } from '../../lib/app-context';
 
 export async function resolveFlag(formData: FormData): Promise<void> {
+  const context = await requireAppContext();
   const id = String(formData.get('id') ?? '');
   const reason = String(formData.get('reason') ?? 'manual').trim() || 'manual';
 
   const flag = await prisma.qCFlag.findUnique({
     where: { id },
-    include: { testResult: true },
+    include: { testResult: { include: { testSession: { select: { teamId: true, seasonId: true, deletedAt: true } }, player: { select: { teamId: true } } } } },
   });
-  if (!flag) {
+  if (!flag || flag.testResult.player.teamId !== context.teamId || flag.testResult.testSession.teamId !== context.teamId || flag.testResult.testSession.seasonId !== context.seasonId || flag.testResult.testSession.deletedAt) {
     console.error('resolveFlag: флаг не найден.');
     return;
   }
@@ -36,7 +38,7 @@ export async function resolveFlag(formData: FormData): Promise<void> {
         tx,
         flag.testResult.playerId,
         flag.testResult.testId,
-        flag.testResult.value
+        context.seasonId
       );
     }
   });

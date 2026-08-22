@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import PrintButton from './print-button';
 import RadarChart from '../../../components/RadarChart';
 import { computePercentile } from '../../../lib/analytics';
+import { requireAppContext } from '../../../lib/app-context';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -49,22 +50,23 @@ function fmtDate(d: Date | null | undefined) {
 
 export default async function PlayerCardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const player = await prisma.player.findUnique({
-    where: { id },
+  const context = await requireAppContext();
+  const player = await prisma.player.findFirst({
+    where: { id, teamId: context.teamId, deletedAt: null },
     include: {
       team: true,
       testSessions: {
-        where: { deletedAt: null },
+        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
         orderBy: { DateTime: 'desc' },
         include: {
           testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
         },
       },
-      goals: { include: { test: true } },
+      goals: { where: { deletedAt: null }, include: { test: true } },
     },
   });
 
-  if (!player || player.deletedAt) notFound();
+  if (!player) notFound();
 
   const allNorms = await prisma.norm.findMany({ where: { deletedAt: null } });
   const normByKey = new Map(allNorms.map((n) => [`${n.position}|${n.testCode}`, n]));
@@ -76,10 +78,10 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
   const radarCatIds = new Set(radarCategories.map((c) => c.id));
 
   const allPlayers = await prisma.player.findMany({
-    where: { deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
+    where: { teamId: context.teamId, deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
     include: {
       testSessions: {
-        where: { deletedAt: null },
+        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
         include: {
           testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
         },

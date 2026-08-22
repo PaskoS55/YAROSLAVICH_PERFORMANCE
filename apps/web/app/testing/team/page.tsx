@@ -1,9 +1,11 @@
 import { prisma } from '../../../lib/prisma';
 import TeamForm from './team-form';
+import { requireAppContext } from '../../../lib/app-context';
 
 export default async function TeamTestingPage() {
+  const context = await requireAppContext();
   const players = await prisma.player.findMany({
-    where: { deletedAt: null, status: 'ACTIVE' },
+    where: { teamId: context.teamId, deletedAt: null, status: 'ACTIVE' },
     orderBy: { playerId: 'asc' },
   });
 

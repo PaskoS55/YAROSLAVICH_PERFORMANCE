@@ -4,8 +4,10 @@ import { prisma } from '../../../lib/prisma';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { validatePlayerFields } from '../../../lib/player';
+import { requireAppContext } from '../../../lib/app-context';
 
 export async function createPlayer(formData: FormData): Promise<void> {
+  const context = await requireAppContext();
   const v = validatePlayerFields(formData);
   if (!v.ok) {
     console.error('createPlayer:', v.error);
@@ -24,23 +26,17 @@ export async function createPlayer(formData: FormData): Promise<void> {
     comment: string | null;
   };
 
-  const team = await prisma.team.findFirst();
-  if (!team) {
-    console.error('createPlayer: команда не настроена — создайте её в настройках.');
-    return;
-  }
-
   let code = d.playerIdInput;
   if (!code) {
-    let n = (await prisma.player.count()) + 1;
+    let n = (await prisma.player.count({ where: { teamId: context.teamId } })) + 1;
     code = `P${String(n).padStart(3, '0')}`;
-    while (await prisma.player.findFirst({ where: { playerId: code } })) {
+    while (await prisma.player.findFirst({ where: { teamId: context.teamId, playerId: code } })) {
       n += 1;
       code = `P${String(n).padStart(3, '0')}`;
     }
   } else {
     const dup = await prisma.player.findUnique({
-      where: { teamId_playerId: { teamId: team.id, playerId: code } },
+      where: { teamId_playerId: { teamId: context.teamId, playerId: code } },
     });
     if (dup) {
       console.error(
@@ -65,7 +61,7 @@ export async function createPlayer(formData: FormData): Promise<void> {
       joinedDate: d.joinedDate,
       comment: d.comment,
       status: 'ACTIVE',
-      teamId: team.id,
+      teamId: context.teamId,
     },
   });
 

@@ -18,6 +18,7 @@
     "desktop:postgres:prepare": "node apps/desktop/scripts/prepare-postgres-runtime.mjs",
     "desktop:postgres:verify": "node apps/desktop/scripts/verify-postgres-runtime.mjs",
     "desktop:postgres:test": "npm run build --workspace @pasko-performance/desktop && node apps/desktop/scripts/test-postgres-runtime.mjs",
+    "test:context:integration": "tsx apps/web/scripts/test-context-integration.ts",
     "desktop:package": "npm run desktop:web:build && npm run desktop:postgres:prepare && npm run desktop:postgres:verify && npm run build --workspace @pasko-performance/desktop && npm run package --workspace @pasko-performance/desktop",
     "format": "prettier --write ."
   },

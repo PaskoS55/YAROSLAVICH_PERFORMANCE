@@ -19,6 +19,13 @@ describe('product identity', () => {
     expect(JSON.stringify(PRODUCT_ASSETS)).not.toContain('yaroslavich');
   });
 
+  it('keeps immutable creator identity at product level', () => {
+    expect(PRODUCT_IDENTITY.creator.nameRu).toBe('Сергей Пасько');
+    expect(PRODUCT_IDENTITY.creator.creditRu).toContain('Сергеем Пасько');
+    expect(PRODUCT_IDENTITY.creator.creditEn).toContain('Sergey Pasko');
+    expect(validateOrganizationBranding({ shortName: 'Club' })).not.toHaveProperty('creator');
+  });
+
   it('validates managed organization branding values', () => {
     expect(validateOrganizationBranding({ shortName: ' Club ', logoAssetKey: 'organizations/club/logo.png', primaryColor: '#123ABC' })).toEqual({ shortName: 'Club', logoAssetKey: 'organizations/club/logo.png', primaryColor: '#123ABC', secondaryColor: null });
     expect(() => validateOrganizationBranding({ logoAssetKey: '../logo.png' })).toThrow();
