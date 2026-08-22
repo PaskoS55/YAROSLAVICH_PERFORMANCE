@@ -7,13 +7,13 @@ import { findAvailableLoopbackPort } from './runtime-port';
 import { waitForNextReadiness } from './runtime-readiness';
 
 export interface PackagedNextRuntime { origin: URL; process: UtilityProcess; stop: () => boolean }
-export async function startPackagedNext(serverPath: string): Promise<PackagedNextRuntime> {
+export async function startPackagedNext(serverPath: string, databaseUrl?: string): Promise<PackagedNextRuntime> {
   if (!existsSync(serverPath)) throw new Error('Packaged Next server.js is missing');
   let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const port = await findAvailableLoopbackPort();
     const origin = new URL(`http://127.0.0.1:${port}`);
-    const env = buildNextRuntimeEnv(process.env, port);
+    const env = buildNextRuntimeEnv(process.env, port, databaseUrl);
     console.log('Starting packaged web runtime', getSafeRuntimeEnvLog(env));
     const child = utilityProcess.fork(serverPath, [], { cwd: path.dirname(serverPath), env, stdio: ['ignore', 'ignore', 'pipe'], serviceName: 'PASKO Performance Next Runtime' });
     let exited = false;

@@ -40,6 +40,11 @@ test('builds a minimal child environment and redacts all secrets from logs', () 
   assert.equal(redactRuntimeText('auth-secret session-secret db-secret', env), '[REDACTED] [REDACTED] [REDACTED]');
 });
 
+test('runtime database URL overrides any development DATABASE_URL', () => {
+  const env = buildNextRuntimeEnv({ DATABASE_URL: 'development-db', AUTH_PASSWORD: 'auth-secret', AUTH_SESSION_SECRET: 'session-secret' }, 43210, 'embedded-db');
+  assert.equal(env.DATABASE_URL, 'embedded-db'); assert.ok(!Object.values(getSafeRuntimeEnvLog(env)).includes('embedded-db'));
+});
+
 test('readiness detects premature child exit', async () => {
   await assert.rejects(waitForNextReadiness({ url: 'http://127.0.0.1:1/login', timeoutMs: 100, intervalMs: 1, hasExited: () => true }), /exited before readiness/);
 });

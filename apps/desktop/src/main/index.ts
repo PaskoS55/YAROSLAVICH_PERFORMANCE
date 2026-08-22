@@ -6,6 +6,9 @@ import { startPackagedNext, type PackagedNextRuntime } from './packaged-next';
 import { resolveRuntimeTarget } from './runtime-paths';
 import { classifyNavigation } from './url-policy';
 import { loadProductIdentity } from './product-identity';
+import { PhaseFiveCredentialsProvider } from './database-credentials';
+import { resolveE2eDataRoot, startPackagedDatabase, type PackagedDatabaseRuntime } from './packaged-database';
+import { PackagedStartupError, startPackagedServices, stopPackagedServices } from './startup-orchestrator';
 
 if (handleSquirrelStartup()) app.quit();
 const product = loadProductIdentity({ isPackaged: app.isPackaged, resourcesPath: process.resourcesPath });
@@ -13,7 +16,9 @@ app.setAppUserModelId(product.appUserModelId);
 const isDevelopment = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
 let nextRuntime: PackagedNextRuntime | null = null;
+let databaseRuntime: PackagedDatabaseRuntime | null = null;
 let quitting = false;
+let shutdownStarted = false;
 
 function openExternal(target: string): void {
   void shell.openExternal(target).catch((error: unknown) => console.error('Unable to open external URL', error));
@@ -53,7 +58,13 @@ async function startApplication(): Promise<void> {
     createWindow(target.url);
     return;
   }
-  nextRuntime = await startPackagedNext(target.serverPath);
+  try {
+    const services = await startPackagedServices({
+      startDatabase: () => startPackagedDatabase({ resourcesPath: process.resourcesPath, localAppData: process.env.LOCALAPPDATA ?? app.getPath('appData'), dataRoot: resolveE2eDataRoot(process.env), credentialsProvider: new PhaseFiveCredentialsProvider(process.env), source: process.env }),
+      startWeb: (databaseUrl) => startPackagedNext(target.serverPath, databaseUrl),
+    });
+    databaseRuntime = services.database; nextRuntime = services.web;
+  } catch (error) { throw new Error(error instanceof PackagedStartupError && error.stage === 'web' ? 'WEB_STARTUP_FAILED' : 'DATABASE_STARTUP_FAILED', { cause: error }); }
   nextRuntime.process.once('exit', () => {
     if (quitting) return;
     mainWindow?.destroy();
@@ -72,10 +83,14 @@ if (!app.requestSingleInstanceLock()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show(); mainWindow.focus();
   });
-  app.on('before-quit', () => {
+  app.on('before-quit', (event) => {
+    if (shutdownStarted) return;
+    event.preventDefault();
+    shutdownStarted = true;
     quitting = true;
-    nextRuntime?.stop();
-    nextRuntime = null;
+    const web = nextRuntime; const database = databaseRuntime;
+    nextRuntime = null; databaseRuntime = null;
+    void stopPackagedServices({ web, database }).finally(() => app.exit(0));
   });
   app.whenReady().then(startApplication).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : 'Unknown packaged runtime error';
@@ -84,7 +99,7 @@ if (!app.requestSingleInstanceLock()) {
     const logsPath = app.getPath('logs');
     mkdirSync(logsPath, { recursive: true });
     appendFileSync(path.join(logsPath, 'runtime.log'), `${new Date().toISOString()} packaged startup failed: ${message}${cause ? `; ${cause}` : ''}\n`);
-    dialog.showErrorBox(product.canonical, 'Не удалось запустить локальный web-runtime. Приложение будет закрыто.');
+    dialog.showErrorBox(product.canonical, message === 'DATABASE_STARTUP_FAILED' ? 'Не удалось обновить локальную базу данных.' : 'Не удалось запустить локальный web-runtime. Приложение будет закрыто.');
     app.quit();
   });
   app.on('activate', () => {

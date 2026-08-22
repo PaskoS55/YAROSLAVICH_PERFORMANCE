@@ -51,6 +51,12 @@ The application is available at `http://localhost:3000`.
 
 Use a production PostgreSQL URL and supply unique production values for `AUTH_PASSWORD` and `AUTH_SESSION_SECRET`. Next.js sets `NODE_ENV` from the selected command; do not put it in `.env`. Deploy migrations with `npm run db:deploy` before `npm run start`. Do not run `prisma migrate dev` in production.
 
+## Packaged desktop database
+
+The packaged desktop startup is self-contained and ordered: bundled PostgreSQL 16.14 starts on dynamic loopback ports, packaged Prisma 5.22.0 runs only `migrate deploy`, the production Product + VOLLEYBALL reference catalogue is bootstrapped, and only then is the Next standalone runtime opened. A fresh database contains reference definitions but no Organization, Team, Season, Player, demo result, goal, or demo norm.
+
+The packaged flow constructs its own database URL and does not require system Node, npm, Prisma, PostgreSQL, Docker, or Git. Web and desktop development continue to use the explicit development database configuration. Database credentials are behind a replaceable provider; Electron `safeStorage`, a pre-migration internal `pg_dump` snapshot, and the full First Run wizard remain deferred.
+
 ## Backup and restore
 
 Create backups from Settings before migrations or destructive maintenance. Backup, restore, and reset are installation-wide administrative operations: they include or affect every organization and team. Restore accepts only version 3 backups produced by this application and validates their entity relationships before replacing data.

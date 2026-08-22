@@ -1,9 +1,9 @@
 const SECRET_KEYS = ['DATABASE_URL', 'AUTH_PASSWORD', 'AUTH_SESSION_SECRET'] as const;
 export type NextRuntimeEnv = Record<string, string>;
 
-export function buildNextRuntimeEnv(source: NodeJS.ProcessEnv, port: number): NextRuntimeEnv {
+export function buildNextRuntimeEnv(source: NodeJS.ProcessEnv, port: number, databaseUrl = source.DATABASE_URL): NextRuntimeEnv {
   const secrets = Object.fromEntries(SECRET_KEYS.map((key) => {
-    const value = source[key];
+    const value = key === 'DATABASE_URL' ? databaseUrl : source[key];
     if (!value) throw new Error(`Required packaged runtime environment variable is missing: ${key}`);
     return [key, value];
   })) as Record<(typeof SECRET_KEYS)[number], string>;
