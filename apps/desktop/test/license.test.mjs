@@ -26,7 +26,7 @@ test('verifies valid, perpetual, expired and not-before licenses offline', () =>
 test('rejects signature, payload and claim tampering', () => {
   const signed = envelope(); signed.payload.plan = 'TRIAL';
   assert.equal(evaluateLicense({ envelope: signed, installationId, publicKeys, now }).state, 'INVALID');
-  const signature = envelope(); signature.signature = `${signature.signature.slice(0,-1)}A`;
+  const signature = envelope(); const replacement = signature.signature.startsWith('A') ? 'B' : 'A'; signature.signature = `${replacement}${signature.signature.slice(1)}`;
   assert.equal(evaluateLicense({ envelope: signature, installationId, publicKeys, now }).state, 'INVALID');
   assert.equal(evaluation({ product: 'OTHER' }).state, 'INVALID');
   assert.equal(evaluation({ vertical: 'OTHER' }).state, 'INVALID');
