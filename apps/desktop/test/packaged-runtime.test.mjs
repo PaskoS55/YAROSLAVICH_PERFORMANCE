@@ -34,19 +34,24 @@ test('chooses a dynamic loopback port and enforces its exact origin', async () =
 });
 
 test('builds a minimal child environment and redacts all secrets from logs', () => {
-  const env = buildNextRuntimeEnv({ DATABASE_URL: 'db-secret', AUTH_PASSWORD: 'auth-secret', AUTH_SESSION_SECRET: 'session-secret', PATH: 'must-not-pass', SystemRoot: 'C:\\Windows', WINDIR: 'C:\\Windows' }, 43210);
-  assert.deepEqual(Object.keys(env).sort(), ['APP_RUNTIME', 'AUTH_PASSWORD', 'AUTH_SESSION_SECRET', 'DATABASE_URL', 'HOSTNAME', 'NODE_ENV', 'PORT', 'SystemRoot', 'WINDIR'].sort());
+  const env = buildNextRuntimeEnv({ DATABASE_URL: 'db-secret', AUTH_SESSION_SECRET: 'session-secret', PASKO_INSTALLATION_ID: 'installation-id', PATH: 'must-not-pass', SystemRoot: 'C:\\Windows', WINDIR: 'C:\\Windows' }, 43210);
+  assert.deepEqual(Object.keys(env).sort(), ['APP_RUNTIME', 'AUTH_SESSION_SECRET', 'DATABASE_URL', 'HOSTNAME', 'NODE_ENV', 'PASKO_INSTALLATION_ID', 'PORT', 'SystemRoot', 'WINDIR'].sort());
   assert.deepEqual(getSafeRuntimeEnvLog(env), { NODE_ENV: 'production', HOSTNAME: '127.0.0.1', PORT: '43210', APP_RUNTIME: 'desktop' });
-  assert.equal(redactRuntimeText('auth-secret session-secret db-secret', env), '[REDACTED] [REDACTED] [REDACTED]');
+  assert.equal(redactRuntimeText('session-secret db-secret', env), '[REDACTED] [REDACTED]');
+  assert.equal(redactRuntimeText('password=never-log recoveryKey:never-log', env), 'password=[REDACTED] recoveryKey:[REDACTED]');
 });
 
 test('runtime database URL overrides any development DATABASE_URL', () => {
-  const env = buildNextRuntimeEnv({ DATABASE_URL: 'development-db', AUTH_PASSWORD: 'auth-secret', AUTH_SESSION_SECRET: 'session-secret' }, 43210, 'embedded-db');
+  const env = buildNextRuntimeEnv({ DATABASE_URL: 'development-db', AUTH_SESSION_SECRET: 'session-secret' }, 43210, 'embedded-db');
   assert.equal(env.DATABASE_URL, 'embedded-db'); assert.ok(!Object.values(getSafeRuntimeEnvLog(env)).includes('embedded-db'));
 });
 
 test('readiness detects premature child exit', async () => {
   await assert.rejects(waitForNextReadiness({ url: 'http://127.0.0.1:1/login', timeoutMs: 100, intervalMs: 1, hasExited: () => true }), /exited before readiness/);
+});
+
+test('readiness accepts first-run redirect as a healthy Next runtime', async () => {
+  await waitForNextReadiness({ url: 'http://127.0.0.1/login', timeoutMs: 100, intervalMs: 1, hasExited: () => false, fetchImpl: async () => ({ status: 307 }), sleep: async () => undefined });
 });
 
 test('readiness times out instead of waiting forever', async () => {

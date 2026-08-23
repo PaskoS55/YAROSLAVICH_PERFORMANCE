@@ -3,14 +3,14 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { APPLICATION_USER, BOOTSTRAP_USER, DEFAULT_DATABASE, ensureApplicationDatabase, executeSql, initializeCluster, resolvePostgresPaths, startPostgres } from '../dist/main/postgres.js';
+import { APPLICATION_USER, BOOTSTRAP_USER, DEFAULT_DATABASE, ensureApplicationDatabase, executeSql, initializeCluster, resolvePostgresPaths, rotateDatabaseCredentials, startPostgres } from '../dist/main/postgres.js';
 
 const desktopRoot = path.resolve(import.meta.dirname, '..');
 const resourcesPath = process.env.PASKO_PERFORMANCE_POSTGRES_RESOURCES
   ? path.resolve(process.env.PASKO_PERFORMANCE_POSTGRES_RESOURCES)
   : path.join(desktopRoot, '.runtime');
 const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'pasko-performance-pg16-integration-'));
-const credentials = { bootstrapPassword: randomBytes(32).toString('base64url'), applicationPassword: randomBytes(32).toString('base64url') };
+let credentials = { bootstrapPassword: randomBytes(32).toString('base64url'), applicationPassword: randomBytes(32).toString('base64url') };
 const paths = resolvePostgresPaths({ resourcesPath, localAppData: temporaryRoot, dataRoot: temporaryRoot });
 let runtime;
 
@@ -26,6 +26,12 @@ try {
   await assertLoopbackOnly(runtime.port);
   await ensureApplicationDatabase(runtime, credentials);
   await executeSql({ runtime, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEFAULT_DATABASE, sql: 'CREATE TABLE phase4_persistence (id integer PRIMARY KEY, value text NOT NULL); INSERT INTO phase4_persistence VALUES (1, \'survives-restart\');\n' });
+  const previous = credentials;
+  credentials = { bootstrapPassword: randomBytes(32).toString('base64url'), applicationPassword: randomBytes(32).toString('base64url') };
+  await rotateDatabaseCredentials(runtime, previous, credentials);
+  let oldCredentialRejected = false;
+  try { await executeSql({ runtime, username: APPLICATION_USER, password: previous.applicationPassword, database: DEFAULT_DATABASE, sql: 'SELECT 1;' }); } catch { oldCredentialRejected = true; }
+  if (!oldCredentialRejected) throw new Error('Previous application credential remained valid after rotation');
   if (!(await runtime.stop()) || await runtime.stop()) throw new Error('PostgreSQL shutdown is not idempotent'); runtime = undefined;
 
   runtime = await startPostgres(paths, credentials.bootstrapPassword);
@@ -39,7 +45,7 @@ try {
   const recovered = await executeSql({ runtime, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEFAULT_DATABASE, sql: 'SELECT value FROM phase4_persistence WHERE id=1;\n' });
   if (recovered !== 'survives-restart') throw new Error('Unclean recovery value mismatch');
   await runtime.stop(); runtime = undefined;
-  console.log(`PostgreSQL integration PASS: initdb, SCRAM, create database, persistence, unclean recovery, loopback listener, fast shutdown (${BOOTSTRAP_USER}/${APPLICATION_USER}; credentials redacted)`);
+  console.log(`PostgreSQL integration PASS: initdb, SCRAM, create database, credential rotation/old rejection, persistence, unclean recovery, loopback listener, fast shutdown (${BOOTSTRAP_USER}/${APPLICATION_USER}; credentials redacted)`);
 } finally {
   if (runtime) await runtime.stop().catch(() => undefined);
   await rm(temporaryRoot, { recursive: true, force: true });
