@@ -9,12 +9,13 @@ export type ReferenceEntryWithTest = Prisma.NormEntryGetPayload<{
 }>;
 
 export async function loadTeamReferenceProfile(teamId: string) {
+  const now = new Date();
   const team = await prisma.team.findFirst({ where: { id: teamId, deletedAt: null }, select: { organizationId: true, activeNormProfileId: true } });
   if (!team) return null;
   const eligibility = { deletedAt: null, status: 'ACTIVE' as const, OR: [{ scope: 'SYSTEM' as const }, { scope: 'ORGANIZATION' as const, organizationId: team.organizationId }] };
   const profile = team.activeNormProfileId
-    ? await prisma.normProfile.findFirst({ where: { id: team.activeNormProfileId, ...eligibility }, include: { baseProfile: true, entries: { where: { deletedAt: null }, include: { test: { include: { categoryRel: true } }, sources: { include: { source: true } } } } } })
-    : await prisma.normProfile.findFirst({ where: { ...eligibility, scope: 'SYSTEM', isDefaultForVertical: true }, include: { baseProfile: true, entries: { where: { deletedAt: null }, include: { test: { include: { categoryRel: true } }, sources: { include: { source: true } } } } } });
+    ? await prisma.normProfile.findFirst({ where: { id: team.activeNormProfileId, ...eligibility }, include: { baseProfile: true, entries: { where: { deletedAt: null, AND: [{ OR: [{ validFrom: null }, { validFrom: { lte: now } }] }, { OR: [{ validUntil: null }, { validUntil: { gte: now } }] }] }, orderBy: { validFrom: 'asc' }, include: { test: { include: { categoryRel: true } }, sources: { include: { source: true } } } } } })
+    : await prisma.normProfile.findFirst({ where: { ...eligibility, scope: 'SYSTEM', isDefaultForVertical: true }, include: { baseProfile: true, entries: { where: { deletedAt: null, AND: [{ OR: [{ validFrom: null }, { validFrom: { lte: now } }] }, { OR: [{ validUntil: null }, { validUntil: { gte: now } }] }] }, orderBy: { validFrom: 'asc' }, include: { test: { include: { categoryRel: true } }, sources: { include: { source: true } } } } } });
   return profile ? { ...profile, explicitlySelected: team.activeNormProfileId === profile.id } : null;
 }
 

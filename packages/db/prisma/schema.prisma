@@ -375,7 +375,6 @@ model NormEntry {
   updatedAt          DateTime               @updatedAt
   deletedAt          DateTime?              @map("deleted_at")
 
-  @@unique([profileId, testId, position])
   @@index([profileId, testId, position, deletedAt])
   @@index([testId, deletedAt])
   @@map("norm_entries")

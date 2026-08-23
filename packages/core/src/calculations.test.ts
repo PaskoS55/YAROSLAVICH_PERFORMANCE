@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculateDelta,
+  calculateGoalGap,
   calculatePB,
   normalizeScore,
   qcCheckValue,
@@ -38,5 +39,32 @@ describe('performance calculations', () => {
     const history = [{ testCode: 'T', value: 10, date: new Date('2026-01-01') }];
     expect(calculatePB('P', 'T', 11, history, 'HIGHER_IS_BETTER').isNewPB).toBe(true);
     expect(calculatePB('P', 'T', 9, history, 'LOWER_IS_BETTER').isNewPB).toBe(true);
+  });
+
+  it.each(['BC_FAT', 'BC_FFM', 'BC_MASS', 'MOB_OHS'])('keeps contextual test %s directionally neutral', (testCode) => {
+    const history = [{ testCode, value: 10, date: new Date('2026-01-01') }];
+    expect(calculateDelta(12, 10, 'CONTEXTUAL', 0.1)).toEqual({
+      delta: 2,
+      performanceDelta: null,
+      changeStatus: 'NO_CHANGE',
+    });
+    expect(calculatePB('P', testCode, 12, history, 'CONTEXTUAL')).toEqual({
+      currentValue: 12,
+      pbValue: null,
+      isNewPB: false,
+      improvement: null,
+      relativeImprovement: null,
+    });
+    expect(calculateGoalGap(12, 15, 'CONTEXTUAL')).toEqual({
+      currentValue: 12,
+      targetValue: 15,
+      gap: null,
+      progressPercentage: null,
+    });
+  });
+
+  it('preserves directional goal-gap behavior', () => {
+    expect(calculateGoalGap(8, 10, 'HIGHER_IS_BETTER')).toEqual({ currentValue: 8, targetValue: 10, gap: 2, progressPercentage: 80 });
+    expect(calculateGoalGap(10, 8, 'LOWER_IS_BETTER')).toEqual({ currentValue: 10, targetValue: 8, gap: 2, progressPercentage: 0 });
   });
 });

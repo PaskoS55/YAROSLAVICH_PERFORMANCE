@@ -191,7 +191,7 @@ export async function POST(req: Request) {
       .size !== testSessions.length ||
     new Set(testResults.map((result) => `${result.testSessionId}\u0000${result.testId}`)).size !==
       testResults.length ||
-    new Set(normEntries.map((entry) => `${entry.profileId}\u0000${entry.testId}\u0000${entry.position ?? '*'}`)).size !== normEntries.length ||
+    new Set(normEntries.map((entry) => `${entry.profileId}\u0000${entry.testId}\u0000${entry.position ?? '*'}\u0000${entry.validFrom ? new Date(entry.validFrom).toISOString() : '*'}\u0000${entry.validUntil ? new Date(entry.validUntil).toISOString() : '*'}`)).size !== normEntries.length ||
     new Set(normEntrySources.map((link) => `${link.entryId}\u0000${link.sourceId}`)).size !== normEntrySources.length;
 
   if (invalidIds || invalidReferences || duplicateBusinessKeys) {

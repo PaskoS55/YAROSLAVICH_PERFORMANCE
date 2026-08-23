@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TYPE "NormProfileScope" AS ENUM ('SYSTEM', 'ORGANIZATION', 'INSTALLATION_LEGACY');
 CREATE TYPE "NormProfileStatus" AS ENUM ('ACTIVE', 'ARCHIVED', 'DRAFT');
 CREATE TYPE "NormInterpretationType" AS ENUM ('PUBLISHED_DISTRIBUTION', 'POOLED_ESTIMATE', 'EMPIRICAL_PERCENTILE', 'REFERENCE_RANGE', 'ORDINAL_SCALE', 'CONTEXT_ONLY', 'NO_REFERENCE');
@@ -44,8 +46,7 @@ CREATE UNIQUE INDEX "norm_profiles_code_key" ON "norm_profiles"("code");
 CREATE INDEX "norm_profiles_scope_status_deleted_at_idx" ON "norm_profiles"("scope", "status", "deleted_at");
 CREATE INDEX "norm_profiles_organization_id_status_deleted_at_idx" ON "norm_profiles"("organization_id", "status", "deleted_at");
 CREATE INDEX "norm_profiles_sport_sex_level_status_idx" ON "norm_profiles"("sport", "sex", "level", "status");
-CREATE UNIQUE INDEX "norm_entries_profile_id_test_id_position_key" ON "norm_entries"("profile_id", "test_id", "position");
-CREATE UNIQUE INDEX "norm_entries_all_positions_key" ON "norm_entries"("profile_id", "test_id") WHERE "position" IS NULL AND "deleted_at" IS NULL;
+CREATE UNIQUE INDEX "norm_entries_profile_test_position_period_key" ON "norm_entries"("profile_id", "test_id", "position", "valid_from", "valid_until") NULLS NOT DISTINCT WHERE "deleted_at" IS NULL;
 CREATE INDEX "norm_entries_profile_id_test_id_position_deleted_at_idx" ON "norm_entries"("profile_id", "test_id", "position", "deleted_at");
 CREATE INDEX "norm_entries_test_id_deleted_at_idx" ON "norm_entries"("test_id", "deleted_at");
 CREATE UNIQUE INDEX "reference_sources_code_key" ON "reference_sources"("code");
@@ -83,3 +84,5 @@ BEGIN
   END IF;
 END $$;
 DROP TABLE "norms";
+
+COMMIT;

@@ -95,8 +95,8 @@ export interface PBResult {
 export interface GoalGapResult {
   currentValue: number;
   targetValue: number;
-  gap: number;
-  progressPercentage: number;
+  gap: number | null;
+  progressPercentage: number | null;
 }
 
 export interface AsymmetryResult {

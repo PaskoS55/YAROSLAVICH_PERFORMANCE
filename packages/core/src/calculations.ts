@@ -77,6 +77,13 @@ export function calculateDelta(
   changeThreshold?: number
 ): DeltaResult {
   const rawDelta = currentValue - previousValue;
+  if (direction === 'CONTEXTUAL') {
+    return {
+      delta: Number(rawDelta.toFixed(2)),
+      performanceDelta: null,
+      changeStatus: 'NO_CHANGE'
+    };
+  }
   const performanceDelta = direction === 'LOWER_IS_BETTER' ? -rawDelta : rawDelta;
   
   if (changeThreshold === undefined || changeThreshold === null) {
@@ -221,6 +228,15 @@ export function calculatePB(
   allPlayerResults: Array<{ testCode: string; value: number; date: Date }>,
   direction: Direction
 ): PBResult {
+  if (direction === 'CONTEXTUAL') {
+    return {
+      currentValue,
+      pbValue: null,
+      isNewPB: false,
+      improvement: null,
+      relativeImprovement: null
+    };
+  }
   const testResults = allPlayerResults.filter(r => r.testCode === testCode);
   
   if (testResults.length === 0) {
@@ -273,6 +289,14 @@ export function calculateGoalGap(
   targetValue: number,
   direction: Direction
 ): GoalGapResult {
+  if (direction === 'CONTEXTUAL') {
+    return {
+      currentValue,
+      targetValue,
+      gap: null,
+      progressPercentage: null
+    };
+  }
   let gap: number;
   
   if (direction === 'HIGHER_IS_BETTER') {
