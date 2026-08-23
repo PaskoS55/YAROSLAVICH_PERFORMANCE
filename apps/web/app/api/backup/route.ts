@@ -55,9 +55,22 @@ export async function GET() {
   );
 
   const backup = {
+    formatVersion: 4,
     exportedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
     brand: 'PASKO PERFORMANCE',
+    product: 'PASKO PERFORMANCE PLATFORM',
+    productVersion: process.env.PASKO_PRODUCT_VERSION || '1.0.0',
+    sportVertical: 'VOLLEYBALL',
     version: 4,
+    manifest: {
+      organizations: organizations.length,
+      teams: teams.length,
+      seasons: seasons.length,
+      players: players.length,
+      referenceProfiles: normProfiles.map((profile) => ({ code: profile.code, version: profile.version, scope: profile.scope })),
+      authDataIncluded: false,
+    },
     organizations,
     teams: teams.map(({ seasons: _s, ...rest }) => rest),
     seasons,

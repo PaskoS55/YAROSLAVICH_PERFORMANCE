@@ -11,10 +11,12 @@ export default function RestoreButton() {
   const [backupText, setBackupText] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [confirmation, setConfirmation] = useState('');
+  const [password, setPassword] = useState('');
 
   function clearSelection() {
     setBackupText(null);
     setConfirmation('');
+    setPassword('');
     setDialogOpen(false);
     if (fileRef.current) fileRef.current.value = '';
   }
@@ -34,7 +36,7 @@ export default function RestoreButton() {
   }
 
   async function restoreBackup() {
-    if (confirmation !== 'ВОССТАНОВИТЬ' || backupText === null) return;
+    if (confirmation !== 'ВОССТАНОВИТЬ' || backupText === null || !password) return;
     setPending(true);
     setMsg(null);
     setDialogOpen(false);
@@ -45,6 +47,7 @@ export default function RestoreButton() {
         headers: {
           'Content-Type': 'application/json',
           'X-Restore-Confirm': 'RESTORE',
+          'X-Restore-Password': password,
         },
       });
       const data = await res.json();
@@ -117,6 +120,8 @@ export default function RestoreButton() {
               autoFocus
               className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
+            <label className="mt-4 block text-sm font-medium text-gray-700" htmlFor="restore-password">Текущий пароль локального администратора</label>
+            <input id="restore-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
@@ -128,7 +133,7 @@ export default function RestoreButton() {
               <button
                 type="button"
                 onClick={restoreBackup}
-                disabled={confirmation !== 'ВОССТАНОВИТЬ' || backupText === null}
+                disabled={confirmation !== 'ВОССТАНОВИТЬ' || backupText === null || !password}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Восстановить

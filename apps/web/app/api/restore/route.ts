@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { validateReferenceFields } from '../../../lib/reference-policy';
+import { requireCurrentUser } from '../../../lib/current-user';
+import { verifyPassword } from '../../../lib/local-auth';
 import type {
   Organization,
   Team,
@@ -30,6 +32,11 @@ export async function POST(req: Request) {
       { error: 'Восстановление не подтверждено. Требуется X-Restore-Confirm.' },
       { status: 400 }
     );
+  }
+  const user = await requireCurrentUser();
+  const password = req.headers.get('X-Restore-Password') ?? '';
+  if (!password || !(await verifyPassword(password, user.passwordHash))) {
+    return NextResponse.json({ error: 'Текущий пароль локального администратора не подтверждён.' }, { status: 403 });
   }
 
   let backup: Record<string, unknown>;
@@ -93,7 +100,8 @@ export async function POST(req: Request) {
     'teamSeasonLinks',
   ];
   const malformedArray = requiredArrays.find((key) => !Array.isArray(backup[key]));
-  if ((backup as { version?: unknown }).version !== 4 || malformedArray) {
+  const formatVersion = (backup as { formatVersion?: unknown; version?: unknown }).formatVersion ?? (backup as { version?: unknown }).version;
+  if (formatVersion !== 4 || malformedArray) {
     return NextResponse.json(
       { error: 'Неподдерживаемая версия или неполная структура резервной копии.' },
       { status: 400 }

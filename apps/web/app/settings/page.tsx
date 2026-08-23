@@ -315,6 +315,11 @@ export default async function SettingsPage() {
           <RestoreButton />
         </div>
       </div>
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-2 text-lg font-bold">Диагностика</h2>
+        <p className="mb-4 text-sm text-gray-600">Состояние локальной базы, migrations, внутренних точек восстановления и безопасный support bundle.</p>
+        <Link href="/settings/diagnostics" className="btn-primary inline-block">Открыть диагностику</Link>
+      </div>
       <div className="rounded-lg border-2 border-red-200 bg-red-50 p-6">
         <h2 className="mb-2 text-lg font-bold text-red-900">⚠ Опасная зона</h2>
         <p className="mb-3 text-sm text-red-800">
