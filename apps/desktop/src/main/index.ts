@@ -17,10 +17,12 @@ import {
   stopPackagedServices,
 } from "./startup-orchestrator";
 import { InstallationSecurityStore } from "./installation-security";
-import { detectClusterState, resolvePostgresPaths } from "./postgres";
+import { APPLICATION_USER, detectClusterState, executeSql, resolvePostgresPaths } from "./postgres";
 import { generateInstallationSecurity } from "./installation-security";
 import { PhaseFiveCredentialsProvider } from "./database-credentials";
-import { appendRedactedRuntimeLog, listSnapshotManifests, resolveRecoveryPaths } from "./recovery";
+import { appendRedactedRuntimeLog, listSnapshotManifests, resolveRecoveryPaths, verifyLocalPasswordHash } from "./recovery";
+import { readFileSync, statSync } from "node:fs";
+import { LicenseStore, MAX_LICENSE_BYTES, PRODUCTION_LICENSE_KEYS, type LicenseEvaluation } from "./license";
 
 if (handleSquirrelStartup()) app.quit();
 const product = loadProductIdentity({
@@ -39,6 +41,7 @@ let recoveryRestoreAction: ((request: RecoveryRequest) => Promise<void>) | null 
 let recoverySnapshotOptions: Array<{ id: string; label: string }> = [];
 let recoveryInstallationSuffix = '';
 let recoveryStoreRoot = '';
+let licenseActivationAction: ((password: string) => Promise<LicenseEvaluation>) | null = null;
 
 function errorChain(error: unknown): string {
   const messages: string[] = [];
@@ -132,6 +135,24 @@ async function startApplication(): Promise<void> {
       : legacyMigration
         ? generateInstallationSecurity()
         : store.create();
+    const licenseKeys = { ...PRODUCTION_LICENSE_KEYS };
+    if (process.env.PASKO_E2E_MODE === '1' && dataRoot && path.dirname(path.resolve(dataRoot)) === path.resolve('C:\\Temp') && path.basename(dataRoot).startsWith('pasko_phase7_') && process.env.PASKO_E2E_LICENSE_PUBLIC_KEY) licenseKeys.TEST_ONLY_KEY = process.env.PASKO_E2E_LICENSE_PUBLIC_KEY;
+    const licenseStore = new LicenseStore(storeRoot, safeStorage, licenseKeys);
+    let license = licenseStore.evaluate(security.installationId);
+    licenseActivationAction = async (password) => {
+      if (license.state === 'VALID') {
+        if (!databaseRuntime || !password) return { state: 'INVALID', payload: null, message: 'Подтвердите текущий пароль администратора.' };
+        const passwordHash = await executeSql({ runtime: databaseRuntime.postgres, username: APPLICATION_USER, password: decodeURIComponent(new URL(databaseRuntime.databaseUrl).password), database: 'pasko_performance', sql: `SELECT password_hash FROM local_users WHERE disabled_at IS NULL ORDER BY created_at LIMIT 1;` });
+        if (!passwordHash || !(await verifyLocalPasswordHash(password, passwordHash))) return { state: 'INVALID', payload: null, message: 'Текущий пароль администратора не подтверждён.' };
+      }
+      const result = await dialog.showOpenDialog({ title: 'Выберите лицензию PASKO Performance', properties: ['openFile'], filters: [{ name: 'PASKO License', extensions: ['pasko-license'] }] });
+      if (result.canceled || result.filePaths.length !== 1) return license;
+      const file = result.filePaths[0];
+      if (statSync(file).size > MAX_LICENSE_BYTES) throw new Error('LICENSE_FILE_TOO_LARGE');
+      const candidate = licenseStore.activate(readFileSync(file, 'utf8'), security.installationId);
+      if (candidate.state === 'VALID') license = candidate;
+      return candidate;
+    };
     const credentialsProvider = legacyMigration
       ? new PhaseFiveCredentialsProvider(process.env)
       : { getCredentials: async () => ({ bootstrapPassword: security.secrets.databaseBootstrapPassword, applicationPassword: security.secrets.databasePassword }) };
@@ -142,6 +163,8 @@ async function startApplication(): Promise<void> {
       PASKO_PRODUCT_VERSION: app.getVersion(),
       PASKO_RECOVERY_ROOT: path.join(storeRoot, "recovery"),
       PASKO_LOGS_ROOT: app.getPath("logs"),
+      PASKO_LICENSE_STATE: license.state,
+      PASKO_LICENSE_PAYLOAD: license.payload ? Buffer.from(JSON.stringify({ licenseId: license.payload.licenseId, customerName: license.payload.customerName, plan: license.payload.plan, expiresAt: license.payload.expiresAt, keyId: license.payload.keyId, product: license.payload.product, vertical: license.payload.vertical }), 'utf8').toString('base64url') : '',
     };
     const recoveryPaths = resolveRecoveryPaths(storeRoot);
     recoveryStoreRoot = storeRoot;
@@ -208,6 +231,17 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   ipcMain.handle('recovery:close', () => app.quit());
+  ipcMain.handle('license:choose-and-activate', async (_event, request: unknown) => {
+    if (!licenseActivationAction || !request || typeof request !== 'object' || typeof (request as { password?: unknown }).password !== 'string') return { state: 'INVALID', message: 'Активация недоступна.' };
+    try {
+      const result = await licenseActivationAction((request as { password: string }).password);
+      if (result.state === 'VALID') { app.relaunch(); app.exit(0); }
+      return { state: result.state, message: result.message };
+    } catch (error) {
+      appendRedactedRuntimeLog(app.getPath('logs'), `license activation failed: ${error instanceof Error ? error.message : 'unknown'}`);
+      return { state: 'INVALID', message: 'Файл лицензии не прошёл проверку.' };
+    }
+  });
   ipcMain.handle('recovery:diagnostics', () => shell.openPath(app.getPath('logs')));
   ipcMain.handle('recovery:restore', async (_event, request: unknown) => {
     if (!recoveryRestoreAction || !request || typeof request !== 'object') return { ok: false, error: 'Восстановление недоступно.' };

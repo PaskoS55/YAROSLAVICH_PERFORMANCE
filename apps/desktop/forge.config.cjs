@@ -11,7 +11,7 @@ module.exports = {
     name: product.electronName,
     icon: windowsIcon,
     extraResource: ['.runtime/web', '.runtime/postgres', '.runtime/db', '../../packages/core/product-identity.json'],
-    ignore: [/^\/\.runtime(?:\/|$)/],
+    ignore: [/^\/\.runtime(?:\/|$)/, /^\/test(?:\/|$)/, /^\/scripts(?:\/|$)/],
   },
   rebuildConfig: {},
   makers: [
