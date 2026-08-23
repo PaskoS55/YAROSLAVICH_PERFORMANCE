@@ -61,13 +61,15 @@ The packaged flow constructs its own database URL and does not require system No
 
 Packaged Desktop creates an immutable random Installation ID and independent random database, session, and installation secrets. Electron protects them with Windows `safeStorage`; unavailable encryption, missing credentials beside an existing database, or decryption failure stops startup without plaintext fallback, reset, or regeneration. Next receives only the values it needs through a controlled child-process environment. A controlled Phase 5 upgrade can rotate legacy database credentials only when the legacy secret is explicitly supplied.
 
-The First Run wizard guides a new installation through Club, Team, Season, Administrator, and explicit Recovery Key acknowledgement. Internal Organization and Team codes are generated uniquely on the server and are not normal setup fields. Passwords use salted, versioned Node.js scrypt hashes. The one-time Recovery Key is retained only as a domain-separated hash and resets the local administrator password; it cannot recover lost Windows safeStorage machine secrets. Portable User Backup v4 excludes LocalUser authentication hashes and every machine secret. Licensing, RBAC/cloud identity, machine-secret disaster recovery, and installer/release work remain deferred.
+The First Run wizard guides a licensed installation through Club, Team, Season, Administrator, and explicit Recovery Key acknowledgement. Internal Organization and Team codes are generated uniquely on the server and are not normal setup fields. Passwords use salted, versioned Node.js scrypt hashes. The one-time Recovery Key is retained only as a domain-separated hash and resets the local administrator password; it cannot recover lost Windows safeStorage machine secrets. Portable User Backup v4 excludes LocalUser authentication hashes, license entitlement, and every machine secret. RBAC/cloud identity, machine-secret disaster recovery, and installer/release work remain deferred.
 
 Settings provides synchronized native color pickers and canonical `#RRGGBB` inputs for optional Organization accents, with a live preview and reset to product defaults. Organization colors never alter the official PASKO visual brand, favicon, Windows icon, product names, or creator credit. The packaged production Electron window has no technical application menu; development retains its debugging menu and DevTools.
 
 ## Backup and restore
 
 User Backup and Internal Recovery Snapshot are separate features. User Backup v4 is an explicitly exported portable JSON copy of supported business data; restore requires current local-administrator password re-entry, exact confirmation, full relationship validation, and one transaction. Internal PostgreSQL 16 snapshots are same-installation safety artifacts created only before pending packaged migrations, verified by checksum and `pg_restore --list`, and retained locally with a latest-five policy. See [PASKO recovery architecture](docs/pasko-recovery.md).
+
+Packaged Desktop verifies installation-bound offline license files using canonical Ed25519 signatures before enabling operational features. Only public verification keys ship with the client; license state is outside PostgreSQL and User Backup. See [PASKO licensing foundation](docs/pasko-licensing.md).
 
 ## Product and club context
 
@@ -76,7 +78,7 @@ User Backup and Internal Recovery Snapshot are separate features. User Backup v4
 - A signed HttpOnly context cookie selects the active Organization, Team, and Season. This context scopes data but is not user authorization.
 - A database containing exactly one active Organization, Team, and linked Season uses a deterministic fallback. Multiple choices require explicit selection in the context screen.
 - Product creator credit belongs to the product identity and cannot be overridden by organization branding.
-- Licensing, full RBAC, organization-scoped backup, and cloud synchronization are deferred to later phases.
+- The production license issuer/server, full RBAC, organization-scoped backup, and cloud synchronization are deferred to later phases.
 
 ## Product assets
 
