@@ -6,6 +6,7 @@ export const dynamic = 'force-dynamic';
 import { AppShell } from '../components/layout/AppShell';
 import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
 import { getAppContext } from '../lib/app-context';
+import { getRuntimeLicenseState } from '../lib/license-policy';
 
 const inter = Inter({
   subsets: ['cyrillic', 'latin'],
@@ -31,10 +32,11 @@ export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const context = await getAppContext();
+  const licensed = getRuntimeLicenseState() === 'VALID';
   return (
     <html lang="ru">
       <body className={inter.className}>
-        <AppShell context={context.status === 'READY' ? context : null}>{children}</AppShell>
+        {licensed ? <AppShell context={context.status === 'READY' ? context : null}>{children}</AppShell> : children}
       </body>
     </html>
   );

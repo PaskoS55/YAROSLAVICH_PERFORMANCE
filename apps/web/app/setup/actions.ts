@@ -9,6 +9,7 @@ import {
 } from "../../lib/local-auth";
 import { prisma } from "../../lib/prisma";
 import { codeBase, uniqueCode } from "./setup-code";
+import { operationalLicenseRequired } from '../../lib/license-policy';
 export interface SetupState {
   error?: string;
   recoveryKey?: string;
@@ -23,6 +24,7 @@ export async function completeSetup(
   _: SetupState,
   formData: FormData,
 ): Promise<SetupState> {
+  operationalLicenseRequired();
   const value = (name: string) => String(formData.get(name) ?? "");
   const password = value("password");
   if (password !== value("confirmPassword"))

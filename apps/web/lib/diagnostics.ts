@@ -3,6 +3,7 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { prisma } from './prisma';
 import { redactSupportText } from './support-bundle';
+import { getRuntimeLicenseState, readLicenseMetadata } from './license-policy';
 
 type Snapshot = { snapshotFormatVersion: number; snapshotId: string; createdAt: string; reason: string; productVersion: string; postgresMajor: string; schemaMigrationNames: string[]; targetMigrationSet: string[]; installationId: string; databaseFileChecksum: string; sizeBytes: number };
 
@@ -24,6 +25,7 @@ async function readStartupStatus() {
 }
 
 export async function collectDiagnostics() {
+  const licenseMetadata = readLicenseMetadata();
   const [migrationRows, counts, references, snapshots, startupStatus] = await Promise.all([
     prisma.$queryRawUnsafe<Array<{ migration_name: string; finished_at: Date | null; rolled_back_at: Date | null }>>('SELECT migration_name, finished_at, rolled_back_at FROM _prisma_migrations ORDER BY started_at'),
     Promise.all([prisma.organization.count(), prisma.team.count(), prisma.season.count(), prisma.player.count()]),
@@ -38,6 +40,7 @@ export async function collectDiagnostics() {
     currentMigration: successful.at(-1)?.migration_name ?? null, appliedMigrations: successful.map((row) => row.migration_name), failedMigrations: failed.map((row) => row.migration_name),
     snapshotCount: snapshots.length, snapshotStorageSize: snapshots.reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0), lastSnapshot: snapshots[0] ?? null, snapshots,
     lastStartupStatus: startupStatus, referenceProfileStatus: references === 1 ? 'HEALTHY' : 'MISSING_OR_DUPLICATE',
+    license: { state: getRuntimeLicenseState(), licenseId: licenseMetadata?.licenseId ?? null, keyId: licenseMetadata?.keyId ?? null, plan: licenseMetadata?.plan ?? null, expiresAt: licenseMetadata?.expiresAt ?? null, product: licenseMetadata?.product ?? null, vertical: licenseMetadata?.vertical ?? null },
     counts: { organizations: counts[0], teams: counts[1], seasons: counts[2], players: counts[3] },
   };
 }

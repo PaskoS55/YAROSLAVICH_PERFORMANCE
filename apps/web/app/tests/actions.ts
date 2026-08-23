@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
 import type { Direction } from '@prisma/client';
+import { operationalLicenseRequired } from '../../lib/license-policy';
 
 const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 
@@ -106,6 +107,7 @@ function parseNumericFields(formData: FormData): NumericFields | { error: string
 export type TestState = { ok?: boolean; error?: string } | null;
 
 export async function createTest(_state: TestState, formData: FormData): Promise<TestState> {
+  operationalLicenseRequired();
   const name = str(formData.get('name'));
   if (!name) return { error: 'Укажите название теста.' };
   const code = str(formData.get('code')).toUpperCase();
@@ -154,6 +156,7 @@ export async function createTest(_state: TestState, formData: FormData): Promise
 }
 
 export async function updateTest(_state: TestState, formData: FormData): Promise<TestState> {
+  operationalLicenseRequired();
   const id = str(formData.get('id'));
   const test = await prisma.test.findUnique({
     where: { id },
@@ -208,6 +211,7 @@ export async function updateTest(_state: TestState, formData: FormData): Promise
 }
 
 export async function archiveTest(formData: FormData): Promise<void> {
+  operationalLicenseRequired();
   const id = str(formData.get('id'));
   const test = await prisma.test.findUnique({ where: { id }, include: { _count: { select: { normEntries: true } } } });
   if (!test) {

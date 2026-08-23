@@ -15,6 +15,7 @@ import { changePassword } from "./security-actions";
 import { CopyInstallationId } from "./copy-installation-id";
 import { OrganizationBrandingForm } from "./organization-branding-form";
 import { loadTeamReferenceProfile } from "../../lib/references";
+import { getRuntimeLicenseState, readLicenseMetadata } from '../../lib/license-policy';
 
 const field = "mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm";
 const label = "block text-xs font-medium text-gray-500";
@@ -25,6 +26,8 @@ function fmtDate(d: Date | null | undefined) {
 }
 
 export default async function SettingsPage() {
+  const licenseState = getRuntimeLicenseState();
+  const license = readLicenseMetadata();
   const context = await requireAppContext();
   const [org, team, season, teams, seasons, stats, referenceProfile] = await Promise.all([
     prisma.organization.findUnique({ where: { id: context.organizationId } }),
@@ -237,6 +240,12 @@ export default async function SettingsPage() {
             Сменить сезон →
           </Link>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-4 text-lg font-bold">Лицензия</h2>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm"><dt>Статус</dt><dd>{licenseState === 'VALID' ? 'Активна' : licenseState}</dd><dt>Клуб</dt><dd>{license?.customerName ?? '—'}</dd><dt>License ID</dt><dd>{license?.licenseId ?? '—'}</dd><dt>План</dt><dd>{license?.plan ?? '—'}</dd><dt>Срок действия</dt><dd>{license?.expiresAt ?? 'Бессрочно'}</dd><dt>Key ID</dt><dd>{license?.keyId ?? '—'}</dd></dl>
+        <Link href="/license?replace=1" className="btn-secondary mt-4 inline-block">Заменить лицензию</Link>
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-6">

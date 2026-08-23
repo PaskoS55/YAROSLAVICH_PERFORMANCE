@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { prisma } from '../../lib/prisma';
 import { resolveAppContext } from '../../lib/app-context-core';
 import { CONTEXT_COOKIE_NAME, CONTEXT_MAX_AGE_SECONDS, contextCookieSecure, signContextSelection } from '../../lib/context-cookie';
+import { operationalLicenseRequired } from '../../lib/license-policy';
 
 export async function selectContext(formData: FormData): Promise<void> {
   const selection = {
@@ -21,6 +22,7 @@ export async function selectContext(formData: FormData): Promise<void> {
 }
 
 export async function createContextTeam(formData: FormData): Promise<void> {
+  operationalLicenseRequired();
   const organizationId = String(formData.get('organizationId') ?? '');
   const name = String(formData.get('name') ?? '').trim();
   const code = String(formData.get('code') ?? '').trim().toUpperCase();
@@ -39,6 +41,7 @@ export async function createContextTeam(formData: FormData): Promise<void> {
 }
 
 export async function createContextSeason(formData: FormData): Promise<void> {
+  operationalLicenseRequired();
   const teamId = String(formData.get('teamId') ?? '');
   const name = String(formData.get('name') ?? '').trim();
   const startDate = new Date(`${String(formData.get('startDate') ?? '')}T12:00:00.000Z`);
