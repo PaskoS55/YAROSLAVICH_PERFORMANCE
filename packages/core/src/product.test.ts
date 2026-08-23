@@ -3,6 +3,8 @@ import { PRODUCT_ASSETS, PRODUCT_IDENTITY, validateOrganizationBranding } from '
 
 describe('product identity', () => {
   it('keeps product, vertical, and organization at separate levels', () => {
+    expect(PRODUCT_IDENTITY.brand).toBe('PASKO');
+    expect(PRODUCT_IDENTITY.shortProductName).toBe('PASKO Performance');
     expect(PRODUCT_IDENTITY.canonical).toBe('PASKO PERFORMANCE PLATFORM');
     expect(PRODUCT_IDENTITY.vertical).toBe('VOLLEYBALL');
     expect(PRODUCT_IDENTITY.display).toBe('PASKO PERFORMANCE PLATFORM — VOLLEYBALL');

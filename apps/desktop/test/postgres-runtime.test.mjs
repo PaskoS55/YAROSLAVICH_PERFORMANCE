@@ -37,6 +37,8 @@ test('detects absent, valid, and invalid clusters without deleting data', async 
 test('uses canonical product identity and detects legacy data without modifying it', async () => {
   const identity = loadProductIdentity({ isPackaged: false, resourcesPath: 'unused' });
   assert.equal(identity.canonical, 'PASKO PERFORMANCE PLATFORM');
+  assert.equal(identity.brand, 'PASKO');
+  assert.equal(identity.shortProductName, 'PASKO Performance');
   assert.equal(identity.databaseName, 'pasko_performance');
   assert.match(resolveProductIdentityPath({ isPackaged: true, resourcesPath: 'R:\\resources' }), /product-identity\.json$/);
   const root = await mkdtemp(path.join(os.tmpdir(), 'pasko-performance-legacy-'));

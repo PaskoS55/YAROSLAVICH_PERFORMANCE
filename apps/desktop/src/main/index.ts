@@ -227,7 +227,7 @@ if (!app.requestSingleInstanceLock()) {
       );
       const userMessage =
         message === "SECURITY_STORE_UNAVAILABLE"
-          ? "Не удалось инициализировать защищённое хранилище PASKO."
+          ? `Не удалось инициализировать защищённое хранилище ${product.shortProductName}.`
           : message === "SECURITY_STORE_UNREADABLE"
             ? "Не удалось открыть защищённые данные этой установки. Возможно, данные были перенесены с другого компьютера или профиль Windows был изменён."
             : message === "DATABASE_STARTUP_FAILED"

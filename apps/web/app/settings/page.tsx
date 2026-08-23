@@ -71,7 +71,7 @@ export default async function SettingsPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-lg border border-gray-200 bg-white p-6 lg:col-span-2">
           <h2 className="mb-1 text-lg font-bold">Клуб и оформление</h2>
-          <p className="mb-5 text-sm text-gray-500">Цвета клуба используются только как акценты и не изменяют фирменный стиль PASKO.</p>
+          <p className="mb-5 text-sm text-gray-500">Цвета клуба используются только как акценты и не изменяют официальный фирменный стиль продукта.</p>
           {org && <OrganizationBrandingForm organization={org} />}
         </div>
 
@@ -259,7 +259,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="mb-1 text-lg font-bold">О программе</h2>
+        <h2 className="mb-1 text-lg font-bold">О {PRODUCT_IDENTITY.shortProductName}</h2>
         <p className="mb-4 text-sm font-semibold text-gray-500">{PRODUCT_IDENTITY.display}</p>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           <dt>Продукт</dt>

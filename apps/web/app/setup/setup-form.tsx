@@ -16,7 +16,7 @@ export function SetupForm({
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">Ключ восстановления</h2>
         <p>
-          Сохраните ключ в безопасном месте. PASKO не сможет показать этот ключ
+          Сохраните ключ в безопасном месте. Этот ключ нельзя будет показать
           повторно.
         </p>
         <code className="block rounded bg-gray-100 p-4 text-lg">

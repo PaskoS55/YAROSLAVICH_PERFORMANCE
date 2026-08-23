@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 export type DesktopProductIdentity = {
+  brand: string;
+  shortProductName: string;
   canonical: string;
   vertical: string;
   display: string;
@@ -24,6 +26,6 @@ export function loadProductIdentity(input: { isPackaged: boolean; resourcesPath:
   const file = resolveProductIdentityPath(input);
   if (!existsSync(file)) throw new Error('Product identity configuration is missing');
   const value = JSON.parse(readFileSync(file, 'utf8')) as DesktopProductIdentity;
-  if (!value.canonical || !value.appUserModelId || !value.dataDirectoryName || !value.databaseName) throw new Error('Product identity configuration is invalid');
+  if (!value.brand || !value.shortProductName || !value.canonical || !value.appUserModelId || !value.dataDirectoryName || !value.databaseName) throw new Error('Product identity configuration is invalid');
   return value;
 }

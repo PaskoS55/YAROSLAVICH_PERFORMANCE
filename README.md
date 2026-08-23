@@ -61,7 +61,7 @@ Packaged Desktop creates an immutable random Installation ID and independent ran
 
 The First Run wizard guides a new installation through Club, Team, Season, Administrator, and explicit Recovery Key acknowledgement. Internal Organization and Team codes are generated uniquely on the server and are not normal setup fields. Passwords use salted, versioned Node.js scrypt hashes. The one-time Recovery Key is retained only as a domain-separated hash and resets the local administrator password; it cannot recover lost Windows safeStorage machine secrets. Backup v3 excludes LocalUser authentication hashes and every machine secret. Licensing, RBAC/cloud identity, machine-secret disaster recovery, and installer/release work remain deferred.
 
-Settings provides synchronized native color pickers and canonical `#RRGGBB` inputs for optional Organization accents, with a live preview and reset to product defaults. Organization colors never alter official PASKO logos, favicon, Windows icon, or creator credit. The packaged production Electron window has no technical application menu; development retains its debugging menu and DevTools.
+Settings provides synchronized native color pickers and canonical `#RRGGBB` inputs for optional Organization accents, with a live preview and reset to product defaults. Organization colors never alter the official PASKO visual brand, favicon, Windows icon, product names, or creator credit. The packaged production Electron window has no technical application menu; development retains its debugging menu and DevTools.
 
 ## Backup and restore
 
@@ -69,7 +69,7 @@ Create backups from Settings before migrations or destructive maintenance. Backu
 
 ## Product and club context
 
-- PASKO PERFORMANCE PLATFORM is the immutable product identity; VOLLEYBALL is its current sports vertical.
+- PASKO is the visual brand, PASKO Performance is the natural user-facing product name, PASKO PERFORMANCE PLATFORM is the official product identity, and VOLLEYBALL is its current sports vertical.
 - Organization represents a club, Team represents a squad, and Season is the active working season.
 - A signed HttpOnly context cookie selects the active Organization, Team, and Season. This context scopes data but is not user authorization.
 - A database containing exactly one active Organization, Team, and linked Season uses a deterministic fallback. Multiple choices require explicit selection in the context screen.
