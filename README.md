@@ -9,7 +9,7 @@
 ## Clean setup
 
 1. Copy `.env.example` to `.env`.
-2. Replace `AUTH_PASSWORD` and set `AUTH_SESSION_SECRET` to at least 32 random characters.
+2. Set `AUTH_SESSION_SECRET` to at least 32 random characters for web development.
 3. Start PostgreSQL:
 
    ```sh
@@ -49,13 +49,17 @@ The application is available at `http://localhost:3000`.
 
 ## Production
 
-Use a production PostgreSQL URL and supply unique production values for `AUTH_PASSWORD` and `AUTH_SESSION_SECRET`. Next.js sets `NODE_ENV` from the selected command; do not put it in `.env`. Deploy migrations with `npm run db:deploy` before `npm run start`. Do not run `prisma migrate dev` in production.
+For standalone web deployment, use a production PostgreSQL URL and a unique `AUTH_SESSION_SECRET`. Next.js sets `NODE_ENV` from the selected command; do not put it in `.env`. Deploy migrations with `npm run db:deploy` before `npm run start`. Do not run `prisma migrate dev` in production.
 
 ## Packaged desktop database
 
 The packaged desktop startup is self-contained and ordered: bundled PostgreSQL 16.14 starts on dynamic loopback ports, packaged Prisma 5.22.0 runs only `migrate deploy`, the production Product + VOLLEYBALL reference catalogue is bootstrapped, and only then is the Next standalone runtime opened. A fresh database contains reference definitions but no Organization, Team, Season, Player, demo result, goal, or demo norm.
 
-The packaged flow constructs its own database URL and does not require system Node, npm, Prisma, PostgreSQL, Docker, or Git. Web and desktop development continue to use the explicit development database configuration. Database credentials are behind a replaceable provider; Electron `safeStorage`, a pre-migration internal `pg_dump` snapshot, and the full First Run wizard remain deferred.
+The packaged flow constructs its own database URL and does not require system Node, npm, Prisma, PostgreSQL, Docker, or Git. Web and desktop development continue to use explicit development database configuration.
+
+Packaged Desktop creates an immutable random Installation ID and independent random database, session, and installation secrets. Electron protects them with Windows `safeStorage`; unavailable encryption, missing credentials beside an existing database, or decryption failure stops startup without plaintext fallback, reset, or regeneration. Next receives only the values it needs through a controlled child-process environment. A controlled Phase 5 upgrade can rotate legacy database credentials only when the legacy secret is explicitly supplied.
+
+The First Run flow creates the club context and one local administrator. Passwords use salted, versioned Node.js scrypt hashes. The one-time Recovery Key is retained only as a domain-separated hash and resets the local administrator password; it cannot recover lost Windows safeStorage machine secrets. Backup v3 excludes LocalUser authentication hashes and every machine secret. Licensing, RBAC/cloud identity, machine-secret disaster recovery, and installer/release work remain deferred.
 
 ## Backup and restore
 
@@ -68,7 +72,7 @@ Create backups from Settings before migrations or destructive maintenance. Backu
 - A signed HttpOnly context cookie selects the active Organization, Team, and Season. This context scopes data but is not user authorization.
 - A database containing exactly one active Organization, Team, and linked Season uses a deterministic fallback. Multiple choices require explicit selection in the context screen.
 - Product creator credit belongs to the product identity and cannot be overridden by organization branding.
-- User/Role authorization, licensing, organization-scoped backup, cloud synchronization, and a complete first-run wizard are deferred to later phases.
+- Licensing, full RBAC, organization-scoped backup, and cloud synchronization are deferred to later phases.
 
 ## Product assets
 

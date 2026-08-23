@@ -364,3 +364,22 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+
+model LocalUser {
+  id                  String    @id @default(cuid())
+  displayName         String
+  login               String
+  loginNormalized     String    @unique @map("login_normalized")
+  passwordHash        String    @map("password_hash")
+  recoveryKeyHash     String    @map("recovery_key_hash")
+  failedLoginCount    Int       @default(0) @map("failed_login_count")
+  failedRecoveryCount Int       @default(0) @map("failed_recovery_count")
+  lockedUntil         DateTime? @map("locked_until")
+  recoveryLockedUntil DateTime? @map("recovery_locked_until")
+  lastLoginAt         DateTime? @map("last_login_at")
+  disabledAt          DateTime? @map("disabled_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@map("local_users")
+}
