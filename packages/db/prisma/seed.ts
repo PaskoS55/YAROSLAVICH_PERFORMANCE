@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { seedReferenceData } from './reference-data';
+import { PASKO_REFERENCE_V1_CODE, seedReferenceData } from './reference-data';
 
 const prisma = new PrismaClient();
 
@@ -109,6 +109,8 @@ async function main() {
 
   /* Reference catalogue is idempotent and shared with production bootstrap. */
   const { tests } = await seedReferenceData(tx);
+  const systemProfile = await tx.normProfile.findUniqueOrThrow({ where: { code: PASKO_REFERENCE_V1_CODE } });
+  await tx.team.update({ where: { id: team.id }, data: { activeNormProfileId: systemProfile.id } });
   /*
   const categorySpecs = [
     ['STRENGTH', 'Сила'],
@@ -393,31 +395,7 @@ async function main() {
   }
   console.log(`✓ Создано ${resultsCount} результатов тестирования`);
 
-  // 8. Нормативы (демо)
-  const positions = ['outside_hitter', 'opposite', 'setter', 'libero'];
-  let normsCount = 0;
-  for (const test of tests) {
-    for (const pos of positions) {
-      const testDataItem = testData.find(t => t.code === test.code);
-      if (testDataItem) {
-        await tx.norm.create({
-          data: {
-            testCode: test.code,
-            position: pos,
-            anchor10: testDataItem.base - testDataItem.variance * 1.5,
-            anchor25: testDataItem.base - testDataItem.variance * 0.8,
-            anchor50: testDataItem.base,
-            anchor75: testDataItem.base + testDataItem.variance * 0.8,
-            anchor90: testDataItem.base + testDataItem.variance * 1.5,
-            source: 'ДЕМО — заменить реальными данными',
-            testId: test.id,
-          },
-        });
-        normsCount++;
-      }
-    }
-  }
-  console.log(`✓ Создано ${normsCount} нормативов`);
+  // 8. Демо-команда использует неизменяемый системный PASKO Reference v1.
 
   // 9. Цели игроков
   const goalTests = tests.filter(t => ['PWR_CMJ', 'SPD_10', 'VB_APP'].includes(t.code));
