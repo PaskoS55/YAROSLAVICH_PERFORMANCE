@@ -209,9 +209,13 @@ export async function updateTest(_state: TestState, formData: FormData): Promise
 
 export async function archiveTest(formData: FormData): Promise<void> {
   const id = str(formData.get('id'));
-  const test = await prisma.test.findUnique({ where: { id } });
+  const test = await prisma.test.findUnique({ where: { id }, include: { _count: { select: { normEntries: true } } } });
   if (!test) {
     console.error('archiveTest: тест не найден.');
+    return;
+  }
+  if (test.isSystem && test._count.normEntries > 0) {
+    console.error('archiveTest: системный тест используется PASKO Reference и не может быть архивирован.');
     return;
   }
   await prisma.test.update({ where: { id }, data: { deletedAt: new Date() } });

@@ -1,9 +1,9 @@
 export type NormAnchors = {
-  anchor10: number;
-  anchor25: number;
-  anchor50: number;
-  anchor75: number;
-  anchor90: number;
+  p10: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
 };
 
 // Процентиль унифицирован: выше = всегда лучше.
@@ -19,11 +19,11 @@ export function computePercentile(
   // пока не появится явная политика направления.
   if (direction === 'CONTEXTUAL') return null;
   const anchors = [
-    { v: norm.anchor10 },
-    { v: norm.anchor25 },
-    { v: norm.anchor50 },
-    { v: norm.anchor75 },
-    { v: norm.anchor90 },
+    { v: norm.p10 },
+    { v: norm.p25 },
+    { v: norm.p50 },
+    { v: norm.p75 },
+    { v: norm.p90 },
   ].sort((a, b) => a.v - b.v);
   const seq = direction === 'LOWER_IS_BETTER' ? [90, 75, 50, 25, 10] : [10, 25, 50, 75, 90];
   const pts = anchors.map((a, i) => ({ v: a.v, p: seq[i] }));

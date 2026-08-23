@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { validateReferenceFields } from '../../../lib/reference-policy';
 import type {
   Organization,
   Team,
@@ -8,7 +9,10 @@ import type {
   TestCategory,
   Player,
   Test,
-  Norm,
+  NormProfile,
+  NormEntry,
+  ReferenceSource,
+  NormEntrySource,
   TestSession,
   TestResult,
   BodyComposition,
@@ -53,7 +57,10 @@ export async function POST(req: Request) {
   const testCategories = arr<TestCategory>('testCategories');
   const players = arr<Player>('players');
   const tests = arr<Test>('tests');
-  const norms = arr<Norm>('norms');
+  const normProfiles = arr<NormProfile>('normProfiles');
+  const normEntries = arr<NormEntry>('normEntries');
+  const referenceSources = arr<ReferenceSource>('referenceSources');
+  const normEntrySources = arr<NormEntrySource>('normEntrySources');
   const testSessions = arr<TestSession>('testSessions');
   const testResults = arr<TestResult>('testResults');
   const bodyCompositions = arr<BodyComposition>('bodyCompositions');
@@ -71,7 +78,10 @@ export async function POST(req: Request) {
     'testCategories',
     'players',
     'tests',
-    'norms',
+    'normProfiles',
+    'normEntries',
+    'referenceSources',
+    'normEntrySources',
     'testSessions',
     'testResults',
     'bodyCompositions',
@@ -83,7 +93,7 @@ export async function POST(req: Request) {
     'teamSeasonLinks',
   ];
   const malformedArray = requiredArrays.find((key) => !Array.isArray(backup[key]));
-  if ((backup as { version?: unknown }).version !== 3 || malformedArray) {
+  if ((backup as { version?: unknown }).version !== 4 || malformedArray) {
     return NextResponse.json(
       { error: 'Неподдерживаемая версия или неполная структура резервной копии.' },
       { status: 400 }
@@ -99,6 +109,10 @@ export async function POST(req: Request) {
   const categoryIds = ids(testCategories);
   const playerIds = ids(players);
   const testIds = ids(tests);
+  const profileIds = ids(normProfiles);
+  const entryIds = ids(normEntries);
+  const sourceIds = ids(referenceSources);
+  const profileById = new Map(normProfiles.map((profile) => [profile.id, profile]));
   const sessionIds = ids(testSessions);
   const resultIds = ids(testResults);
   const equipmentIds = ids(equipment);
@@ -112,7 +126,9 @@ export async function POST(req: Request) {
     testCategories,
     players,
     tests,
-    norms,
+    normProfiles,
+    normEntries,
+    referenceSources,
     testSessions,
     testResults,
     bodyCompositions,
@@ -151,7 +167,19 @@ export async function POST(req: Request) {
         sessionById.get(body.testSessionId)?.playerId !== body.playerId
     ) ||
     playerGoals.some((goal) => !playerIds.has(goal.playerId) || !testIds.has(goal.testId)) ||
-    norms.some((norm) => norm.testId !== null && !testIds.has(norm.testId)) ||
+    normProfiles.some((profile) =>
+      (profile.organizationId !== null && !organizationIds.has(profile.organizationId)) ||
+      (profile.scope === 'ORGANIZATION' ? profile.organizationId === null : profile.organizationId !== null) ||
+      (profile.baseProfileId !== null && !profileIds.has(profile.baseProfileId))
+    ) ||
+    normEntries.some((entry) => !profileIds.has(entry.profileId) || !testIds.has(entry.testId) || validateReferenceFields(entry) !== null) ||
+    normEntrySources.some((link) => !entryIds.has(link.entryId) || !sourceIds.has(link.sourceId)) ||
+    teams.some((team) => {
+      if (team.activeNormProfileId === null) return false;
+      const profile = profileById.get(team.activeNormProfileId);
+      return !profile || profile.deletedAt !== null || profile.status !== 'ACTIVE' ||
+        (profile.scope !== 'SYSTEM' && (profile.scope !== 'ORGANIZATION' || profile.organizationId !== team.organizationId));
+    }) ||
     qcFlags.some((flag) => !resultIds.has(flag.testResultId)) ||
     teamSeasonLinks.some((link) => !teamIds.has(link.teamId) || !seasonIds.has(link.seasonId));
   const duplicateBusinessKeys =
@@ -162,7 +190,9 @@ export async function POST(req: Request) {
     new Set(testSessions.map((session) => `${session.playerId}\u0000${session.DateTime}\u0000${session.phase}`))
       .size !== testSessions.length ||
     new Set(testResults.map((result) => `${result.testSessionId}\u0000${result.testId}`)).size !==
-      testResults.length;
+      testResults.length ||
+    new Set(normEntries.map((entry) => `${entry.profileId}\u0000${entry.testId}\u0000${entry.position ?? '*'}`)).size !== normEntries.length ||
+    new Set(normEntrySources.map((link) => `${link.entryId}\u0000${link.sourceId}`)).size !== normEntrySources.length;
 
   if (invalidIds || invalidReferences || duplicateBusinessKeys) {
     return NextResponse.json(
@@ -178,7 +208,11 @@ export async function POST(req: Request) {
       await tx.bodyComposition.deleteMany();
       await tx.playerGoal.deleteMany();
       await tx.testSession.deleteMany();
-      await tx.norm.deleteMany();
+      await tx.normEntrySource.deleteMany();
+      await tx.normEntry.deleteMany();
+      await tx.team.updateMany({ data: { activeNormProfileId: null } });
+      await tx.normProfile.deleteMany();
+      await tx.referenceSource.deleteMany();
       await tx.test.deleteMany();
       await tx.testCategory.deleteMany();
       await tx.player.deleteMany();
@@ -190,13 +224,16 @@ export async function POST(req: Request) {
       await tx.auditLog.deleteMany();
 
       if (organizations.length) await tx.organization.createMany({ data: organizations });
-      if (teams.length) await tx.team.createMany({ data: teams });
+      if (teams.length) await tx.team.createMany({ data: teams.map((team) => ({ ...team, activeNormProfileId: null })) });
       if (seasons.length) await tx.season.createMany({ data: seasons });
       if (testCategories.length) await tx.testCategory.createMany({ data: testCategories });
       if (equipment.length) await tx.equipment.createMany({ data: equipment });
       if (players.length) await tx.player.createMany({ data: players });
       if (tests.length) await tx.test.createMany({ data: tests });
-      if (norms.length) await tx.norm.createMany({ data: norms });
+      if (referenceSources.length) await tx.referenceSource.createMany({ data: referenceSources });
+      if (normProfiles.length) await tx.normProfile.createMany({ data: normProfiles });
+      if (normEntries.length) await tx.normEntry.createMany({ data: normEntries });
+      if (normEntrySources.length) await tx.normEntrySource.createMany({ data: normEntrySources });
       if (testSessions.length) await tx.testSession.createMany({ data: testSessions });
       if (testResults.length) await tx.testResult.createMany({ data: testResults });
       if (bodyCompositions.length)
@@ -224,6 +261,9 @@ export async function POST(req: Request) {
             data: { seasons: { connect: { id: link.seasonId } } },
           });
         }
+      }
+      for (const team of teams) {
+        if (team.activeNormProfileId) await tx.team.update({ where: { id: team.id }, data: { activeNormProfileId: team.activeNormProfileId } });
       }
     });
   } catch {

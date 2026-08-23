@@ -7,11 +7,11 @@ import {
 } from './calculations';
 
 const anchors = {
-  anchor10: 10,
-  anchor25: 20,
-  anchor50: 30,
-  anchor75: 40,
-  anchor90: 50,
+  p10: 10,
+  p25: 20,
+  p50: 30,
+  p75: 40,
+  p90: 50,
 };
 
 describe('performance calculations', () => {

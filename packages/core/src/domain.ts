@@ -28,12 +28,12 @@ export type SessionStatus = 'FULL' | 'PARTIAL' | 'INCOMPLETE' | 'RESTRICTED';
 
 export type SessionSource = 'MANUAL' | 'MEDASS' | 'TENSOR_PLATFORM' | 'PHOTO_CELLS' | 'CSV' | 'API' | 'OTHER';
 
-export interface NormAnchors {
-  anchor10: number;   // 10th percentile
-  anchor25: number;   // 25th percentile
-  anchor50: number;   // 50th percentile (median)
-  anchor75: number;   // 75th percentile
-  anchor90: number;   // 90th percentile
+export interface PercentileAnchors {
+  p10: number;
+  p25: number;
+  p50: number;
+  p75: number;
+  p90: number;
 }
 
 export interface TestMeta {
@@ -54,7 +54,7 @@ export interface PlayerTestResult {
 }
 
 export interface CalculationContext {
-  norms: Record<string, Record<string, NormAnchors>>; // { testCode: { position: anchors } }
+  percentiles: Record<string, Record<string, PercentileAnchors>>;
   categoryWeights: Record<Category, number>;
   tests: Record<string, TestMeta>;
 }

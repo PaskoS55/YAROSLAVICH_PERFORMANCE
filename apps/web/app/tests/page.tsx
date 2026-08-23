@@ -23,7 +23,7 @@ export default async function TestsPage({
       _count: {
         select: {
           testResults: true,
-          norms: { where: { deletedAt: null } },
+          normEntries: { where: { deletedAt: null } },
         },
       },
     },
@@ -49,17 +49,17 @@ export default async function TestsPage({
       <td className="px-4 py-3 text-gray-600">{directionLabels[t.direction]}</td>
       <td className="px-4 py-3 text-right font-mono text-gray-600">{t._count.testResults}</td>
       <td className="px-4 py-3">
-        {t._count.norms > 0 ? (
+        {t._count.normEntries > 0 ? (
           <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">
-            настроены
+            референс есть
           </span>
         ) : (
           <Link
             href="/norms"
             className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 hover:underline"
-            title="Процентили для этого теста не настроены"
+            title="Референс для этого теста отсутствует"
           >
-            не настроены →
+            нет референса →
           </Link>
         )}
       </td>
@@ -84,7 +84,7 @@ export default async function TestsPage({
       <th className="px-4 py-2 text-left">Ед.</th>
       <th className="px-4 py-2 text-left">Направление</th>
       <th className="px-4 py-2 text-right">Результатов</th>
-      <th className="px-4 py-2 text-left">Нормативы</th>
+      <th className="px-4 py-2 text-left">Референсы</th>
       <th className="px-4 py-2 text-left">Статус</th>
     </tr>
   );

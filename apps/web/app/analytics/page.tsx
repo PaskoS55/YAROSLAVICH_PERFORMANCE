@@ -3,6 +3,7 @@ import AnalyticsControls from './analytics-controls';
 import { computePercentile, fmtVal } from '../../lib/analytics';
 import RadarChart from '../../components/RadarChart';
 import { requireAppContext } from '../../lib/app-context';
+import { empiricalAnchors, loadTeamReferenceProfile, referenceEntryMap, resolveReferenceEntry } from '../../lib/references';
 
 export default async function AnalyticsPage({
   searchParams,
@@ -48,8 +49,8 @@ export default async function AnalyticsPage({
     );
   }
 
-  const allNorms = await prisma.norm.findMany({ where: { deletedAt: null } });
-  const normByKey = new Map(allNorms.map((n) => [`${n.position}|${n.testCode}`, n]));
+  const referenceProfile = await loadTeamReferenceProfile(context.teamId);
+  const referenceByKey = referenceEntryMap(referenceProfile?.entries ?? []);
 
   const radarCategories = await prisma.testCategory.findMany({
     where: { active: true, includeInRadar: true },
@@ -99,7 +100,7 @@ export default async function AnalyticsPage({
     if (!categoryId || !radarCatIds.has(categoryId)) continue;
     const pct = computePercentile(
       value,
-      normByKey.get(`${player.position}|${testCode}`) ?? null,
+      empiricalAnchors(resolveReferenceEntry(referenceByKey, testCode, player.position)),
       direction
     );
     if (pct === null) continue;
@@ -135,7 +136,7 @@ export default async function AnalyticsPage({
       if (!categoryId || !radarCatIds.has(categoryId)) continue;
       const pct = computePercentile(
         value,
-        normByKey.get(`${tp.position}|${testCode}`) ?? null,
+        empiricalAnchors(resolveReferenceEntry(referenceByKey, testCode, tp.position)),
         direction
       );
       if (pct === null) continue;

@@ -14,6 +14,7 @@ import Link from "next/link";
 import { changePassword } from "./security-actions";
 import { CopyInstallationId } from "./copy-installation-id";
 import { OrganizationBrandingForm } from "./organization-branding-form";
+import { loadTeamReferenceProfile } from "../../lib/references";
 
 const field = "mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm";
 const label = "block text-xs font-medium text-gray-500";
@@ -25,7 +26,7 @@ function fmtDate(d: Date | null | undefined) {
 
 export default async function SettingsPage() {
   const context = await requireAppContext();
-  const [org, team, season, teams, seasons, stats] = await Promise.all([
+  const [org, team, season, teams, seasons, stats, referenceProfile] = await Promise.all([
     prisma.organization.findUnique({ where: { id: context.organizationId } }),
     prisma.team.findUnique({ where: { id: context.teamId } }),
     prisma.season.findUnique({ where: { id: context.seasonId } }),
@@ -60,6 +61,7 @@ export default async function SettingsPage() {
       }),
       prisma.test.count({ where: { deletedAt: null } }),
     ]),
+    loadTeamReferenceProfile(context.teamId),
   ]);
 
   const [playersCount, sessionsCount, resultsCount, testsCount] = stats;
@@ -73,6 +75,15 @@ export default async function SettingsPage() {
           <h2 className="mb-1 text-lg font-bold">Клуб и оформление</h2>
           <p className="mb-5 text-sm text-gray-500">Цвета клуба используются только как акценты и не изменяют официальный фирменный стиль продукта.</p>
           {org && <OrganizationBrandingForm organization={org} />}
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6 lg:col-span-2">
+          <h2 className="mb-1 text-lg font-bold">Референсы и нормативы</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Выберите профиль референсов для текущей команды, изучите научные источники или создайте редактируемую копию профиля клуба.
+          </p>
+          {referenceProfile && <div className="mb-4 rounded-lg bg-gray-50 p-3 text-sm"><div className="font-semibold">{referenceProfile.name}</div><div className="text-gray-500">Мужчины · Элитный волейбол · v{referenceProfile.version} · {referenceProfile.scope === "SYSTEM" ? "Системный · Только чтение" : "Профиль клуба"}</div></div>}
+          <Link href="/norms" className="btn-primary inline-block">Открыть профили референсов</Link>
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-6">

@@ -1,5 +1,7 @@
 # PASKO PERFORMANCE PLATFORM — VOLLEYBALL
 
+Developer architecture: [PASKO Reference profiles](docs/pasko-reference.md).
+
 ## Requirements
 
 - Node.js 20.19 or newer

@@ -5,6 +5,7 @@ import PrintButton from './print-button';
 import RadarChart from '../../../components/RadarChart';
 import { computePercentile } from '../../../lib/analytics';
 import { requireAppContext } from '../../../lib/app-context';
+import { empiricalAnchors, loadTeamReferenceProfile, referenceEntryMap, resolveReferenceEntry } from '../../../lib/references';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -68,8 +69,18 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
 
   if (!player) notFound();
 
-  const allNorms = await prisma.norm.findMany({ where: { deletedAt: null } });
-  const normByKey = new Map(allNorms.map((n) => [`${n.position}|${n.testCode}`, n]));
+  const referenceProfile = await loadTeamReferenceProfile(context.teamId);
+  const referenceByKey = referenceEntryMap(referenceProfile?.entries ?? []);
+  const referenceLabel = (code: string, unit: string) => {
+    const entry = resolveReferenceEntry(referenceByKey, code, player.position);
+    if (!entry) return 'Нет референса';
+    if (entry.interpretationType === 'NO_REFERENCE') return 'Системный референс пока не утверждён';
+    if (entry.interpretationType === 'CONTEXT_ONLY') return entry.notes ?? 'Контекстная интерпретация';
+    if (entry.interpretationType === 'POOLED_ESTIMATE') return `${entry.mean} ${unit}; 95% CI pooled mean ${entry.ciLow}–${entry.ciHigh}`;
+    if (entry.interpretationType === 'PUBLISHED_DISTRIBUTION') return `${entry.mean}${entry.sd != null ? ` ± ${entry.sd}` : ''} ${unit}${entry.position === null ? ' · все позиции' : ''}`;
+    if (entry.interpretationType === 'EMPIRICAL_PERCENTILE') return 'Эмпирические перцентили доступны';
+    return 'Референс доступен';
+  };
 
   const radarCategories = await prisma.testCategory.findMany({
     where: { active: true, includeInRadar: true },
@@ -138,7 +149,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
   const catAcc = new Map<string, { sum: number; count: number }>();
   for (const { value, code, categoryId, direction } of Array.from(latest.values())) {
     if (!categoryId || !radarCatIds.has(categoryId)) continue;
-    const pct = computePercentile(value, normByKey.get(`${player.position}|${code}`) ?? null, direction);
+    const pct = computePercentile(value, empiricalAnchors(resolveReferenceEntry(referenceByKey, code, player.position)), direction);
     if (pct === null) continue;
     const acc = catAcc.get(categoryId) ?? { sum: 0, count: 0 };
     acc.sum += pct;
@@ -170,7 +181,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
     const pCat = new Map<string, { sum: number; count: number }>();
     for (const { value, code, categoryId, direction } of Array.from(tLatest.values())) {
       if (!categoryId || !radarCatIds.has(categoryId)) continue;
-      const pct = computePercentile(value, normByKey.get(`${tp.position}|${code}`) ?? null, direction);
+      const pct = computePercentile(value, empiricalAnchors(resolveReferenceEntry(referenceByKey, code, tp.position)), direction);
       if (pct === null) continue;
       const acc = pCat.get(categoryId) ?? { sum: 0, count: 0 };
       acc.sum += pct;
@@ -372,6 +383,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
                   <tr className="border-b text-left text-gray-500">
                     <th className="py-1 pr-4">Тест</th>
                     <th className="py-1 pr-4">Результат</th>
+                    <th className="py-1 pr-4">Референс</th>
                     <th className="py-1">QC</th>
                   </tr>
                 </thead>
@@ -385,6 +397,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
                         <td className="py-1 pr-4 font-mono">
                           {r.value} {r.test.unit} {isPB && '🏆'}
                         </td>
+                        <td className="max-w-72 py-1 pr-4 text-xs text-gray-500">{referenceLabel(r.test.code, r.test.unit)}</td>
                         <td className="py-1">
                           {r.qcStatus === 'PASSED' ? '✓' : r.qcStatus === 'FAILED' ? '✗' : '—'}
                         </td>
