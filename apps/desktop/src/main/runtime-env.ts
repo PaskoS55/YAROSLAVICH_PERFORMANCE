@@ -27,6 +27,9 @@ export function buildNextRuntimeEnv(
     PORT: String(port),
     APP_RUNTIME: "desktop",
     PASKO_INSTALLATION_ID: source.PASKO_INSTALLATION_ID ?? "",
+    PASKO_PRODUCT_VERSION: source.PASKO_PRODUCT_VERSION ?? "",
+    PASKO_RECOVERY_ROOT: source.PASKO_RECOVERY_ROOT ?? "",
+    PASKO_LOGS_ROOT: source.PASKO_LOGS_ROOT ?? "",
     ...windowsRuntime,
     ...secrets,
   };

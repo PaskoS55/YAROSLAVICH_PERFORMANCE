@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import {
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -289,6 +290,7 @@ export async function startPostgres(
   if (detectClusterState(paths.dataDirectory) !== "valid")
     throw new Error("Cannot start an absent or invalid PostgreSQL cluster");
   mkdirSync(paths.logsDirectory, { recursive: true });
+  retainPostgresLogs(paths.logsDirectory);
   let lastError: unknown;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const port = await findAvailableLoopbackPort();
@@ -326,6 +328,20 @@ export async function startPostgres(
   throw new Error("PostgreSQL failed to start after 3 loopback port attempts", {
     cause: lastError,
   });
+}
+
+export function retainPostgresLogs(logsDirectory: string, limit = 5): void {
+  const ownedLogs = readdirSync(logsDirectory, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isFile() && /^postgres-\d+-\d+\.log$/.test(entry.name),
+    )
+    .map((entry) => entry.name)
+    .sort()
+    .reverse();
+  for (const name of ownedLogs.slice(Math.max(0, limit - 1))) {
+    rmSync(path.join(logsDirectory, name), { force: true });
+  }
 }
 
 export async function stopPostgres(

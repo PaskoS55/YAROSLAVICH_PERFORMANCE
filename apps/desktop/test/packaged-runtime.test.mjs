@@ -35,7 +35,7 @@ test('chooses a dynamic loopback port and enforces its exact origin', async () =
 
 test('builds a minimal child environment and redacts all secrets from logs', () => {
   const env = buildNextRuntimeEnv({ DATABASE_URL: 'db-secret', AUTH_SESSION_SECRET: 'session-secret', PASKO_INSTALLATION_ID: 'installation-id', PATH: 'must-not-pass', SystemRoot: 'C:\\Windows', WINDIR: 'C:\\Windows' }, 43210);
-  assert.deepEqual(Object.keys(env).sort(), ['APP_RUNTIME', 'AUTH_SESSION_SECRET', 'DATABASE_URL', 'HOSTNAME', 'NODE_ENV', 'PASKO_INSTALLATION_ID', 'PORT', 'SystemRoot', 'WINDIR'].sort());
+  assert.deepEqual(Object.keys(env).sort(), ['APP_RUNTIME', 'AUTH_SESSION_SECRET', 'DATABASE_URL', 'HOSTNAME', 'NODE_ENV', 'PASKO_INSTALLATION_ID', 'PASKO_LOGS_ROOT', 'PASKO_PRODUCT_VERSION', 'PASKO_RECOVERY_ROOT', 'PORT', 'SystemRoot', 'WINDIR'].sort());
   assert.deepEqual(getSafeRuntimeEnvLog(env), { NODE_ENV: 'production', HOSTNAME: '127.0.0.1', PORT: '43210', APP_RUNTIME: 'desktop' });
   assert.equal(redactRuntimeText('session-secret db-secret', env), '[REDACTED] [REDACTED]');
   assert.equal(redactRuntimeText('password=never-log recoveryKey:never-log', env), 'password=[REDACTED] recoveryKey:[REDACTED]');

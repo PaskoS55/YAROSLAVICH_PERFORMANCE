@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { createRequire } from 'node:module';
 import { assertChecksum, assertSafePostgresStagingPath, validatePostgresManifest } from '../scripts/postgres-runtime-layout.mjs';
-import { buildInitDbCommand, buildLocalDatabaseUrl, buildPgCtlStartCommand, buildPgCtlStopCommand, detectClusterState, detectLegacyDataRoot, redactDatabaseText, resolvePostgresPaths } from '../dist/main/postgres.js';
+import { buildInitDbCommand, buildLocalDatabaseUrl, buildPgCtlStartCommand, buildPgCtlStopCommand, detectClusterState, detectLegacyDataRoot, redactDatabaseText, resolvePostgresPaths, retainPostgresLogs } from '../dist/main/postgres.js';
 import { loadProductIdentity, resolveProductIdentityPath } from '../dist/main/product-identity.js';
 
 test('validates the pinned PostgreSQL runtime manifest', () => {
@@ -69,4 +69,20 @@ test('encodes database URLs and redacts credentials', () => {
   const url = buildLocalDatabaseUrl({ host: '127.0.0.1', port: 4567, database: 'db/name', username: 'user@local', password: 'p:a/ss' });
   assert.equal(url, 'postgresql://user%40local:p%3Aa%2Fss@127.0.0.1:4567/db%2Fname');
   assert.equal(redactDatabaseText(url), 'postgresql://[REDACTED]@127.0.0.1:4567/db%2Fname');
+});
+
+test('bounds only owned PostgreSQL startup logs', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'pasko-performance-pg-logs-'));
+  try {
+    for (let index = 0; index < 8; index += 1) {
+      await writeFile(path.join(root, `postgres-${1000 + index}-1.log`), 'bounded');
+    }
+    await writeFile(path.join(root, 'operator-note.log'), 'preserve');
+    retainPostgresLogs(root, 5);
+    const names = await readdir(root);
+    assert.equal(names.filter((name) => /^postgres-/.test(name)).length, 4);
+    assert.ok(names.includes('operator-note.log'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
