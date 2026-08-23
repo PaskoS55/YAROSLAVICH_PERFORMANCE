@@ -8,12 +8,13 @@ import { requireAppContext } from '../../lib/app-context';
 const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 const toDate = (s: string) => (s ? new Date(s + 'T12:00:00.000Z') : null);
 
-export async function updateOrganization(formData: FormData): Promise<void> {
+export interface OrganizationFormState { error?: string; success?: string }
+
+export async function updateOrganization(_: OrganizationFormState, formData: FormData): Promise<OrganizationFormState> {
   const context = await requireAppContext();
   const name = str(formData.get('name'));
   if (!name) {
-    console.error('updateOrganization: название обязательно.');
-    return;
+    return { error: 'Название клуба обязательно.' };
   }
 
   let branding;
@@ -24,13 +25,13 @@ export async function updateOrganization(formData: FormData): Promise<void> {
       primaryColor: str(formData.get('primaryColor')),
       secondaryColor: str(formData.get('secondaryColor')),
     });
-  } catch (error) {
-    console.error('updateOrganization: некорректные параметры бренда.', error);
-    return;
+  } catch {
+    return { error: 'Введите цвет в формате #RRGGBB.' };
   }
   await prisma.organization.update({ where: { id: context.organizationId }, data: { name, ...branding } });
   revalidatePath('/settings');
   revalidatePath('/team', 'layout');
+  return { success: 'Настройки клуба сохранены.' };
 }
 
 export async function updateTeam(formData: FormData): Promise<void> {

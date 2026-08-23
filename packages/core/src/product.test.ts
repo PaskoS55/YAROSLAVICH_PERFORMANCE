@@ -30,5 +30,8 @@ describe('product identity', () => {
     expect(validateOrganizationBranding({ shortName: ' Club ', logoAssetKey: 'organizations/club/logo.png', primaryColor: '#123ABC' })).toEqual({ shortName: 'Club', logoAssetKey: 'organizations/club/logo.png', primaryColor: '#123ABC', secondaryColor: null });
     expect(() => validateOrganizationBranding({ logoAssetKey: '../logo.png' })).toThrow();
     expect(() => validateOrganizationBranding({ primaryColor: 'red' })).toThrow();
+    expect(validateOrganizationBranding({ primaryColor: '#cc171d', secondaryColor: '' })).toMatchObject({ primaryColor: '#CC171D', secondaryColor: null });
+    expect(() => validateOrganizationBranding({ primaryColor: '#ffggff' })).toThrow();
+    expect(() => validateOrganizationBranding({ primaryColor: 'CC171D' })).toThrow();
   });
 });

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, safeStorage, shell } from "electron";
+import { app, BrowserWindow, dialog, Menu, safeStorage, shell } from "electron";
 import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { handleSquirrelStartup } from "./squirrel-startup";
@@ -54,6 +54,7 @@ function openExternal(target: string): void {
 
 function createWindow(internalUrl: URL): void {
   mainWindow = new BrowserWindow({
+    title: product.display,
     width: 1440,
     height: 900,
     minWidth: 1024,
@@ -204,7 +205,10 @@ if (!app.requestSingleInstanceLock()) {
   });
   app
     .whenReady()
-    .then(startApplication)
+    .then(() => {
+      if (!isDevelopment) Menu.setApplicationMenu(null);
+      return startApplication();
+    })
     .catch((error: unknown) => {
       const message =
         error instanceof Error

@@ -1,6 +1,5 @@
 import { prisma } from "../../lib/prisma";
 import {
-  updateOrganization,
   updateTeam,
   updateSeason,
   createTeam,
@@ -14,6 +13,7 @@ import { requireAppContext } from "../../lib/app-context";
 import Link from "next/link";
 import { changePassword } from "./security-actions";
 import { CopyInstallationId } from "./copy-installation-id";
+import { OrganizationBrandingForm } from "./organization-branding-form";
 
 const field = "mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm";
 const label = "block text-xs font-medium text-gray-500";
@@ -69,71 +69,10 @@ export default async function SettingsPage() {
       <h1 className="text-3xl font-bold">Настройки</h1>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-bold">Организация</h2>
-          <form action={updateOrganization} className="space-y-3">
-            <div>
-              <label className={label}>Название</label>
-              <input
-                name="name"
-                defaultValue={org?.name ?? ""}
-                required
-                className={field}
-              />
-            </div>
-            <div>
-              <label className={label}>Короткое название</label>
-              <input
-                name="shortName"
-                defaultValue={org?.shortName ?? ""}
-                className={field}
-              />
-            </div>
-            <div>
-              <label className={label}>Ключ логотипа</label>
-              <input
-                name="logoAssetKey"
-                defaultValue={org?.logoAssetKey ?? ""}
-                placeholder="organizations/club/logo.png"
-                className={field}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={label}>Основной цвет</label>
-                <input
-                  name="primaryColor"
-                  defaultValue={org?.primaryColor ?? ""}
-                  placeholder="#123ABC"
-                  className={field}
-                />
-              </div>
-              <div>
-                <label className={label}>Дополнительный цвет</label>
-                <input
-                  name="secondaryColor"
-                  defaultValue={org?.secondaryColor ?? ""}
-                  placeholder="#FFFFFF"
-                  className={field}
-                />
-              </div>
-            </div>
-            <div>
-              <label className={label}>
-                Код{" "}
-                <span className="text-gray-400">
-                  (системный идентификатор, не редактируется)
-                </span>
-              </label>
-              <input
-                name="code"
-                defaultValue={org?.code ?? "ORG"}
-                readOnly
-                className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-500"
-              />
-            </div>
-            <button className="btn-primary">Сохранить</button>
-          </form>
+        <div className="rounded-lg border border-gray-200 bg-white p-6 lg:col-span-2">
+          <h2 className="mb-1 text-lg font-bold">Клуб и оформление</h2>
+          <p className="mb-5 text-sm text-gray-500">Цвета клуба используются только как акценты и не изменяют фирменный стиль PASKO.</p>
+          {org && <OrganizationBrandingForm organization={org} />}
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-6">
@@ -320,13 +259,14 @@ export default async function SettingsPage() {
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="mb-3 text-lg font-bold">Об установке</h2>
+        <h2 className="mb-1 text-lg font-bold">О программе</h2>
+        <p className="mb-4 text-sm font-semibold text-gray-500">{PRODUCT_IDENTITY.display}</p>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt>Product</dt>
+          <dt>Продукт</dt>
           <dd>{PRODUCT_IDENTITY.canonical}</dd>
-          <dt>Vertical</dt>
+          <dt>Направление</dt>
           <dd>{PRODUCT_IDENTITY.vertical}</dd>
-          <dt>Installation ID</dt>
+          <dt>ID установки</dt>
           <dd className="break-all">
             <span className="font-mono">
               {process.env.PASKO_INSTALLATION_ID || "Доступен в Desktop-сборке"}
@@ -342,7 +282,9 @@ export default async function SettingsPage() {
           <dt>Сезон</dt>
           <dd>{season?.name}</dd>
           <dt>Создатель</dt>
-          <dd>Сергей Пасько</dd>
+          <dd>Сергей Пасько<br /><span className="text-gray-500">Тренер по функциональной и кондиционной подготовке</span></dd>
+          <dt>Версия</dt>
+          <dd>1.0.0</dd>
         </dl>
       </div>
 

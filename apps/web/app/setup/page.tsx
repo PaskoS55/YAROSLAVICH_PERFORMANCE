@@ -5,7 +5,7 @@ import {
   PRODUCT_IDENTITY,
 } from "@pasko-performance/core/product";
 import { prisma } from "../../lib/prisma";
-import { SetupForm } from "./setup-form";
+import { SetupWizard } from "./setup-wizard";
 export default async function SetupPage() {
   if (await prisma.localUser.count()) redirect("/login");
   const organization = await prisma.organization.findFirst({
@@ -25,25 +25,14 @@ export default async function SetupPage() {
       })
     : null;
   return (
-    <main className="mx-auto min-h-screen max-w-2xl p-8">
-      <Image
-        src={PRODUCT_ASSETS.logoLight}
-        alt={PRODUCT_IDENTITY.display}
-        width={360}
-        height={120}
-      />
-      <h1 className="mt-6 text-3xl font-bold">Добро пожаловать в PASKO</h1>
-      <p className="mb-8 text-gray-500">{PRODUCT_IDENTITY.vertical}</p>
-      <SetupForm
-        existing={{
-          organization: organization?.name,
-          team: team?.name,
-          season: season?.name,
-        }}
-      />
-      <p className="mt-8 text-xs text-gray-400">
-        {PRODUCT_IDENTITY.creator.creditRu}
-      </p>
+    <main className="setup-shell">
+      <div className="setup-card">
+        <Image src={PRODUCT_ASSETS.logoLight} alt={PRODUCT_IDENTITY.display} width={300} height={100} className="mx-auto h-auto w-[240px]" priority />
+        <div className="mt-6">
+          <SetupWizard existing={{ organization: organization?.name, team: team?.name, season: season?.name }} />
+        </div>
+        <p className="mt-7 border-t border-gray-100 pt-4 text-center text-xs leading-5 text-gray-400">{PRODUCT_IDENTITY.creator.creditRu}</p>
+      </div>
     </main>
   );
 }
