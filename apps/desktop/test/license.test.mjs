@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateKeyPairSync, sign } from 'node:crypto';
+import { createHash, createPublicKey, generateKeyPairSync, sign } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { canonicalize, evaluateLicense, LicenseStore, MAX_LICENSE_BYTES, parseLicenseEnvelope } from '../dist/main/license.js';
+import { canonicalize, evaluateLicense, LicenseStore, MAX_LICENSE_BYTES, parseLicenseEnvelope, PRODUCTION_LICENSE_KEYS } from '../dist/main/license.js';
 
 const pair = generateKeyPairSync('ed25519');
 const keyId = 'TEST_ONLY_KEY';
@@ -16,6 +16,12 @@ function payload(overrides = {}) { return { formatVersion: 1, licenseId: 'test-l
 function envelope(overrides = {}) { const value = payload(overrides); return { payload: value, signature: sign(null, Buffer.from(canonicalize(value)), pair.privateKey).toString('base64url') }; }
 function evaluation(overrides = {}, extra = {}) { return evaluateLicense({ envelope: envelope(overrides), installationId, publicKeys, now, ...extra }); }
 const safeStorage = { isEncryptionAvailable: () => true, encryptString: (value) => Buffer.from(value), decryptString: (value) => value.toString('utf8') };
+
+test('retains both production verification keys and pins the 2026-03 fingerprint', () => {
+  assert.deepEqual(Object.keys(PRODUCTION_LICENSE_KEYS).sort(), ['PASKO_LICENSE_KEY_2026_01', 'PASKO_LICENSE_KEY_2026_03']);
+  const der = createPublicKey(PRODUCTION_LICENSE_KEYS.PASKO_LICENSE_KEY_2026_03).export({ type: 'spki', format: 'der' });
+  assert.equal(createHash('sha256').update(der).digest('hex'), '1e6bee2db0bf107db36860e2789243e4025a5a0a67c1bc3e000e90f09b44b41d');
+});
 
 test('verifies valid, perpetual, expired and not-before licenses offline', () => {
   assert.equal(evaluation().state, 'VALID');

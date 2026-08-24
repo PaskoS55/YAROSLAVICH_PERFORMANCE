@@ -20,6 +20,7 @@ export const MAX_LICENSE_BYTES = 64 * 1024;
 export const CLOCK_ROLLBACK_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 export const PRODUCTION_LICENSE_KEYS: Readonly<Record<string, string>> = Object.freeze({
   PASKO_LICENSE_KEY_2026_01: `-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAVCcb4irw2fUttglm4Z3vnO5GP6QJgHBZger59nkf84s=\n-----END PUBLIC KEY-----\n`,
+  PASKO_LICENSE_KEY_2026_03: `-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAjl2zMqtcpXu4nuM0SP7BSL1tCbJZL8SyAgIHsmYUoLs=\n-----END PUBLIC KEY-----\n`,
 });
 
 export type LicensePlan = "TRIAL" | "STANDARD" | "PRO" | "ENTERPRISE";
