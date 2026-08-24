@@ -2,6 +2,8 @@
 
 Developer architecture: [PASKO Reference profiles](docs/pasko-reference.md).
 
+Packaged Desktop includes an authenticated, licensed **PASKO Demo Workspace** backed by the isolated `pasko_performance_demo` database. It is separate from a signed **TRIAL** license: Trial stores real club data and upgrades without data recreation; Demo contains deterministic synthetic volleyball data and resets independently. See [Demo and Trial architecture](docs/pasko-demo.md).
+
 ## Requirements
 
 - Node.js 20.19 or newer
