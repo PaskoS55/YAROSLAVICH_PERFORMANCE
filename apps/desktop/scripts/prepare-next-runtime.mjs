@@ -5,6 +5,7 @@ import {
   cleanStagingPath,
   createCopyPlan,
   findStandaloneServer,
+  removeEnvironmentFiles,
   verifyPreparedRuntime,
 } from './next-runtime-layout.mjs';
 
@@ -26,6 +27,7 @@ const plan = createCopyPlan({
 await cleanStagingPath(stagingRoot, runtimeRoot);
 await mkdir(stagingRoot, { recursive: true });
 await cp(plan.standaloneSource, plan.stagingRoot, { recursive: true, dereference: true });
+await removeEnvironmentFiles(plan.stagingRoot);
 await cp(plan.publicSource, plan.publicTarget, { recursive: true, dereference: true });
 await cp(plan.staticSource, plan.staticTarget, { recursive: true, dereference: true });
 await writeFile(path.join(plan.stagingRoot, 'runtime-manifest.json'), `${JSON.stringify({ server: plan.relativeServer }, null, 2)}\n`);

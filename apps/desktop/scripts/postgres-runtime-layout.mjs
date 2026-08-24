@@ -4,6 +4,7 @@ import { lstat, mkdir, readFile, readdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 export const REQUIRED_EXECUTABLES = ['postgres.exe', 'initdb.exe', 'pg_ctl.exe', 'pg_isready.exe', 'createdb.exe', 'pg_dump.exe', 'pg_restore.exe', 'psql.exe'];
+export const POSTGRES_RUNTIME_DIRECTORIES = ['bin', 'lib', 'share'];
 
 export async function pathExists(target) {
   try { await stat(target); return true; } catch (error) { if (error?.code === 'ENOENT') return false; throw error; }
@@ -53,7 +54,7 @@ export async function findDistributionRoot(extractedRoot) {
 export async function verifyPostgresRuntime(root) {
   const info = await lstat(root); if (info.isSymbolicLink()) throw new Error('PostgreSQL runtime root must not be a symlink');
   for (const name of REQUIRED_EXECUTABLES) if (!(await pathExists(path.join(root, 'bin', name)))) throw new Error(`Required PostgreSQL executable is missing: ${name}`);
-  for (const directory of ['lib', 'share']) if (!(await pathExists(path.join(root, directory)))) throw new Error(`Required PostgreSQL runtime directory is missing: ${directory}`);
+  for (const directory of POSTGRES_RUNTIME_DIRECTORIES) if (!(await pathExists(path.join(root, directory)))) throw new Error(`Required PostgreSQL runtime directory is missing: ${directory}`);
   let files = 0; let bytes = 0;
   async function walk(directory) { for (const entry of await readdir(directory, { withFileTypes: true })) { const target = path.join(directory, entry.name); const item = await lstat(target); if (item.isSymbolicLink()) throw new Error(`PostgreSQL runtime must not contain symlinks: ${target}`); if (entry.isDirectory()) await walk(target); else { files += 1; bytes += item.size; } } }
   await walk(root); await mkdir(root, { recursive: true });

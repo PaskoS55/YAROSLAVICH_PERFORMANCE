@@ -16,6 +16,7 @@ import { CopyInstallationId } from "./copy-installation-id";
 import { OrganizationBrandingForm } from "./organization-branding-form";
 import { loadTeamReferenceProfile } from "../../lib/references";
 import { getRuntimeLicenseState, readLicenseMetadata } from '../../lib/license-policy';
+import { PRODUCT_VERSION, PRODUCT_VERSION_MAJOR_MINOR } from '../../lib/product-version';
 import { isDemoWorkspace } from '../../lib/workspace';
 import { DemoResetForm } from './demo-reset-form';
 
@@ -307,7 +308,7 @@ export default async function SettingsPage() {
           <dt>Создатель</dt>
           <dd>Сергей Пасько<br /><span className="text-gray-500">Тренер по функциональной и кондиционной подготовке</span></dd>
           <dt>Версия</dt>
-          <dd>1.0.0</dd>
+          <dd>{PRODUCT_VERSION}</dd>
         </dl>
       </div>
 
@@ -346,7 +347,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="text-xs text-gray-400">
-        <p>Версия системы: {PRODUCT_IDENTITY.display} v1.0</p>
+        <p>Версия системы: {PRODUCT_IDENTITY.display} v{PRODUCT_VERSION_MAJOR_MINOR}</p>
         <p>
           Product: {PRODUCT_IDENTITY.canonical} · Vertical:{" "}
           {PRODUCT_IDENTITY.vertical}

@@ -50,6 +50,22 @@ export async function cleanStagingPath(stagingPath, allowedRoot) {
   await rm(safePath, { recursive: true, force: true });
 }
 
+export async function removeEnvironmentFiles(root) {
+  const removed = [];
+  async function visit(directory) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const target = path.join(directory, entry.name);
+      if (entry.isDirectory()) await visit(target);
+      else if (/^\.env(?:\..+)?$/i.test(entry.name)) {
+        await rm(target, { force: true });
+        removed.push(target);
+      }
+    }
+  }
+  await visit(root);
+  return removed;
+}
+
 export function createCopyPlan({ standaloneRoot, serverPath, stagingRoot, publicSource, staticSource }) {
   const relativeServer = path.relative(path.resolve(standaloneRoot), path.resolve(serverPath));
   if (!relativeServer || relativeServer.startsWith('..') || path.isAbsolute(relativeServer)) {
@@ -95,7 +111,10 @@ export async function verifyPreparedRuntime(plan) {
   await walk(plan.stagingRoot, async (target, entry) => {
     const info = await lstat(target);
     if (info.isSymbolicLink()) throw new Error(`Prepared runtime must not contain symlinks or junctions: ${target}`);
-    if (entry.isFile()) { files += 1; bytes += info.size; }
+    if (entry.isFile()) {
+      if (/^\.env(?:\..+)?$/i.test(entry.name)) throw new Error(`Prepared runtime contains a forbidden environment file: ${target}`);
+      files += 1; bytes += info.size;
+    }
   });
   return { files, bytes };
 }

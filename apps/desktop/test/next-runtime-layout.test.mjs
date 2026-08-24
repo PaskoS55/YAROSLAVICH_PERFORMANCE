@@ -8,6 +8,7 @@ import {
   cleanStagingPath,
   createCopyPlan,
   findStandaloneServer,
+  removeEnvironmentFiles,
   verifyPreparedRuntime,
 } from '../scripts/next-runtime-layout.mjs';
 
@@ -56,4 +57,16 @@ test('runtime verification reports a missing required file', async () => {
   const value = await fixture();
   const plan = createCopyPlan({ standaloneRoot: value.standalone, serverPath: path.join(value.app, 'server.js'), stagingRoot: path.join(value.root, 'missing-runtime'), publicSource: 'public', staticSource: 'static' });
   await assert.rejects(verifyPreparedRuntime(plan), /Required prepared runtime path is missing/);
+});
+
+test('removes every environment file from prepared standalone content', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'pasko-performance-env-scrub-'));
+  const nested = path.join(root, 'apps', 'web');
+  await mkdir(nested, { recursive: true });
+  await writeFile(path.join(root, '.env'), 'DATABASE_URL=forbidden');
+  await writeFile(path.join(nested, '.env.production'), 'AUTH_SESSION_SECRET=forbidden');
+  await writeFile(path.join(nested, 'package.json'), '{}');
+  const removed = await removeEnvironmentFiles(root);
+  assert.equal(removed.length, 2);
+  assert.equal(await readFile(path.join(nested, 'package.json'), 'utf8'), '{}');
 });

@@ -4,7 +4,12 @@ import path from 'node:path';
 
 function runUpdate(args: string[]): void {
   const updateExecutable = path.resolve(path.dirname(process.execPath), '..', 'Update.exe');
-  const child = spawn(updateExecutable, args, { detached: true });
+  const child = spawn(updateExecutable, args, {
+    detached: true,
+    windowsHide: true,
+    stdio: 'ignore',
+  });
+  child.unref();
   child.once('close', () => app.quit());
   child.once('error', () => app.quit());
 }

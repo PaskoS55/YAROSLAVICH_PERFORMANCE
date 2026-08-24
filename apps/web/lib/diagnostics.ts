@@ -4,6 +4,7 @@ import path from 'node:path';
 import { prisma } from './prisma';
 import { redactSupportText } from './support-bundle';
 import { getRuntimeLicenseState, readLicenseMetadata } from './license-policy';
+import { runtimeProductVersion } from './product-version';
 
 type Snapshot = { snapshotFormatVersion: number; snapshotId: string; createdAt: string; reason: string; productVersion: string; postgresMajor: string; schemaMigrationNames: string[]; targetMigrationSet: string[]; installationId: string; databaseFileChecksum: string; sizeBytes: number };
 
@@ -35,7 +36,7 @@ export async function collectDiagnostics() {
   const failed = migrationRows.filter((row) => row.finished_at === null && row.rolled_back_at === null);
   const successful = migrationRows.filter((row) => row.finished_at !== null && row.rolled_back_at === null);
   return {
-    product: 'PASKO PERFORMANCE PLATFORM', productVersion: process.env.PASKO_PRODUCT_VERSION || '1.0.0', sportVertical: 'VOLLEYBALL',
+    product: 'PASKO PERFORMANCE PLATFORM', productVersion: runtimeProductVersion(), sportVertical: 'VOLLEYBALL',
     installationId: process.env.PASKO_INSTALLATION_ID || null, appRuntime: process.env.APP_RUNTIME || 'web', databaseStatus: failed.length ? 'FAILED_MIGRATION' : 'HEALTHY', postgresMajor: '16',
     currentMigration: successful.at(-1)?.migration_name ?? null, appliedMigrations: successful.map((row) => row.migration_name), failedMigrations: failed.map((row) => row.migration_name),
     snapshotCount: snapshots.length, snapshotStorageSize: snapshots.reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0), lastSnapshot: snapshots[0] ?? null, snapshots,

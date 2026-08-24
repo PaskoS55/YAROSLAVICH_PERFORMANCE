@@ -9,6 +9,7 @@
   "executableName": "PaskoPerformance",
   "appUserModelId": "com.pasko.performance",
   "squirrelName": "pasko_performance",
+  "releaseArtifactPrefix": "PASKO-Performance-Volleyball-Setup",
   "dataDirectoryName": "PaskoPerformance",
   "databaseName": "pasko_performance",
   "backupPrefix": "pasko-performance-backup",

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { PRODUCT_ASSETS, PRODUCT_IDENTITY } from '@pasko-performance/core/product';
+import { PRODUCT_VERSION_MAJOR_MINOR } from '../../lib/product-version';
 
 interface NavItem {
   href: string;
@@ -129,7 +130,7 @@ export function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, organi
           </button>
         </div>
         {renderNav()}
-        <div className="side-footer">v1.0 · {PRODUCT_IDENTITY.vertical}</div>
+        <div className="side-footer">v{PRODUCT_VERSION_MAJOR_MINOR} · {PRODUCT_IDENTITY.vertical}</div>
       </aside>
 
       <div className={`mobile-overlay ${mobileOpen ? '' : 'hidden'}`} onClick={onMobileClose} />

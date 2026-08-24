@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { createRequire } from 'node:module';
-import { assertChecksum, assertSafePostgresStagingPath, validatePostgresManifest } from '../scripts/postgres-runtime-layout.mjs';
+import { assertChecksum, assertSafePostgresStagingPath, POSTGRES_RUNTIME_DIRECTORIES, validatePostgresManifest } from '../scripts/postgres-runtime-layout.mjs';
 import { buildInitDbCommand, buildLocalDatabaseUrl, buildPgCtlStartCommand, buildPgCtlStopCommand, detectClusterState, detectLegacyDataRoot, redactDatabaseText, resolvePostgresPaths, retainPostgresLogs } from '../dist/main/postgres.js';
 import { loadProductIdentity, resolveProductIdentityPath } from '../dist/main/product-identity.js';
 
@@ -12,6 +12,11 @@ test('validates the pinned PostgreSQL runtime manifest', () => {
   const manifest = { version: '16.14', major: 16, platform: 'win32', arch: 'x64', archive: 'postgresql-16.14-2-windows-x64-binaries.zip', url: 'https://get.enterprisedb.com/postgresql/postgresql-16.14-2-windows-x64-binaries.zip', sha256: 'a'.repeat(64) };
   assert.equal(validatePostgresManifest(manifest), manifest);
   assert.throws(() => validatePostgresManifest({ ...manifest, major: 17 }));
+});
+
+test('packages only the PostgreSQL server runtime directories', () => {
+  assert.deepEqual(POSTGRES_RUNTIME_DIRECTORIES, ['bin', 'lib', 'share']);
+  for (const developmentOnly of ['doc', 'include', 'pgAdmin 4', 'StackBuilder']) assert.ok(!POSTGRES_RUNTIME_DIRECTORIES.includes(developmentOnly));
 });
 
 test('validates checksums and safe staging cleanup boundaries', async () => {

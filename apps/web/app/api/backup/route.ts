@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
+import { runtimeProductVersion } from '../../../lib/product-version';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,7 +61,7 @@ export async function GET() {
     createdAt: new Date().toISOString(),
     brand: 'PASKO PERFORMANCE',
     product: 'PASKO PERFORMANCE PLATFORM',
-    productVersion: process.env.PASKO_PRODUCT_VERSION || '1.0.0',
+    productVersion: runtimeProductVersion(),
     sportVertical: 'VOLLEYBALL',
     version: 4,
     manifest: {

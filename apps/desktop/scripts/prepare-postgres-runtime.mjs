@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
-import { assertChecksum, cleanPostgresStaging, findDistributionRoot, pathExists, readPostgresManifest, verifyPostgresRuntime } from './postgres-runtime-layout.mjs';
+import { assertChecksum, cleanPostgresStaging, findDistributionRoot, pathExists, POSTGRES_RUNTIME_DIRECTORIES, readPostgresManifest, verifyPostgresRuntime } from './postgres-runtime-layout.mjs';
 
 const desktopRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const manifest = await readPostgresManifest(path.join(desktopRoot, 'postgres-runtime.json'));
@@ -36,7 +36,10 @@ await cleanPostgresStaging(tempRoot, path.join(desktopRoot, '.runtime'));
 try {
   await extract();
   const distribution = await findDistributionRoot(tempRoot);
-  await cp(distribution, runtimeRoot, { recursive: true, dereference: true });
+  await mkdir(runtimeRoot, { recursive: true });
+  for (const directory of POSTGRES_RUNTIME_DIRECTORIES) {
+    await cp(path.join(distribution, directory), path.join(runtimeRoot, directory), { recursive: true, dereference: true });
+  }
   const result = await verifyPostgresRuntime(runtimeRoot);
   console.log(`Prepared PostgreSQL ${manifest.version} runtime: ${runtimeRoot}`);
   console.log(`Runtime files: ${result.files}; bytes: ${result.bytes}`);
