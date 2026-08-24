@@ -1,0 +1,9 @@
+{
+  "version": "16.14",
+  "major": 16,
+  "platform": "win32",
+  "arch": "x64",
+  "archive": "postgresql-16.14-2-windows-x64-binaries.zip",
+  "url": "https://get.enterprisedb.com/postgresql/postgresql-16.14-2-windows-x64-binaries.zip",
+  "sha256": "8a7f54c1968d5d49bdcd3f66b1291f736c74b8cb6a26e9874771fcc7837dbf38"
+}

@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma';
 import Link from 'next/link';
+import { requireAppContext } from '../../lib/app-context';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -29,11 +30,12 @@ export default async function PlayersPage({
   searchParams: Promise<{ status?: string; q?: string }>;
 }) {
   const query = await searchParams;
+  const context = await requireAppContext();
   const status = query.status ?? 'ALL';
   const q = (query.q ?? '').trim().toLowerCase();
 
   const all = await prisma.player.findMany({
-    where: { deletedAt: null },
+    where: { teamId: context.teamId, deletedAt: null },
     orderBy: { lastName: 'asc' },
   });
 

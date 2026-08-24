@@ -2,7 +2,7 @@ import {
   Direction,
   Category,
   ChangeStatus,
-  NormAnchors,
+  PercentileAnchors,
   TestMeta,
   CalculationContext,
   ScoreResult,
@@ -21,11 +21,11 @@ import {
  */
 export function normalizeScore(
   value: number,
-  anchors: NormAnchors,
+  anchors: PercentileAnchors,
   direction: Direction
 ): ScoreResult {
-  const minAnchor = Math.min(anchors.anchor10, anchors.anchor25, anchors.anchor50, anchors.anchor75, anchors.anchor90);
-  const maxAnchor = Math.max(anchors.anchor10, anchors.anchor25, anchors.anchor50, anchors.anchor75, anchors.anchor90);
+  const minAnchor = Math.min(anchors.p10, anchors.p25, anchors.p50, anchors.p75, anchors.p90);
+  const maxAnchor = Math.max(anchors.p10, anchors.p25, anchors.p50, anchors.p75, anchors.p90);
 
   if (value < minAnchor * 0.5 || value > maxAnchor * 2) {
     return {
@@ -37,22 +37,22 @@ export function normalizeScore(
 
   let score: number;
 
-  if (value <= anchors.anchor10) {
+  if (value <= anchors.p10) {
     score = 0;
-  } else if (value >= anchors.anchor90) {
+  } else if (value >= anchors.p90) {
     score = 100;
   } else {
-    if (value <= anchors.anchor25) {
-      const ratio = (value - anchors.anchor10) / (anchors.anchor25 - anchors.anchor10);
+    if (value <= anchors.p25) {
+      const ratio = (value - anchors.p10) / (anchors.p25 - anchors.p10);
       score = 0 + ratio * 25;
-    } else if (value <= anchors.anchor50) {
-      const ratio = (value - anchors.anchor25) / (anchors.anchor50 - anchors.anchor25);
+    } else if (value <= anchors.p50) {
+      const ratio = (value - anchors.p25) / (anchors.p50 - anchors.p25);
       score = 25 + ratio * 25;
-    } else if (value <= anchors.anchor75) {
-      const ratio = (value - anchors.anchor50) / (anchors.anchor75 - anchors.anchor50);
+    } else if (value <= anchors.p75) {
+      const ratio = (value - anchors.p50) / (anchors.p75 - anchors.p50);
       score = 50 + ratio * 25;
     } else {
-      const ratio = (value - anchors.anchor75) / (anchors.anchor90 - anchors.anchor75);
+      const ratio = (value - anchors.p75) / (anchors.p90 - anchors.p75);
       score = 75 + ratio * 25;
     }
   }
@@ -77,6 +77,13 @@ export function calculateDelta(
   changeThreshold?: number
 ): DeltaResult {
   const rawDelta = currentValue - previousValue;
+  if (direction === 'CONTEXTUAL') {
+    return {
+      delta: Number(rawDelta.toFixed(2)),
+      performanceDelta: null,
+      changeStatus: 'NO_CHANGE'
+    };
+  }
   const performanceDelta = direction === 'LOWER_IS_BETTER' ? -rawDelta : rawDelta;
   
   if (changeThreshold === undefined || changeThreshold === null) {
@@ -221,6 +228,15 @@ export function calculatePB(
   allPlayerResults: Array<{ testCode: string; value: number; date: Date }>,
   direction: Direction
 ): PBResult {
+  if (direction === 'CONTEXTUAL') {
+    return {
+      currentValue,
+      pbValue: null,
+      isNewPB: false,
+      improvement: null,
+      relativeImprovement: null
+    };
+  }
   const testResults = allPlayerResults.filter(r => r.testCode === testCode);
   
   if (testResults.length === 0) {
@@ -273,6 +289,14 @@ export function calculateGoalGap(
   targetValue: number,
   direction: Direction
 ): GoalGapResult {
+  if (direction === 'CONTEXTUAL') {
+    return {
+      currentValue,
+      targetValue,
+      gap: null,
+      progressPercentage: null
+    };
+  }
   let gap: number;
   
   if (direction === 'HIGHER_IS_BETTER') {
@@ -351,12 +375,12 @@ export function qcCheckValue(
 /**
  * Получение норматива для теста и позиции игрока
  */
-export function getNormForTestAndPosition(
+export function getPercentilesForTestAndPosition(
   testCode: string,
   position: string,
-  norms: Record<string, Record<string, NormAnchors>>
-): NormAnchors | null {
-  const testNorms = norms[testCode];
+  percentiles: Record<string, Record<string, PercentileAnchors>>
+): PercentileAnchors | null {
+  const testNorms = percentiles[testCode];
   if (!testNorms) {
     return null;
   }

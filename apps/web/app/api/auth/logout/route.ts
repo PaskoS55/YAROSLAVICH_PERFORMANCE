@@ -1,11 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
 async function doLogout(req: Request) {
-  const res = NextResponse.redirect(new URL('/login', req.url), 303);
-  const isProduction = process.env.NODE_ENV === 'production';
+  const res = NextResponse.redirect(new URL("/login", req.url), 303);
+  const isProduction =
+    process.env.NODE_ENV === "production" &&
+    process.env.APP_RUNTIME !== "desktop";
   res.cookies.delete({
-    name: 'yp_auth',
-    path: '/',
+    name: "yp_auth",
+    path: "/",
     secure: isProduction,
   });
   return res;

@@ -2,6 +2,7 @@
 
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { operationalLicenseRequired } from '../../lib/license-policy';
 
 const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 const opt = (s: string) => (s === '' ? null : s);
@@ -15,6 +16,7 @@ export async function createEquipment(
   _state: EquipmentState,
   formData: FormData
 ): Promise<EquipmentState> {
+  operationalLicenseRequired();
   const code = str(formData.get('code')).toUpperCase();
   const name = str(formData.get('name'));
   if (!code || !name) return { error: 'Укажите код и название.' };
@@ -42,6 +44,7 @@ export async function updateEquipment(
   _state: EquipmentState,
   formData: FormData
 ): Promise<EquipmentState> {
+  operationalLicenseRequired();
   const id = str(formData.get('id'));
   if (!id) return { error: 'Запись не найдена.' };
   const code = str(formData.get('code')).toUpperCase();

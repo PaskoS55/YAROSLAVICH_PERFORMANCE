@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import Link from 'next/link';
 import { updatePlayerStatus, createPlayer } from './actions';
+import { requireAppContext } from '../../lib/app-context';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -36,11 +37,9 @@ function age(birthDate: Date | null) {
 }
 
 export default async function TeamPage() {
-  const team = await prisma.team.findFirst({
-    include: { organization: true },
-  });
+  const context = await requireAppContext();
   const players = await prisma.player.findMany({
-    where: { deletedAt: null },
+    where: { teamId: context.teamId, deletedAt: null },
     orderBy: { playerId: 'asc' },
   });
 
@@ -60,8 +59,8 @@ export default async function TeamPage() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">{team?.name ?? 'Команда'}</h1>
-          <div className="text-sm text-gray-500">{team?.organization.name}</div>
+          <h1 className="text-3xl font-bold">{context.teamName}</h1>
+          <div className="text-sm text-gray-500">{context.organizationName} · {context.seasonName}</div>
         </div>
         <div className="text-right text-sm text-gray-500">
           <div>

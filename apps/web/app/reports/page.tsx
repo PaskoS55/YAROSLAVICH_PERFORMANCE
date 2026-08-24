@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma';
 import ReportsCards from './reports-cards';
+import { requireAppContext } from '../../lib/app-context';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -7,14 +8,15 @@ function fmtDate(d: Date | null | undefined) {
 }
 
 export default async function ReportsPage() {
+  const context = await requireAppContext();
   const sessions = await prisma.testSession.findMany({
-    where: { deletedAt: null },
+    where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
     orderBy: { DateTime: 'desc' },
     include: { player: { select: { lastName: true, firstName: true } } },
   });
 
   const players = await prisma.player.findMany({
-    where: { deletedAt: null },
+    where: { teamId: context.teamId, deletedAt: null },
     orderBy: { lastName: 'asc' },
   });
 
@@ -23,7 +25,7 @@ export default async function ReportsPage() {
       <div>
         <h1 className="text-3xl font-bold">Отчёты</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Экспорт командных, индивидуальных и сессионных данных.
+          {context.organizationName} · {context.teamName} · {context.seasonName}
         </p>
       </div>
 

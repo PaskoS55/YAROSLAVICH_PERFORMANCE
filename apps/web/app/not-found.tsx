@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
 
 export default function NotFound() {
   return (
@@ -15,7 +16,7 @@ export default function NotFound() {
         На главную
       </Link>
       <div className="mt-6 text-[10px] uppercase tracking-[0.22em] text-gray-400">
-        PASKO PERFORMANCE · ВК «Ярославич»
+        {PRODUCT_IDENTITY.display}
       </div>
     </div>
   );

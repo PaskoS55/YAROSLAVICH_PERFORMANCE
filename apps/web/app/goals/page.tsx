@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { markGoalAchieved, createGoal } from './actions';
 import GoalsHeader from './new-goal-section';
 import ConfirmMarkButton from './confirm-mark-button';
+import { requireAppContext } from '../../lib/app-context';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -38,12 +39,13 @@ export default async function GoalsPage({
   searchParams: Promise<{ f?: string }>;
 }) {
   const query = await searchParams;
+  const context = await requireAppContext();
   const f = query.f ?? 'ALL';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const players = await prisma.player.findMany({
-    where: { deletedAt: null },
+    where: { teamId: context.teamId, deletedAt: null },
     orderBy: { lastName: 'asc' },
   });
   const tests = await prisma.test.findMany({
@@ -52,7 +54,7 @@ export default async function GoalsPage({
   });
 
   const goalsRaw = await prisma.playerGoal.findMany({
-    where: { deletedAt: null },
+    where: { deletedAt: null, player: { teamId: context.teamId, deletedAt: null } },
     include: { player: true, test: true },
     orderBy: { targetDate: 'asc' },
   });
@@ -66,6 +68,7 @@ export default async function GoalsPage({
       testId: { in: testIds },
       deletedAt: null,
       qcStatus: 'PASSED',
+      testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
     },
     orderBy: { testSession: { DateTime: 'desc' } },
   });

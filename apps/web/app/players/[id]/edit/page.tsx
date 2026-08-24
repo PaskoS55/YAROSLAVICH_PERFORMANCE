@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { updatePlayer, archivePlayer, restorePlayer } from './actions';
 import ArchiveButton from './archive-button';
+import { requireAppContext } from '../../../../lib/app-context';
 
 function fmtDateInput(d: Date | null | undefined) {
   if (!d) return '';
@@ -11,7 +12,8 @@ function fmtDateInput(d: Date | null | undefined) {
 
 export default async function EditPlayerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const player = await prisma.player.findUnique({ where: { id } });
+  const context = await requireAppContext();
+  const player = await prisma.player.findFirst({ where: { id, teamId: context.teamId } });
   if (!player) notFound();
 
   return (

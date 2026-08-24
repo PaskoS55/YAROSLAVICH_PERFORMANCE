@@ -2,6 +2,7 @@
 
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { operationalLicenseRequired } from '../../lib/license-policy';
 
 export type CategoryState = { ok?: boolean; error?: string } | null;
 
@@ -9,6 +10,7 @@ export async function updateCategories(
   _state: CategoryState,
   formData: FormData
 ): Promise<CategoryState> {
+  operationalLicenseRequired();
   const ids = formData.getAll('catId').map((v) => String(v));
 
   const updates: { id: string; includeInRadar: boolean; radarOrder: number | null }[] = [];

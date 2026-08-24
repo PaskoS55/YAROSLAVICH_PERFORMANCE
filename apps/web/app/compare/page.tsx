@@ -1,6 +1,8 @@
 import { prisma } from '../../lib/prisma';
 import CompareControls from './compare-controls';
 import { computePercentile, fmtVal } from '../../lib/analytics';
+import { requireAppContext } from '../../lib/app-context';
+import { empiricalAnchors, loadTeamReferenceProfile, referenceEntryMap, resolveReferenceEntry } from '../../lib/references';
 
 export default async function ComparePage({
   searchParams,
@@ -8,12 +10,13 @@ export default async function ComparePage({
   searchParams: Promise<{ a?: string; b?: string }>;
 }) {
   const query = await searchParams;
+  const context = await requireAppContext();
   const players = await prisma.player.findMany({
-    where: { deletedAt: null },
+    where: { teamId: context.teamId, deletedAt: null },
     orderBy: { lastName: 'asc' },
     include: {
       testSessions: {
-        where: { deletedAt: null },
+        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
         orderBy: { DateTime: 'desc' },
         include: {
           testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
@@ -38,8 +41,8 @@ export default async function ComparePage({
 
   const same = !!query.a && query.a === query.b;
 
-  const norms = await prisma.norm.findMany({ where: { deletedAt: null } });
-  const normByKey = new Map(norms.map((n) => [`${n.position}|${n.testCode}`, n]));
+  const referenceProfile = await loadTeamReferenceProfile(context.teamId);
+  const referenceByKey = referenceEntryMap(referenceProfile?.entries ?? []);
 
   const latestOf = (pl: (typeof players)[number]) => {
     const m = new Map<
@@ -82,12 +85,12 @@ export default async function ComparePage({
     if (!rb) continue;
     const pa = computePercentile(
       ra.value,
-      normByKey.get(`${a.position}|${ra.code}`) ?? null,
+      empiricalAnchors(resolveReferenceEntry(referenceByKey, ra.code, a.position)),
       ra.direction
     );
     const pb = computePercentile(
       rb.value,
-      normByKey.get(`${b.position}|${rb.code}`) ?? null,
+      empiricalAnchors(resolveReferenceEntry(referenceByKey, rb.code, b.position)),
       rb.direction
     );
     let win: 'a' | 'b' | null = null;
@@ -113,7 +116,7 @@ export default async function ComparePage({
     if (p !== null) return `p${p}`;
     return direction === 'CONTEXTUAL'
       ? 'процентиль не применяется'
-      : 'нормативы не настроены';
+      : 'нет процентильной оценки';
   };
 
   return (
@@ -205,8 +208,8 @@ export default async function ComparePage({
 
           <p className="text-xs text-gray-500">
             Зелёным отмечен лучший абсолютный результат (с учётом направления теста). pXX —
-            положение каждого игрока относительно нормативов его собственной позиции. Если
-            нормативы по тесту не настроены, сравнение работает по абсолютным значениям. Для
+            положение каждого игрока относительно эмпирических перцентилей его позиции. Если
+            процентильной оценки нет, сравнение работает по абсолютным значениям. Для
             контекстных тестов лучший результат и процентиль автоматически не определяются.
           </p>
         </>

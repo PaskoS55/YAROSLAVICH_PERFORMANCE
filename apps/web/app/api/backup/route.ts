@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
+import { runtimeProductVersion } from '../../../lib/product-version';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,10 @@ export async function GET() {
     testCategories,
     players,
     tests,
-    norms,
+    normProfiles,
+    normEntries,
+    referenceSources,
+    normEntrySources,
     testSessions,
     testResults,
     bodyCompositions,
@@ -29,7 +33,10 @@ export async function GET() {
         tx.testCategory.findMany({ orderBy: { sortOrder: 'asc' } }),
         tx.player.findMany(),
         tx.test.findMany(),
-        tx.norm.findMany(),
+        tx.normProfile.findMany(),
+        tx.normEntry.findMany(),
+        tx.referenceSource.findMany(),
+        tx.normEntrySource.findMany(),
         tx.testSession.findMany(),
         tx.testResult.findMany(),
         tx.bodyComposition.findMany(),
@@ -49,16 +56,32 @@ export async function GET() {
   );
 
   const backup = {
+    formatVersion: 4,
     exportedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
     brand: 'PASKO PERFORMANCE',
-    version: 3,
+    product: 'PASKO PERFORMANCE PLATFORM',
+    productVersion: runtimeProductVersion(),
+    sportVertical: 'VOLLEYBALL',
+    version: 4,
+    manifest: {
+      organizations: organizations.length,
+      teams: teams.length,
+      seasons: seasons.length,
+      players: players.length,
+      referenceProfiles: normProfiles.map((profile) => ({ code: profile.code, version: profile.version, scope: profile.scope })),
+      authDataIncluded: false,
+    },
     organizations,
     teams: teams.map(({ seasons: _s, ...rest }) => rest),
     seasons,
     testCategories,
     players,
     tests,
-    norms,
+    normProfiles,
+    normEntries,
+    referenceSources,
+    normEntrySources,
     testSessions,
     testResults,
     bodyCompositions,

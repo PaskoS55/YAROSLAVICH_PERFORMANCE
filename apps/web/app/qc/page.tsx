@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma';
 import Link from 'next/link';
 import ResolveFlagButton from './resolve-flag-button';
 import { resolveFlag } from './actions';
+import { requireAppContext } from '../../lib/app-context';
 
 const fieldLabels: Record<string, string> = {
   value: 'Значение результата',
@@ -25,7 +26,9 @@ function fmtDate(d: Date | null | undefined) {
 }
 
 export default async function QCPage() {
+  const context = await requireAppContext();
   const flags = await prisma.qCFlag.findMany({
+    where: { testResult: { deletedAt: null, player: { teamId: context.teamId, deletedAt: null }, testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null } } },
     orderBy: { createdAt: 'desc' },
     include: {
       testResult: { include: { test: true, player: true } },
@@ -35,11 +38,11 @@ export default async function QCPage() {
   const unresolved = flags.filter((f) => !f.resolved).length;
   const resolved = flags.filter((f) => f.resolved).length;
   const failedCount = await prisma.testResult.count({
-    where: { qcStatus: 'FAILED', deletedAt: null },
+    where: { qcStatus: 'FAILED', deletedAt: null, player: { teamId: context.teamId }, testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null } },
   });
 
   const failedResults = await prisma.testResult.findMany({
-    where: { qcStatus: 'FAILED', deletedAt: null },
+    where: { qcStatus: 'FAILED', deletedAt: null, player: { teamId: context.teamId }, testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null } },
     include: {
       test: true,
       player: true,

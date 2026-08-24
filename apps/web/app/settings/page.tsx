@@ -1,32 +1,74 @@
-import { prisma } from '../../lib/prisma';
+import { prisma } from "../../lib/prisma";
 import {
-  updateOrganization,
   updateTeam,
   updateSeason,
+  createTeam,
+  createSeason,
   resetDemoData,
-} from './actions';
-import ResetButton from './reset-button';
-import RestoreButton from './restore-button';
+} from "./actions";
+import ResetButton from "./reset-button";
+import RestoreButton from "./restore-button";
+import { PRODUCT_IDENTITY } from "@pasko-performance/core/product";
+import { requireAppContext } from "../../lib/app-context";
+import Link from "next/link";
+import { changePassword } from "./security-actions";
+import { CopyInstallationId } from "./copy-installation-id";
+import { OrganizationBrandingForm } from "./organization-branding-form";
+import { loadTeamReferenceProfile } from "../../lib/references";
+import { getRuntimeLicenseState, readLicenseMetadata } from '../../lib/license-policy';
+import { PRODUCT_VERSION, PRODUCT_VERSION_MAJOR_MINOR } from '../../lib/product-version';
+import { isDemoWorkspace } from '../../lib/workspace';
+import { DemoResetForm } from './demo-reset-form';
 
-const field = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm';
-const label = 'block text-xs font-medium text-gray-500';
+const field = "mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm";
+const label = "block text-xs font-medium text-gray-500";
 
 function fmtDate(d: Date | null | undefined) {
-  if (!d) return '';
-  return new Date(d).toISOString().split('T')[0];
+  if (!d) return "";
+  return new Date(d).toISOString().split("T")[0];
 }
 
 export default async function SettingsPage() {
-  const [org, team, season, stats] = await Promise.all([
-    prisma.organization.findFirst(),
-    prisma.team.findFirst(),
-    prisma.season.findFirst(),
+  if (isDemoWorkspace()) return <div className="space-y-5 p-6"><div><div className="mb-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-extrabold tracking-wide text-amber-900">ДЕМОНСТРАЦИОННЫЕ ДАННЫЕ</div><h1 className="text-3xl font-bold">Настройки демо</h1><p className="mt-2 text-gray-600">Это вымышленная команда. Данные не относятся к вашему клубу.</p></div><div className="rounded-lg border border-gray-200 bg-white p-6"><h2 className="mb-3 text-lg font-bold">Вернуть исходное состояние</h2><DemoResetForm /></div><div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-sm text-gray-600">Резервное копирование, восстановление, импорт, безопасность локального администратора и диагностика production DB недоступны в Demo Workspace.</div><a href="/club-workspace" className="btn-secondary inline-block">Вернуться к клубу</a></div>;
+  const licenseState = getRuntimeLicenseState();
+  const license = readLicenseMetadata();
+  const context = await requireAppContext();
+  const [org, team, season, teams, seasons, stats, referenceProfile] = await Promise.all([
+    prisma.organization.findUnique({ where: { id: context.organizationId } }),
+    prisma.team.findUnique({ where: { id: context.teamId } }),
+    prisma.season.findUnique({ where: { id: context.seasonId } }),
+    prisma.team.findMany({
+      where: { organizationId: context.organizationId, deletedAt: null },
+      orderBy: { name: "asc" },
+    }),
+    prisma.season.findMany({
+      where: { deletedAt: null, teams: { some: { id: context.teamId } } },
+      orderBy: { startDate: "desc" },
+    }),
     Promise.all([
-      prisma.player.count({ where: { deletedAt: null } }),
-      prisma.testSession.count({ where: { deletedAt: null } }),
-      prisma.testResult.count({ where: { deletedAt: null } }),
+      prisma.player.count({
+        where: { teamId: context.teamId, deletedAt: null },
+      }),
+      prisma.testSession.count({
+        where: {
+          teamId: context.teamId,
+          seasonId: context.seasonId,
+          deletedAt: null,
+        },
+      }),
+      prisma.testResult.count({
+        where: {
+          deletedAt: null,
+          testSession: {
+            teamId: context.teamId,
+            seasonId: context.seasonId,
+            deletedAt: null,
+          },
+        },
+      }),
       prisma.test.count({ where: { deletedAt: null } }),
     ]),
+    loadTeamReferenceProfile(context.teamId),
   ]);
 
   const [playersCount, sessionsCount, resultsCount, testsCount] = stats;
@@ -36,27 +78,19 @@ export default async function SettingsPage() {
       <h1 className="text-3xl font-bold">Настройки</h1>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-bold">Организация</h2>
-          <form action={updateOrganization} className="space-y-3">
-            <div>
-              <label className={label}>Название</label>
-              <input name="name" defaultValue={org?.name ?? ''} required className={field} />
-            </div>
-            <div>
-              <label className={label}>
-                Код{' '}
-                <span className="text-gray-400">(системный идентификатор, не редактируется)</span>
-              </label>
-              <input
-                name="code"
-                defaultValue={org?.code ?? 'ORG'}
-                readOnly
-                className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-500"
-              />
-            </div>
-            <button className="btn-primary">Сохранить</button>
-          </form>
+        <div className="rounded-lg border border-gray-200 bg-white p-6 lg:col-span-2">
+          <h2 className="mb-1 text-lg font-bold">Клуб и оформление</h2>
+          <p className="mb-5 text-sm text-gray-500">Цвета клуба используются только как акценты и не изменяют официальный фирменный стиль продукта.</p>
+          {org && <OrganizationBrandingForm organization={org} />}
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-6 lg:col-span-2">
+          <h2 className="mb-1 text-lg font-bold">Референсы и нормативы</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Выберите профиль референсов для текущей команды, изучите научные источники или создайте редактируемую копию профиля клуба.
+          </p>
+          {referenceProfile && <div className="mb-4 rounded-lg bg-gray-50 p-3 text-sm"><div className="font-semibold">{referenceProfile.name}</div><div className="text-gray-500">Мужчины · Элитный волейбол · v{referenceProfile.version} · {referenceProfile.scope === "SYSTEM" ? "Системный · Только чтение" : "Профиль клуба"}</div></div>}
+          <Link href="/norms" className="btn-primary inline-block">Открыть профили референсов</Link>
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-6">
@@ -64,16 +98,23 @@ export default async function SettingsPage() {
           <form action={updateTeam} className="space-y-3">
             <div>
               <label className={label}>Название</label>
-              <input name="name" defaultValue={team?.name ?? ''} required className={field} />
+              <input
+                name="name"
+                defaultValue={team?.name ?? ""}
+                required
+                className={field}
+              />
             </div>
             <div>
               <label className={label}>
-                Код{' '}
-                <span className="text-gray-400">(системный идентификатор, не редактируется)</span>
+                Код{" "}
+                <span className="text-gray-400">
+                  (системный идентификатор, не редактируется)
+                </span>
               </label>
               <input
                 name="code"
-                defaultValue={team?.code ?? 'TEAM'}
+                defaultValue={team?.code ?? "TEAM"}
                 readOnly
                 className="mt-1 w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-500"
               />
@@ -89,7 +130,7 @@ export default async function SettingsPage() {
               <label className={label}>Название</label>
               <input
                 name="name"
-                defaultValue={season?.name ?? ''}
+                defaultValue={season?.name ?? ""}
                 placeholder="2026/27"
                 required
                 className={field}
@@ -144,10 +185,138 @@ export default async function SettingsPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-3 text-lg font-bold">Команды организации</h2>
+          <ul className="mb-4 space-y-1 text-sm">
+            {teams.map((item) => (
+              <li key={item.id}>
+                {item.name}{" "}
+                <span className="font-mono text-gray-400">{item.code}</span>
+                {item.id === context.teamId && " · активна"}
+              </li>
+            ))}
+          </ul>
+          <form action={createTeam} className="grid grid-cols-2 gap-2">
+            <input
+              name="name"
+              required
+              placeholder="Название"
+              className={field}
+            />
+            <input name="code" required placeholder="CODE" className={field} />
+            <button className="btn-primary col-span-2">Создать команду</button>
+          </form>
+          <Link
+            href="/context"
+            className="mt-3 inline-block text-sm link-action"
+          >
+            Сменить команду →
+          </Link>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-3 text-lg font-bold">Сезоны команды</h2>
+          <ul className="mb-4 space-y-1 text-sm">
+            {seasons.map((item) => (
+              <li key={item.id}>
+                {item.name}
+                {item.id === context.seasonId && " · активен"}
+              </li>
+            ))}
+          </ul>
+          <form action={createSeason} className="space-y-2">
+            <input
+              name="name"
+              required
+              placeholder="2027/28"
+              className={field}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input type="date" name="startDate" required className={field} />
+              <input type="date" name="endDate" required className={field} />
+            </div>
+            <button className="btn-primary">Создать сезон</button>
+          </form>
+          <Link
+            href="/context"
+            className="mt-3 inline-block text-sm link-action"
+          >
+            Сменить сезон →
+          </Link>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-4 text-lg font-bold">Лицензия</h2>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm"><dt>Статус</dt><dd>{licenseState === 'VALID' ? 'Активна' : licenseState}</dd><dt>Клуб</dt><dd>{license?.customerName ?? '—'}</dd><dt>License ID</dt><dd>{license?.licenseId ?? '—'}</dd><dt>План</dt><dd>{license?.plan ?? '—'}</dd><dt>Срок действия</dt><dd>{license?.expiresAt ?? 'Бессрочно'}</dd><dt>Key ID</dt><dd>{license?.keyId ?? '—'}</dd></dl>
+        <Link href="/license?replace=1" className="btn-secondary mt-4 inline-block">Заменить лицензию</Link>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-4 text-lg font-bold">Безопасность</h2>
+        <form action={changePassword} className="grid max-w-lg gap-3">
+          <input
+            className={field}
+            type="password"
+            name="currentPassword"
+            required
+            placeholder="Текущий пароль"
+          />
+          <input
+            className={field}
+            type="password"
+            name="newPassword"
+            required
+            minLength={12}
+            maxLength={256}
+            placeholder="Новый пароль"
+          />
+          <input
+            className={field}
+            type="password"
+            name="confirmPassword"
+            required
+            placeholder="Подтверждение нового пароля"
+          />
+          <button className="btn-primary">Изменить пароль</button>
+        </form>
+      </div>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-1 text-lg font-bold">О {PRODUCT_IDENTITY.shortProductName}</h2>
+        <p className="mb-4 text-sm font-semibold text-gray-500">{PRODUCT_IDENTITY.display}</p>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt>Продукт</dt>
+          <dd>{PRODUCT_IDENTITY.canonical}</dd>
+          <dt>Направление</dt>
+          <dd>{PRODUCT_IDENTITY.vertical}</dd>
+          <dt>ID установки</dt>
+          <dd className="break-all">
+            <span className="font-mono">
+              {process.env.PASKO_INSTALLATION_ID || "Доступен в Desktop-сборке"}
+            </span>
+            {process.env.PASKO_INSTALLATION_ID && (
+              <CopyInstallationId value={process.env.PASKO_INSTALLATION_ID} />
+            )}
+          </dd>
+          <dt>Организация</dt>
+          <dd>{org?.name}</dd>
+          <dt>Команда</dt>
+          <dd>{team?.name}</dd>
+          <dt>Сезон</dt>
+          <dd>{season?.name}</dd>
+          <dt>Создатель</dt>
+          <dd>Сергей Пасько<br /><span className="text-gray-500">Тренер по функциональной и кондиционной подготовке</span></dd>
+          <dt>Версия</dt>
+          <dd>{PRODUCT_VERSION}</dd>
+        </dl>
+      </div>
+
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-lg font-bold">Резервное копирование</h2>
         <p className="mb-3 text-sm text-gray-600">
-          Скачайте полную копию данных в формате JSON для архива или переноса.
+          Installation-wide backup: полная копия всех организаций и команд для
+          администрирования установки.
         </p>
         <a
           href="/api/backup"
@@ -159,11 +328,17 @@ export default async function SettingsPage() {
           <RestoreButton />
         </div>
       </div>
+      <div className="rounded-lg border border-gray-200 bg-white p-6">
+        <h2 className="mb-2 text-lg font-bold">Диагностика</h2>
+        <p className="mb-4 text-sm text-gray-600">Состояние локальной базы, migrations, внутренних точек восстановления и безопасный support bundle.</p>
+        <Link href="/settings/diagnostics" className="btn-primary inline-block">Открыть диагностику</Link>
+      </div>
       <div className="rounded-lg border-2 border-red-200 bg-red-50 p-6">
         <h2 className="mb-2 text-lg font-bold text-red-900">⚠ Опасная зона</h2>
         <p className="mb-3 text-sm text-red-800">
-          Сброс удалит всех игроков, сессии, результаты, цели и замеры. Нормативы, справочник
-          тестов и оборудование сохранятся. Это действие необратимо — сначала скачайте резервную
+          Installation-wide сброс удалит данные всех команд: игроков, сессии,
+          результаты, цели и замеры. Нормативы, справочник тестов и оборудование
+          сохранятся. Это действие необратимо — сначала скачайте резервную
           копию.
         </p>
         <form action={resetDemoData}>
@@ -172,10 +347,13 @@ export default async function SettingsPage() {
       </div>
 
       <div className="text-xs text-gray-400">
-        <p>Версия системы: PASKO PERFORMANCE v1.0</p>
+        <p>Версия системы: {PRODUCT_IDENTITY.display} v{PRODUCT_VERSION_MAJOR_MINOR}</p>
         <p>
-          Создано тренером по функциональной и кондиционной подготовке Пасько Сергеем
+          Product: {PRODUCT_IDENTITY.canonical} · Vertical:{" "}
+          {PRODUCT_IDENTITY.vertical}
         </p>
+        <p>{PRODUCT_IDENTITY.creator.creditRu}</p>
+        <p>{PRODUCT_IDENTITY.creator.creditEn}</p>
       </div>
     </div>
   );

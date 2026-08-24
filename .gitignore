@@ -3,3 +3,12 @@ node_modules
 .env
 *.db
 dist
+release/
+issuer-release/
+*.private.pem
+*.private.key
+operator-ledger*.jsonl
+apps/desktop/out/
+tools/license-issuer/out/
+tools/license-issuer/out-*/
+apps/desktop/.runtime/

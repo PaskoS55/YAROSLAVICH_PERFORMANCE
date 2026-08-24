@@ -2,16 +2,20 @@
 
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { requireAppContext } from '../../lib/app-context';
 
 export async function updatePlayerStatus(formData: FormData): Promise<void> {
+  const context = await requireAppContext();
   const id = String(formData.get('id'));
   const status = String(formData.get('status'));
   if (!['ACTIVE', 'INJURED', 'LIMITED', 'INACTIVE'].includes(status)) {
     console.error('updatePlayerStatus: некорректный статус.');
     return;
   }
+  const player = await prisma.player.findFirst({ where: { id, teamId: context.teamId, deletedAt: null }, select: { id: true } });
+  if (!player) return;
   await prisma.player.update({
-    where: { id },
+    where: { id: player.id },
     data: { status: status as 'ACTIVE' | 'INJURED' | 'LIMITED' | 'INACTIVE' },
   });
   revalidatePath('/team');
@@ -20,6 +24,7 @@ export async function updatePlayerStatus(formData: FormData): Promise<void> {
 }
 
 export async function createPlayer(formData: FormData): Promise<void> {
+  const context = await requireAppContext();
   const playerId = String(formData.get('playerId') ?? '').trim();
   const firstName = String(formData.get('firstName') ?? '').trim();
   const lastName = String(formData.get('lastName') ?? '').trim();
@@ -36,14 +41,8 @@ export async function createPlayer(formData: FormData): Promise<void> {
     return;
   }
 
-  const team = await prisma.team.findFirst();
-  if (!team) {
-    console.error('createPlayer: команда не найдена.');
-    return;
-  }
-
   const exists = await prisma.player.findUnique({
-    where: { teamId_playerId: { teamId: team.id, playerId } },
+    where: { teamId_playerId: { teamId: context.teamId, playerId } },
   });
   if (exists) {
     console.error(
@@ -73,7 +72,7 @@ export async function createPlayer(formData: FormData): Promise<void> {
       height: Number.isFinite(height) ? height : null,
       birthDate: birthDate && !Number.isNaN(birthDate.getTime()) ? birthDate : null,
       joinedDate: joinedDate && !Number.isNaN(joinedDate.getTime()) ? joinedDate : null,
-      teamId: team.id,
+      teamId: context.teamId,
     },
   });
 

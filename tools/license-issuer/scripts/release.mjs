@@ -1,0 +1,8 @@
+import { createHash } from 'node:crypto';
+import { copyFile, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const issuerRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');const repo=path.resolve(issuerRoot,'../..');const pkg=JSON.parse(await readFile(path.join(issuerRoot,'package.json'),'utf8'));const artifact=`PASKO-License-Issuer-Setup-${pkg.version}.exe`;
+const npmCli=process.env.npm_execpath;if(!npmCli)throw new Error('npm_execpath is required');const result=spawnSync(process.execPath,[npmCli,'run','make','--workspace','@pasko-performance/license-issuer'],{cwd:repo,stdio:'inherit',env:process.env});if(result.status!==0)process.exit(result.status??1);
+const maker=path.join(issuerRoot,'out-phase81','make','squirrel.windows','x64',artifact);const release=path.join(repo,'issuer-release');await rm(release,{recursive:true,force:true});await mkdir(release,{recursive:true});const target=path.join(release,artifact);await copyFile(maker,target);const bytes=await readFile(target);const sha256=createHash('sha256').update(bytes).digest('hex');const sizeBytes=(await stat(target)).size;await writeFile(path.join(release,'SHA256SUMS.txt'),`${sha256}  ${artifact}\n`);await writeFile(path.join(release,'issuer-release-manifest.json'),`${JSON.stringify({product:'PASKO License Issuer',classification:'PRIVATE OPERATOR TOOL',version:pkg.version,platform:'windows',architecture:'x64',artifact,sizeBytes,sha256,signed:false,createdAt:new Date().toISOString()},null,2)}\n`);console.log(`Created ${artifact}: ${sizeBytes} bytes, SHA-256 ${sha256}`);

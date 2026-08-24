@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
+import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -25,6 +26,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         mobileOpen={mobileDrawerOpen}
         onMobileClose={() => setMobileDrawerOpen(false)}
+        organizationName="Организация"
       />
       
       <main className="main-content">
@@ -41,7 +43,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <line x1="3" y1="18" x2="21" y2="18"/>
               </svg>
             </button>
-            <h1 className="header-title">YAROSLAVICH PERFORMANCE</h1>
+            <h1 className="header-title">{PRODUCT_IDENTITY.canonical}</h1>
           </div>
           <div className="header-date">{currentDate}</div>
         </header>

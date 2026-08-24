@@ -1,74 +1,55 @@
-'use server';
-
-import { cookies, headers } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { timingSafeEqual } from 'crypto';
-import { createSession } from '../../lib/session';
-import { prisma } from '../../lib/prisma';
-
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_MAX_FAILURES = 5;
-
-async function loginClientIp(): Promise<string> {
-  const requestHeaders = await headers();
-  return (
-    requestHeaders.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    requestHeaders.get('x-real-ip') ||
-    'unknown'
-  );
-}
-
-// Timing-safe сравнение строк
-function safeCompare(a: string, b: string): boolean {
-  const bufA = Buffer.from(a, 'utf8');
-  const bufB = Buffer.from(b, 'utf8');
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
-}
-
+"use server";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { createSession } from "../../lib/session";
+import {
+  DUMMY_PASSWORD_HASH,
+  normalizeLogin,
+  verifyPassword,
+} from "../../lib/local-auth";
+import { prisma } from "../../lib/prisma";
+const MAX_FAILURES = 5;
+const LOCK_MS = 15 * 60 * 1000;
 export async function login(formData: FormData) {
-  const password = String(formData.get('password') ?? '');
-  const expected = process.env.AUTH_PASSWORD;
-  const ipAddress = await loginClientIp();
-
-  const recentFailures = await prisma.auditLog.count({
-    where: {
-      action: 'LOGIN_FAILED',
-      entity: 'AUTH',
-      entityId: ipAddress,
-      createdAt: { gte: new Date(Date.now() - LOGIN_WINDOW_MS) },
-    },
+  const loginNormalized = normalizeLogin(String(formData.get("login") ?? ""));
+  const password = String(formData.get("password") ?? "");
+  const user = await prisma.localUser.findUnique({
+    where: { loginNormalized },
   });
-  if (recentFailures >= LOGIN_MAX_FAILURES) {
-    redirect('/login?error=rate-limit');
+  const now = new Date();
+  if (user?.lockedUntil && user.lockedUntil > now) {
+    await verifyPassword(password, user.passwordHash);
+    redirect("/login?error=rate-limit");
   }
-
-  if (!expected) {
-    console.error('AUTH_PASSWORD not set in environment variables');
-    redirect('/login?error=1');
+  const valid = await verifyPassword(
+    password,
+    user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+  );
+  if (!user || user.disabledAt || !valid) {
+    if (user) {
+      const failures = user.failedLoginCount + 1;
+      await prisma.localUser.update({
+        where: { id: user.id },
+        data: {
+          failedLoginCount: failures,
+          lockedUntil:
+            failures >= MAX_FAILURES ? new Date(Date.now() + LOCK_MS) : null,
+        },
+      });
+    }
+    redirect("/login?error=invalid");
   }
-
-  if (safeCompare(password, expected)) {
-    const sessionToken = await createSession();
-    const isProduction = process.env.NODE_ENV === 'production';
-    const cookieStore = await cookies();
-    cookieStore.set('yp_auth', sessionToken, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isProduction,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 дней
-    });
-    redirect('/');
-  }
-
-  await prisma.auditLog.create({
-    data: {
-      action: 'LOGIN_FAILED',
-      entity: 'AUTH',
-      entityId: ipAddress,
-      ipAddress,
-    },
+  await prisma.localUser.update({
+    where: { id: user.id },
+    data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: now },
   });
-  redirect('/login?error=1');
+  (await cookies()).set("yp_auth", await createSession(user.id), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure:
+      process.env.NODE_ENV === "production" &&
+      process.env.APP_RUNTIME !== "desktop",
+    path: "/",
+  });
+  redirect("/");
 }

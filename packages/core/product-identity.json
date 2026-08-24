@@ -1,0 +1,25 @@
+{
+  "brand": "PASKO",
+  "shortProductName": "PASKO Performance",
+  "canonical": "PASKO PERFORMANCE PLATFORM",
+  "vertical": "VOLLEYBALL",
+  "display": "PASKO PERFORMANCE PLATFORM — VOLLEYBALL",
+  "short": "PASKO PERFORMANCE",
+  "electronName": "Pasko Performance Platform",
+  "executableName": "PaskoPerformance",
+  "appUserModelId": "com.pasko.performance",
+  "squirrelName": "pasko_performance",
+  "releaseArtifactPrefix": "PASKO-Performance-Volleyball-Setup",
+  "dataDirectoryName": "PaskoPerformance",
+  "databaseName": "pasko_performance",
+  "backupPrefix": "pasko-performance-backup",
+  "logPrefix": "pasko-performance",
+  "creator": {
+    "nameRu": "Сергей Пасько",
+    "nameEn": "Sergey Pasko",
+    "roleRu": "Тренер по функциональной и кондиционной подготовке",
+    "roleEn": "Strength & Conditioning Coach",
+    "creditRu": "Создано Сергеем Пасько — тренером по функциональной и кондиционной подготовке",
+    "creditEn": "Created by Sergey Pasko — Strength & Conditioning Coach"
+  }
+}

@@ -1,4 +1,4 @@
-// Schema for YAROSLAVICH PERFORMANCE
+// Schema for PASKO PERFORMANCE PLATFORM
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,8 +13,6 @@ enum Direction {
   LOWER_IS_BETTER
   CONTEXTUAL
 }
-
-
 
 enum ChangeStatus {
   SIGNIFICANT_IMPROVEMENT
@@ -62,31 +60,104 @@ enum SessionSource {
   OTHER
 }
 
+enum NormProfileScope {
+  SYSTEM
+  ORGANIZATION
+  INSTALLATION_LEGACY
+}
+
+enum NormProfileStatus {
+  ACTIVE
+  ARCHIVED
+  DRAFT
+}
+
+enum NormInterpretationType {
+  PUBLISHED_DISTRIBUTION
+  POOLED_ESTIMATE
+  EMPIRICAL_PERCENTILE
+  REFERENCE_RANGE
+  ORDINAL_SCALE
+  CONTEXT_ONLY
+  NO_REFERENCE
+}
+
+enum NormEvidenceLevel {
+  HIGH
+  MODERATE
+  LOW
+  NOT_APPLICABLE
+}
+
+enum ReferenceSourceType {
+  PEER_REVIEWED_ARTICLE
+  SYSTEMATIC_REVIEW
+  META_ANALYSIS
+  OFFICIAL_DATA
+  CUSTOM
+  LEGACY
+}
+
+enum NormSport {
+  VOLLEYBALL
+}
+
+enum NormSex {
+  MALE
+  FEMALE
+  MIXED
+  UNSPECIFIED
+}
+
+enum NormLevel {
+  ELITE
+  PROFESSIONAL
+  COMPETITIVE
+  DEVELOPMENT
+  UNSPECIFIED
+}
+
+enum NormAgeGroup {
+  ADULT
+  YOUTH
+  UNSPECIFIED
+}
+
 model Organization {
-  id        String    @id @default(cuid())
-  name      String
-  code      String    @unique
-  teams     Team[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? @map("deleted_at")
+  id             String        @id @default(cuid())
+  name           String
+  shortName      String?       @map("short_name")
+  code           String        @unique
+  logoAssetKey   String?       @map("logo_asset_key")
+  primaryColor   String?       @map("primary_color")
+  secondaryColor String?       @map("secondary_color")
+  teams          Team[]
+  normProfiles   NormProfile[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?     @map("deleted_at")
 
   @@map("organizations")
 }
 
 model Team {
-  id             String        @id @default(cuid())
-  name           String
-  code           String        @unique
-  organization   Organization  @relation(fields: [organizationId], references: [id])
-  organizationId String
-  players        Player[]
-  seasons        Season[]
-  testSessions   TestSession[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  deletedAt      DateTime?     @map("deleted_at")
+  id                  String        @id @default(cuid())
+  name                String
+  code                String
+  organization        Organization  @relation(fields: [organizationId], references: [id])
+  organizationId      String
+  players             Player[]
+  seasons             Season[]
+  testSessions        TestSession[]
+  activeNormProfile   NormProfile?  @relation("ActiveNormProfile", fields: [activeNormProfileId], references: [id], onDelete: Restrict)
+  activeNormProfileId String?       @map("active_norm_profile_id")
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?     @map("deleted_at")
 
+  @@unique([organizationId, code])
+  @@index([organizationId, deletedAt])
+  @@index([activeNormProfileId])
   @@map("teams")
 }
 
@@ -129,6 +200,7 @@ model Player {
   deletedAt        DateTime?         @map("deleted_at")
 
   @@unique([teamId, playerId])
+  @@index([teamId, deletedAt])
   @@map("players")
 }
 
@@ -146,6 +218,7 @@ model TestCategory {
 
   @@map("test_categories")
 }
+
 model Test {
   id              String        @id @default(cuid())
   code            String        @unique
@@ -163,10 +236,10 @@ model Test {
   qcMin           Float?
   qcMax           Float?
   qcDescription   String?
-  norms           Norm[]
+  normEntries     NormEntry[]
   testResults     TestResult[]
   goals           PlayerGoal[]
-   changeThreshold Float?
+  changeThreshold Float?
   cv              Float?
   alertBelow      Float?
   alertAbove      Float?
@@ -203,6 +276,7 @@ model TestSession {
   deletedAt        DateTime?         @map("deleted_at")
 
   @@unique([playerId, DateTime, phase])
+  @@index([teamId, seasonId, deletedAt])
   @@map("test_sessions")
 }
 
@@ -230,28 +304,111 @@ model TestResult {
   equipmentId      String?
 
   @@unique([testSessionId, testId])
+  @@index([testSessionId, deletedAt, qcStatus])
+  @@index([playerId, deletedAt, qcStatus])
   @@map("test_results")
 }
 
-model Norm {
-  id         String    @id @default(cuid())
-  testCode   String
-  position   String
-  anchor10   Float
-  anchor25   Float
-  anchor50   Float
-  anchor75   Float
-  anchor90   Float
-  source     String
-  validFrom  DateTime  @default(now())
-  validUntil DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  deletedAt  DateTime? @map("deleted_at")
-  Test       Test?     @relation(fields: [testId], references: [id])
-  testId     String?
+model NormProfile {
+  id                   String            @id @default(cuid())
+  code                 String            @unique
+  name                 String
+  sport                NormSport
+  sex                  NormSex
+  level                NormLevel
+  ageGroup             NormAgeGroup      @map("age_group")
+  version              String
+  scope                NormProfileScope
+  status               NormProfileStatus @default(ACTIVE)
+  organization         Organization?     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organizationId       String?           @map("organization_id")
+  baseProfile          NormProfile?      @relation("ProfileVersions", fields: [baseProfileId], references: [id], onDelete: Restrict)
+  baseProfileId        String?           @map("base_profile_id")
+  derivedProfiles      NormProfile[]     @relation("ProfileVersions")
+  isDefaultForVertical Boolean           @default(false) @map("is_default_for_vertical")
+  entries              NormEntry[]
+  activeTeams          Team[]            @relation("ActiveNormProfile")
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  deletedAt            DateTime?         @map("deleted_at")
 
-  @@map("norms")
+  @@index([scope, status, deletedAt])
+  @@index([organizationId, status, deletedAt])
+  @@index([sport, sex, level, status])
+  @@map("norm_profiles")
+}
+
+model NormEntry {
+  id                 String                 @id @default(cuid())
+  profile            NormProfile            @relation(fields: [profileId], references: [id], onDelete: Restrict)
+  profileId          String                 @map("profile_id")
+  test               Test                   @relation(fields: [testId], references: [id], onDelete: Restrict)
+  testId             String                 @map("test_id")
+  position           String?
+  interpretationType NormInterpretationType @map("interpretation_type")
+  evidenceLevel      NormEvidenceLevel      @map("evidence_level")
+  evidenceScope      String?                @map("evidence_scope") @db.Text
+  comparisonMetric   String?                @map("comparison_metric")
+  mean               Float?
+  sd                 Float?
+  ciLow              Float?                 @map("ci_low")
+  ciHigh             Float?                 @map("ci_high")
+  referenceLow       Float?                 @map("reference_low")
+  referenceHigh      Float?                 @map("reference_high")
+  p10                Float?
+  p25                Float?
+  p50                Float?
+  p75                Float?
+  p90                Float?
+  sampleSize         Int?                   @map("sample_size")
+  validFrom          DateTime?              @map("valid_from")
+  validUntil         DateTime?              @map("valid_until")
+  protocolKey        String?                @map("protocol_key")
+  protocolText       String?                @map("protocol_text") @db.Text
+  measurementMethod  String?                @map("measurement_method") @db.Text
+  sourceText         String?                @map("source_text") @db.Text
+  derivedByPasko     Boolean                @default(false) @map("derived_by_pasko")
+  derivedApproximate Boolean                @default(false) @map("derived_approximate")
+  notes              String?                @db.Text
+  sources            NormEntrySource[]
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  deletedAt          DateTime?              @map("deleted_at")
+
+  @@index([profileId, testId, position, deletedAt])
+  @@index([testId, deletedAt])
+  @@map("norm_entries")
+}
+
+model ReferenceSource {
+  id         String              @id @default(cuid())
+  code       String              @unique
+  title      String
+  authors    String
+  year       Int
+  journal    String?
+  doi        String?
+  pmid       String?
+  url        String?
+  sourceType ReferenceSourceType @map("source_type")
+  notes      String?             @db.Text
+  entries    NormEntrySource[]
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@map("reference_sources")
+}
+
+model NormEntrySource {
+  entry    NormEntry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  entryId  String          @map("entry_id")
+  source   ReferenceSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  sourceId String          @map("source_id")
+  role     String          @default("PRIMARY")
+
+  @@id([entryId, sourceId])
+  @@index([sourceId])
+  @@map("norm_entry_sources")
 }
 
 model PlayerGoal {
@@ -268,6 +425,7 @@ model PlayerGoal {
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime? @map("deleted_at")
 
+  @@index([playerId, deletedAt])
   @@map("player_goals")
 }
 
@@ -303,6 +461,8 @@ model BodyComposition {
   updatedAt     DateTime    @updatedAt
   deletedAt     DateTime?   @map("deleted_at")
 
+  @@index([playerId, deletedAt])
+  @@index([testSessionId, deletedAt])
   @@map("body_compositions")
 }
 
@@ -351,4 +511,23 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+model LocalUser {
+  id                  String    @id @default(cuid())
+  displayName         String
+  login               String
+  loginNormalized     String    @unique @map("login_normalized")
+  passwordHash        String    @map("password_hash")
+  recoveryKeyHash     String    @map("recovery_key_hash")
+  failedLoginCount    Int       @default(0) @map("failed_login_count")
+  failedRecoveryCount Int       @default(0) @map("failed_recovery_count")
+  lockedUntil         DateTime? @map("locked_until")
+  recoveryLockedUntil DateTime? @map("recovery_locked_until")
+  lastLoginAt         DateTime? @map("last_login_at")
+  disabledAt          DateTime? @map("disabled_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@map("local_users")
 }

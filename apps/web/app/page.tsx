@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import Link from 'next/link';
+import { requireAppContext } from '../lib/app-context';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -34,7 +35,10 @@ const ic = (paths: React.ReactNode) => (
 );
 
 export default async function HomePage() {
+  const context = await requireAppContext();
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+  const playerScope = { teamId: context.teamId, deletedAt: null } as const;
+  const sessionScope = { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null } as const;
 
   const [
     playersTotal,
@@ -49,23 +53,23 @@ export default async function HomePage() {
     recentSessions,
     injuredList,
   ] = await Promise.all([
-    prisma.player.count({ where: { deletedAt: null } }),
-    prisma.player.count({ where: { deletedAt: null, status: 'ACTIVE' } }),
-    prisma.player.count({ where: { deletedAt: null, status: 'INJURED' } }),
-    prisma.testSession.count({ where: { deletedAt: null } }),
-    prisma.testResult.count({ where: { deletedAt: null } }),
-    prisma.playerGoal.count({ where: { deletedAt: null, achieved: false } }),
-    prisma.testSession.count({ where: { deletedAt: null, DateTime: { gte: since } } }),
+    prisma.player.count({ where: playerScope }),
+    prisma.player.count({ where: { ...playerScope, status: 'ACTIVE' } }),
+    prisma.player.count({ where: { ...playerScope, status: 'INJURED' } }),
+    prisma.testSession.count({ where: sessionScope }),
+    prisma.testResult.count({ where: { deletedAt: null, testSession: sessionScope } }),
+    prisma.playerGoal.count({ where: { deletedAt: null, achieved: false, player: { teamId: context.teamId } } }),
+    prisma.testSession.count({ where: { ...sessionScope, DateTime: { gte: since } } }),
     prisma.testResult.count({
-      where: { deletedAt: null, testSession: { DateTime: { gte: since } } },
+      where: { deletedAt: null, testSession: { ...sessionScope, DateTime: { gte: since } } },
     }),
     prisma.testSession.findFirst({
-      where: { deletedAt: null },
+      where: sessionScope,
       orderBy: { DateTime: 'desc' },
       select: { DateTime: true },
     }),
     prisma.testSession.findMany({
-      where: { deletedAt: null },
+      where: sessionScope,
       orderBy: { DateTime: 'desc' },
       take: 5,
       include: {
@@ -73,7 +77,7 @@ export default async function HomePage() {
         _count: { select: { testResults: true } },
       },
     }),
-    prisma.player.findMany({ where: { deletedAt: null, status: 'INJURED' } }),
+    prisma.player.findMany({ where: { ...playerScope, status: 'INJURED' } }),
   ]);
 
   const kpis = [

@@ -4,13 +4,15 @@ import { prisma } from '../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { computeQcStatus, syncQcFlag } from '../../../lib/qc';
 import { syncGoalsForResult } from '../../../lib/goals';
+import { requireAppContext } from '../../../lib/app-context';
 
 export async function saveResults(
   sessionId: string,
   entries: { testId: string; value: number }[]
 ) {
+  const context = await requireAppContext();
   const session = await prisma.testSession.findFirst({
-    where: { id: sessionId, deletedAt: null },
+    where: { id: sessionId, teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
   });
   if (!session) throw new Error('Сессия не найдена или удалена.');
   if (!entries.length) throw new Error('Нет ни одного результата для сохранения.');
@@ -59,7 +61,7 @@ export async function saveResults(
         },
       });
       await syncQcFlag(tx, result.id, test, e.value, qcStatus);
-      await syncGoalsForResult(tx, session.playerId, e.testId, e.value);
+      await syncGoalsForResult(tx, session.playerId, e.testId, context.seasonId);
     }
   });
 

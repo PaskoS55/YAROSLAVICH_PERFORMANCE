@@ -3,11 +3,15 @@
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { goalReached } from '../../lib/goals';
+import { requireAppContext } from '../../lib/app-context';
 
 export async function markGoalAchieved(formData: FormData) {
+  const context = await requireAppContext();
   const id = String(formData.get('id'));
+  const goal = await prisma.playerGoal.findFirst({ where: { id, deletedAt: null, player: { teamId: context.teamId } }, select: { id: true } });
+  if (!goal) return;
   await prisma.playerGoal.update({
-    where: { id },
+    where: { id: goal.id },
     data: { achieved: true, achievedAt: new Date() },
   });
   revalidatePath('/goals');
@@ -15,6 +19,7 @@ export async function markGoalAchieved(formData: FormData) {
 }
 
 export async function createGoal(formData: FormData) {
+  const context = await requireAppContext();
   const playerId = String(formData.get('playerId') ?? '');
   const testId = String(formData.get('testId') ?? '');
   const targetValue = Number(String(formData.get('targetValue') ?? '').replace(',', '.'));
@@ -25,7 +30,7 @@ export async function createGoal(formData: FormData) {
   if (Number.isNaN(targetDate.getTime())) return;
 
   const [player, test] = await Promise.all([
-    prisma.player.findFirst({ where: { id: playerId, deletedAt: null } }),
+    prisma.player.findFirst({ where: { id: playerId, teamId: context.teamId, deletedAt: null } }),
     prisma.test.findFirst({ where: { id: testId, deletedAt: null } }),
   ]);
   if (!player || !test) return;
@@ -45,8 +50,9 @@ export async function createGoal(formData: FormData) {
 }
 
 export async function syncGoals() {
+  const context = await requireAppContext();
   const goals = await prisma.playerGoal.findMany({
-    where: { achieved: false, deletedAt: null },
+    where: { achieved: false, deletedAt: null, player: { teamId: context.teamId } },
     include: { test: true },
   });
   if (goals.length === 0) {
@@ -63,6 +69,7 @@ export async function syncGoals() {
       testId: { in: testIds },
       deletedAt: null,
       qcStatus: 'PASSED',
+      testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
     },
     orderBy: { testSession: { DateTime: 'desc' } },
   });

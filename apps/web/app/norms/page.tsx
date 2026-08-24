@@ -1,90 +1,40 @@
+import Link from 'next/link';
 import { prisma } from '../../lib/prisma';
-import NormRow from './norm-row';
-import NormCreateForm from './norm-create-form';
+import { requireAppContext } from '../../lib/app-context';
+import { loadTeamReferenceProfile } from '../../lib/references';
+import { AssignProfileButton, CloneProfileForm, EntryEditor } from './profile-actions';
 
-const positionLabels: Record<string, string> = {
-  outside_hitter: 'Доигровщик',
-  opposite: 'Диагональный',
-  middle_blocker: 'Центральный',
-  setter: 'Связующий',
-  libero: 'Либеро',
-};
+const labels = {
+  HIGH: 'Высокая', MODERATE: 'Умеренная', LOW: 'Ограниченная', NOT_APPLICABLE: 'Не применяется',
+  PUBLISHED_DISTRIBUTION: 'Литературное распределение', POOLED_ESTIMATE: 'Обобщённое среднее литературы',
+  EMPIRICAL_PERCENTILE: 'Эмпирические перцентили', REFERENCE_RANGE: 'Референсный диапазон',
+  ORDINAL_SCALE: 'Порядковая шкала', CONTEXT_ONLY: 'Контекстное значение', NO_REFERENCE: 'Без утверждённого референса',
+} as Record<string, string>;
+const positionLabels: Record<string, string> = { outside_hitter: 'Доигровщик', opposite: 'Диагональный', middle_blocker: 'Центральный блокирующий', setter: 'Связующий', libero: 'Либеро' };
+const fmt = (value: number | null) => value == null ? null : String(value).replace('.', ',');
 
-export default async function NormsPage() {
-  const tests = await prisma.test.findMany({
-    where: { deletedAt: null },
-    orderBy: { code: 'asc' },
-  });
-  const norms = await prisma.norm.findMany({ where: { deletedAt: null } });
-  const byTest = new Map<string, typeof norms>();
-  for (const n of norms) {
-    const arr = byTest.get(n.testCode) ?? [];
-    arr.push(n);
-    byTest.set(n.testCode, arr);
-  }
+function referenceValue(entry: { interpretationType: string; mean: number | null; sd: number | null; ciLow: number | null; ciHigh: number | null; referenceLow: number | null; referenceHigh: number | null; p10: number | null; p25: number | null; p50: number | null; p75: number | null; p90: number | null; test: { unit: string } }) {
+  const unit = entry.test.unit;
+  if (entry.interpretationType === 'NO_REFERENCE') return 'Системный референс пока не утверждён.';
+  if (entry.interpretationType === 'CONTEXT_ONLY' && entry.mean == null) return 'Только контекстная интерпретация — без оценки результата.';
+  if (entry.interpretationType === 'POOLED_ESTIMATE') return `${fmt(entry.mean)} ${unit}; 95% CI pooled mean ${fmt(entry.ciLow)}–${fmt(entry.ciHigh)} ${unit}`;
+  if (entry.interpretationType === 'PUBLISHED_DISTRIBUTION') return `${fmt(entry.mean)}${entry.sd != null ? ` ± ${fmt(entry.sd)}` : ''} ${unit}`;
+  if (entry.interpretationType === 'REFERENCE_RANGE') return `${fmt(entry.referenceLow)}–${fmt(entry.referenceHigh)} ${unit}`;
+  if (entry.interpretationType === 'EMPIRICAL_PERCENTILE') return `P10 ${fmt(entry.p10)} · P25 ${fmt(entry.p25)} · P50 ${fmt(entry.p50)} · P75 ${fmt(entry.p75)} · P90 ${fmt(entry.p90)}`;
+  return 'Описание протокола';
+}
 
-  return (
-    <div className="space-y-5 p-6">
-      <div>
-        <h1 className="text-3xl font-bold">Нормативы</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Процентильные нормативы по игровым позициям. Используются в «Динамике» и «Сравнении».
-        </p>
-      </div>
-
-      {tests.map((t) => {
-        const list = byTest.get(t.code) ?? [];
-        return (
-          <div key={t.id} className="rounded-lg border border-gray-200 bg-white p-6">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <h2 className="font-bold">{t.name}</h2>
-              <span className="text-xs text-gray-400">
-                ({t.code}, {t.unit})
-              </span>
-              <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
-                {t.direction === 'HIGHER_IS_BETTER'
-                  ? '↑ Больше — лучше'
-                  : t.direction === 'LOWER_IS_BETTER'
-                    ? '↓ Меньше — лучше'
-                    : '· Контекстно'}
-              </span>
-            </div>
-
-            {list.length === 0 ? (
-              <NormCreateForm testCode={t.code} />
-            ) : (
-              <div className="overflow-x-auto">
-                <div className="min-w-[720px]">
-                  <div className="grid grid-cols-[1.2fr_repeat(5,5.5rem)_9rem] gap-2 border-b border-gray-200 pb-1 text-xs text-gray-500">
-                    <div>Позиция</div>
-                    <div>p10</div>
-                    <div>p25</div>
-                    <div>p50</div>
-                    <div>p75</div>
-                    <div>p90</div>
-                    <div></div>
-                  </div>
-                  {list.map((n) => (
-                    <NormRow
-                      key={n.id}
-                      positionLabel={positionLabels[n.position] ?? n.position}
-                      norm={{
-                        id: n.id,
-                        position: n.position,
-                        anchor10: n.anchor10,
-                        anchor25: n.anchor25,
-                        anchor50: n.anchor50,
-                        anchor75: n.anchor75,
-                        anchor90: n.anchor90,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
+export default async function NormsPage({ searchParams }: { searchParams: Promise<{ profile?: string }> }) {
+  const query = await searchParams;
+  const context = await requireAppContext();
+  const active = await loadTeamReferenceProfile(context.teamId);
+  const profiles = await prisma.normProfile.findMany({ where: { deletedAt: null, OR: [{ scope: 'SYSTEM' }, { scope: 'ORGANIZATION', organizationId: context.organizationId }, { scope: 'INSTALLATION_LEGACY' }] }, orderBy: [{ scope: 'asc' }, { createdAt: 'asc' }] });
+  const selectedId = profiles.some((profile) => profile.id === query.profile) ? query.profile! : active?.id ?? profiles[0]?.id;
+  const selected = selectedId ? await prisma.normProfile.findFirst({ where: { id: selectedId, deletedAt: null, OR: [{ scope: 'SYSTEM' }, { scope: 'ORGANIZATION', organizationId: context.organizationId }, { scope: 'INSTALLATION_LEGACY' }] }, include: { baseProfile: true, entries: { where: { deletedAt: null }, orderBy: [{ test: { categoryRel: { sortOrder: 'asc' } } }, { test: { code: 'asc' } }, { position: 'asc' }], include: { test: { include: { categoryRel: true } }, sources: { include: { source: true } } } } } }) : null;
+  return <div className="space-y-5 p-6"><div><h1 className="text-3xl font-bold">Референсы и нормативы</h1><p className="mt-1 text-sm text-gray-500">Литературные референсы, реальные эмпирические перцентили и контекстные значения разделены научно корректно.</p></div>
+    <section className="rounded-xl border bg-white p-5"><h2 className="text-lg font-bold">Профиль команды</h2><p className="text-sm text-gray-500">{context.teamName}</p>{active ? <div className="mt-3"><div className="font-semibold">{active.name}</div><div className="text-sm text-gray-600">Мужчины · Элитный волейбол · v{active.version}</div><div className="mt-1 text-xs text-gray-500">{active.scope === 'SYSTEM' ? 'Системный · Только чтение' : 'Профиль клуба'}{!active.explicitlySelected && ' · системный fallback, демография команды не подтверждена'}</div></div> : <p className="mt-3 text-sm text-amber-700">Активный референс отсутствует.</p>}</section>
+    <div className="grid gap-5 lg:grid-cols-[280px_1fr]"><aside className="space-y-2">{profiles.map(profile=><Link key={profile.id} href={`/norms?profile=${profile.id}`} className={`block rounded-lg border p-3 ${profile.id===selectedId?'border-red-300 bg-red-50':'bg-white'}`}><div className="font-semibold">{profile.name}</div><div className="text-xs text-gray-500">v{profile.version} · {profile.scope==='SYSTEM'?'Системный':profile.scope==='ORGANIZATION'?'Профиль клуба':'Импортированный legacy'}</div></Link>)}</aside>
+      {selected && <main className="space-y-4"><section className="rounded-xl border bg-white p-5"><div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-xl font-bold">{selected.name}</h2><p className="text-sm text-gray-600">VOLLEYBALL · {selected.sex} · {selected.level} · {selected.ageGroup} · v{selected.version}</p><span className="mt-2 inline-block rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold">{selected.scope==='SYSTEM'?'Системный · Только чтение':selected.scope==='ORGANIZATION'?'Профиль клуба':'Импортированные нормативы предыдущей версии · Только чтение'}</span>{selected.baseProfile && <p className="mt-2 text-xs text-gray-500">{selected.baseProfile.scope === 'INSTALLATION_LEGACY' ? 'Создан на основе импортированных нормативов предыдущей версии' : `Создан на основе ${selected.baseProfile.name} v${selected.baseProfile.version}`}</p>}</div>{selected.scope!=='INSTALLATION_LEGACY' && <AssignProfileButton profileId={selected.id} selected={active?.explicitlySelected===true && active.id===selected.id} />}</div><div className="mt-4"><CloneProfileForm profileId={selected.id} suggestedName={`${context.organizationName} — собственный профиль`} /></div></section>
+        <p className="rounded-lg bg-blue-50 p-3 text-xs text-blue-800">Оценка доказательности отражает качество и применимость доступных референсных данных, а не качество результата спортсмена. Среднее ± SD и CI не преобразуются в вымышленные перцентили.</p>
+        {selected.entries.map(entry=><article key={entry.id} className="rounded-xl border bg-white p-5"><div className="flex flex-wrap justify-between gap-2"><div><h3 className="font-bold">{entry.test.name} <span className="font-mono text-xs text-gray-400">{entry.test.code}</span></h3><p className="text-sm text-gray-500">{entry.position ? positionLabels[entry.position] ?? entry.position : 'Все позиции'}</p></div><div className="text-right text-xs"><div>{labels[entry.interpretationType]}</div><div className="text-gray-500">Доказательность: {labels[entry.evidenceLevel]}</div></div></div><div className="mt-3 text-lg font-semibold">{referenceValue(entry)}</div>{entry.sampleSize && <p className="mt-1 text-sm text-gray-600">Выборка: {entry.sampleSize}</p>}{entry.evidenceScope && <p className="text-sm text-gray-600">{entry.evidenceScope}</p>}{entry.derivedByPasko && <p className="mt-2 text-xs text-amber-700">PASKO-derived · приближённое объединение опубликованных групп, не напрямую опубликованный агрегат.</p>}{entry.protocolText && <p className="mt-2 rounded bg-amber-50 p-2 text-xs text-amber-800">{entry.protocolText}</p>}{entry.measurementMethod && <p className="mt-2 text-xs text-gray-600">{entry.measurementMethod}</p>}{entry.notes && <p className="mt-2 text-xs text-gray-500">{entry.notes}</p>}{entry.sources.map(({source})=><details key={source.id} className="mt-3"><summary className="cursor-pointer text-sm font-semibold text-red-700">Подробнее об источнике</summary><div className="mt-2 space-y-1 rounded bg-gray-50 p-3 text-xs"><div>{source.authors}</div><div className="font-semibold">{source.title}</div><div>{source.journal} · {source.year}</div>{source.doi && <div>DOI: <a className="underline" href={`https://doi.org/${source.doi}`} target="_blank" rel="noreferrer">{source.doi}</a></div>}{source.pmid && <div>PMID: {source.pmid}</div>}</div></details>)}{selected.scope==='ORGANIZATION' && <EntryEditor entry={entry} />}</article>)}</main>}</div></div>;
 }

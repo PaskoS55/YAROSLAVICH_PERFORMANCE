@@ -1,5 +1,6 @@
 {
-  "name": "yaroslavich-performance",
+  "name": "pasko-performance-platform",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "cd apps/web && npm run dev",
@@ -11,11 +12,31 @@
     "db:seed": "cd packages/db && npx prisma db seed",
     "db:studio": "cd packages/db && npx prisma studio",
     "lint": "npm run lint --workspaces --if-present",
+    "desktop:dev": "node apps/desktop/scripts/dev.mjs",
+    "desktop:build": "npm run build --workspace @pasko-performance/desktop",
+    "desktop:make": "npm run make --workspace @pasko-performance/desktop",
+    "desktop:web:build": "npm run build --workspace @pasko-performance/web && node apps/desktop/scripts/prepare-next-runtime.mjs && node apps/desktop/scripts/verify-next-runtime.mjs",
+    "desktop:postgres:prepare": "node apps/desktop/scripts/prepare-postgres-runtime.mjs",
+    "desktop:postgres:verify": "node apps/desktop/scripts/verify-postgres-runtime.mjs",
+    "desktop:postgres:test": "npm run build --workspace @pasko-performance/desktop && node apps/desktop/scripts/test-postgres-runtime.mjs",
+    "desktop:prisma:prepare": "node apps/desktop/scripts/prepare-prisma-runtime.mjs",
+    "desktop:prisma:verify": "node apps/desktop/scripts/verify-prisma-runtime.mjs",
+    "desktop:prisma:test": "npm run build --workspace @pasko-performance/desktop && npm run desktop:prisma:prepare && node apps/desktop/scripts/test-prisma-embedded-runtime.mjs",
+    "desktop:demo:test": "npm run build --workspace @pasko-performance/desktop && npm run desktop:prisma:prepare && node apps/desktop/scripts/test-demo-workspace.mjs",
+    "test:context:integration": "tsx apps/web/scripts/test-context-integration.ts",
+    "desktop:package": "npm run desktop:web:build && npm run desktop:postgres:prepare && npm run desktop:postgres:verify && npm run desktop:prisma:prepare && npm run desktop:prisma:verify && npm run build --workspace @pasko-performance/desktop && npm run package --workspace @pasko-performance/desktop",
+    "release:windows": "node apps/desktop/scripts/release-windows.mjs",
+    "release:verify": "node apps/desktop/scripts/verify-windows-release.mjs",
+    "issuer:dev": "npm run dev --workspace @pasko-performance/license-issuer",
+    "issuer:package": "npm run package --workspace @pasko-performance/license-issuer",
+    "issuer:release": "npm run release --workspace @pasko-performance/license-issuer",
+    "issuer:verify": "npm run release:verify --workspace @pasko-performance/license-issuer",
     "format": "prettier --write ."
   },
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "tools/*"
   ],
   "devDependencies": {
     "@types/node": "^20.11.17",
@@ -37,6 +58,7 @@
     "@prisma/engines@5.22.0": true,
     "esbuild@0.21.5": true,
     "esbuild@0.28.2": true,
-    "prisma@5.22.0": true
+    "prisma@5.22.0": true,
+    "electron@43.4.1": true
   }
 }

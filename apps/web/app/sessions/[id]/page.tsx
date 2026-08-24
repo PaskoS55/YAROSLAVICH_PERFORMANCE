@@ -2,6 +2,7 @@ import { prisma } from '../../../lib/prisma';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ResultsForm from './results-form';
+import { requireAppContext } from '../../../lib/app-context';
 
 const phaseLabels: Record<string, string> = {
   PRESEASON: 'Предсезонка',
@@ -32,12 +33,13 @@ function fmtDate(d: Date | null | undefined) {
 
 export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await prisma.testSession.findUnique({
-    where: { id },
+  const context = await requireAppContext();
+  const session = await prisma.testSession.findFirst({
+    where: { id, teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
     include: { player: true },
   });
 
-  if (!session || session.deletedAt) notFound();
+  if (!session) notFound();
 
   const activeTests = await prisma.test.findMany({
     where: { deletedAt: null },
