@@ -1,0 +1,57 @@
+# PASKO Performance — Windows release
+
+## Supported platform
+
+The v1.0 desktop release targets Windows 10 or newer on x64 hardware. The strict minimum is set by the bundled PostgreSQL 16 native runtime (Windows 10+) together with Electron 43.4.1. Windows 7/8/8.1 and 32-bit Windows are not release targets. PostgreSQL is application-private and is not installed as a Windows service.
+
+The installer uses Electron Forge 7.11.2 with Squirrel.Windows as a per-user, no-admin installer. Application binaries are managed below the Windows user's LocalAppData Squirrel location. Persistent product state remains separately below `%LOCALAPPDATA%\PaskoPerformance`; each Windows account therefore has its own Installation ID, license state, production database, Demo database, logs, and recovery snapshots.
+
+## Offline product model
+
+The installer bundles Electron/Node, the Next.js 16.3.1 standalone server, Prisma 5.22, all migrations, and PostgreSQL 16.14 x64 (`bin`, `lib`, and `share`). System Node.js, npm, Prisma, PostgreSQL, Git, Docker, WSL, DNS, telemetry, or a cloud account are not required for normal operation.
+
+The same generic installer is used for every club. Entitlement is supplied separately as an offline signed `*.pasko-license` file bound to the Installation ID. Customer data, activated licenses, test licenses, private signing keys, Installation IDs, and database clusters are forbidden in release artifacts.
+
+Production data lives in `pasko_performance`. The isolated synthetic Demo Workspace lives in `pasko_performance_demo` and uses `PASKO_DEMO_VOLLEYBALL_V1` version 1.0. Production backups and recovery snapshots exclude Demo data. Demo reset accepts exactly `СБРОСИТЬ ДЕМО` and never accepts a renderer-controlled database target.
+
+## Build and verification
+
+From a clean source tree on Windows x64:
+
+```powershell
+npm ci
+npm run release:windows
+npm run release:verify
+```
+
+The canonical output directory is `release/` and contains exactly:
+
+- `PASKO-Performance-Volleyball-Setup-1.0.0.exe`
+- `SHA256SUMS.txt`
+- `release-manifest.json`
+
+`release:windows` validates synchronized versions, builds and verifies Next standalone, prepares and verifies PostgreSQL and Prisma, creates the Electron x64 package and Squirrel installer, rejects missing runtime files and forbidden artifact names, copies one canonical Setup executable, and writes its SHA-256 and machine-readable manifest. Generated release and Forge outputs are ignored by Git.
+
+Verify a downloaded installer by calculating SHA-256 and comparing it with both `SHA256SUMS.txt` and `release-manifest.json`. Exact binary hashes can differ between separate builds because Squirrel embeds build timestamps; structure and version naming are deterministic, but bit-for-bit reproducibility is not claimed.
+
+## Install, upgrade, reinstall, and uninstall
+
+Squirrel installs per Windows user without requiring Administrator privileges. Setup creates Start Menu and Desktop shortcuts named `PASKO Performance`; both launch `PaskoPerformance.exe` without a console.
+
+For v1 updates, the user receives a newer official Setup executable and installs it over the current version. The installer updates application files only. On the next launch the application owns database migration: PostgreSQL starts, a verified pre-migration snapshot is created only when migrations are pending, migrations and bootstrap run, and health checks complete. Failure enters Recovery Mode; it never resets or silently restores the production database.
+
+Same-version reinstall and upgrade preserve `%LOCALAPPDATA%\PaskoPerformance`, including the Installation ID, license, LocalUser, production database, reference profiles, and recovery snapshots. Downgrade is unsupported; no automatic schema downgrade exists.
+
+Default uninstall removes application binaries and shortcuts but deliberately preserves `%LOCALAPPDATA%\PaskoPerformance`. Reinstall therefore detects the existing Installation ID, license, database, and administrator and returns to Login rather than First Run. Full data removal is an advanced manual operation and is not implemented in the installer, avoiding an unsafe custom deletion path.
+
+## Code signing and SmartScreen
+
+The Phase 8 RC installer is unsigned. Windows SmartScreen and anti-malware products may warn about it. No self-signed certificate is presented as production trust, and no legal publisher identity is fabricated. Publisher metadata remains unresolved until a legal publishing entity and production Authenticode certificate are available.
+
+The Forge/Squirrel configuration is ready to receive future signing parameters from an external protected build environment. A production release should sign both the main executable and Setup executable with a trusted Authenticode certificate and timestamp service. Certificates and private keys must never enter Git or the release directory.
+
+## Validation status and remaining RC gates
+
+Phase 8 uses a disposable guarded product root, a minimal `C:\Windows\System32;C:\Windows` PATH, externally generated TEST licenses, and the real installer/installed executable. This is a clean-machine-style substitute, not an actual clean VM. A final public v1.0 RC still requires installation on an external clean Windows 10/11 x64 machine or VM, an actual Windows reboot, SmartScreen/antivirus observation, and production Authenticode signing.
+
+The installed application should be visually checked at 1366×768, 1600×900, and 1920×1080 for activation, First Run, Login, Dashboard, player/testing/analytics/reference/settings/Demo/Recovery workflows. No critical control may be clipped and no normal workflow may require horizontal scrolling.

@@ -85,3 +85,7 @@ Packaged Desktop verifies installation-bound offline license files using canonic
 ## Product assets
 
 Official product assets are immutable approved masters. Do not regenerate, redraw, distort, or modify their proportions. Organization assets are maintained separately from PASKO product branding and must never replace the product favicon or executable icon.
+
+## Windows release
+
+Build the Windows x64 installer with `npm run release:windows`. The canonical artifact is `release/PASKO-Performance-Volleyball-Setup-1.0.0.exe`; verify it with `npm run release:verify` and compare `release/SHA256SUMS.txt`. Installation, offline licensing, upgrade/reinstall, uninstall data preservation, SmartScreen, and clean-machine gates are documented in [docs/pasko-windows-release.md](docs/pasko-windows-release.md).
