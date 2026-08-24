@@ -11,5 +11,6 @@ export function prismaRuntimePaths(root) {
     schema: path.join(root, 'prisma/schema.prisma'),
     migrations: path.join(root, 'prisma/migrations'),
     bootstrap: path.join(root, 'bootstrap-reference.cjs'),
+    demoBootstrap: path.join(root, 'bootstrap-demo.cjs'),
   };
 }

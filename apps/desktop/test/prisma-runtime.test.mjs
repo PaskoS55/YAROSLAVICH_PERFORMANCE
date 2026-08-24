@@ -9,7 +9,7 @@ import { buildMigrateDeployArgs, buildPrismaUtilityEnv, PACKAGED_PRISMA_VERSION,
 async function fakeRuntime() {
   const resources = await mkdtemp(path.join(os.tmpdir(), 'pasko-prisma-runtime-'));
   const paths = resolvePrismaRuntime(resources);
-  for (const file of [paths.cli, paths.schemaEngine, paths.queryEngine, paths.client, paths.schema, paths.bootstrap]) { await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, 'x'); }
+  for (const file of [paths.cli, paths.schemaEngine, paths.queryEngine, paths.client, paths.schema, paths.bootstrap, paths.demoBootstrap]) { await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, 'x'); }
   await mkdir(path.join(paths.migrations, '001_initial'), { recursive: true });
   await writeFile(path.join(paths.migrations, 'migration_lock.toml'), 'provider = "postgresql"');
   await writeFile(path.join(paths.migrations, '001_initial', 'migration.sql'), 'SELECT 1;');

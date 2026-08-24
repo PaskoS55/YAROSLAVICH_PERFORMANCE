@@ -12,6 +12,8 @@ import {
   APPLICATION_USER,
   DEFAULT_DATABASE,
   executeSql,
+  ensureDemoDatabase,
+  DEMO_DATABASE,
 } from "./postgres";
 import type { DatabaseCredentialsProvider } from "./database-credentials";
 import {
@@ -40,6 +42,7 @@ import {
 
 export interface PackagedDatabaseRuntime {
   databaseUrl: string;
+  demoDatabaseUrl: string | null;
   postgres: RunningPostgres;
   migrationState: MigrationState;
   recoveryPaths: RecoveryPaths;
@@ -130,6 +133,19 @@ export async function migrateAndBootstrap(input: {
   });
 }
 
+export async function migrateAndBootstrapDemo(input: {
+  paths: PrismaRuntimePaths;
+  databaseUrl: string;
+  source: NodeJS.ProcessEnv;
+  runner?: UtilityRunner;
+}): Promise<void> {
+  const runner = input.runner ?? runUtility;
+  const env = buildPrismaUtilityEnv({ databaseUrl: input.databaseUrl, paths: input.paths, source: input.source });
+  await beforeDatabaseMigration(input.paths);
+  await runner(input.paths.cli, buildMigrateDeployArgs(input.paths), { cwd: input.paths.root, env, serviceName: "PASKO Demo Prisma Migrate Deploy" });
+  await runner(input.paths.demoBootstrap, [], { cwd: input.paths.root, env, serviceName: "PASKO Demo Dataset Bootstrap" });
+}
+
 export async function startPackagedDatabase(input: {
   resourcesPath: string;
   localAppData: string;
@@ -193,8 +209,20 @@ export async function startPackagedDatabase(input: {
       writeRecoveryStatus(recoveryPaths, { state: "MIGRATION_FAILED", occurredAt: new Date().toISOString(), snapshotId: startupSnapshot?.snapshotId ?? null, publicMessage: "База данных не была обновлена. Ваши данные не были автоматически удалены.", technicalCode: "MIGRATE_DEPLOY_FAILED" });
       throw error;
     }
+    let demoDatabaseUrl: string | null = null;
+    if (input.source.PASKO_LICENSE_STATE === 'VALID') {
+      try {
+        await ensureDemoDatabase(postgres, active);
+        const candidate = buildLocalDatabaseUrl({ host: '127.0.0.1', port: postgres.port, database: DEMO_DATABASE, username: APPLICATION_USER, password: active.applicationPassword });
+        await migrateAndBootstrapDemo({ paths: prismaPaths, databaseUrl: candidate, source: input.source });
+        demoDatabaseUrl = candidate;
+      } catch {
+        demoDatabaseUrl = null;
+      }
+    }
+    input.source.PASKO_DEMO_AVAILABLE = demoDatabaseUrl ? '1' : '0';
     clearRecoveryStatus(recoveryPaths);
-    return { databaseUrl, postgres, migrationState, recoveryPaths, startupSnapshot, stop: postgres.stop };
+    return { databaseUrl, demoDatabaseUrl, postgres, migrationState, recoveryPaths, startupSnapshot, stop: postgres.stop };
   } catch (error) {
     await postgres.stop().catch(() => undefined);
     throw error;

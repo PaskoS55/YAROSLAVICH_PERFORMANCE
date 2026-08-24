@@ -21,4 +21,8 @@ await new Promise((resolve, reject) => {
   const child = spawn(executable, [path.join(repo, 'node_modules/esbuild/bin/esbuild'), path.join(repo, 'packages/db/prisma/bootstrap-reference.ts'), '--bundle', '--platform=node', '--format=cjs', '--target=node20', '--external:@prisma/client', `--outfile=${paths.bootstrap}`], { cwd: repo, windowsHide: true, stdio: 'inherit' });
   child.once('error', reject); child.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`Reference bootstrap build failed (${code})`)));
 });
+await new Promise((resolve, reject) => {
+  const child = spawn(process.execPath, [path.join(repo, 'node_modules/esbuild/bin/esbuild'), path.join(repo, 'packages/db/prisma/bootstrap-demo.ts'), '--bundle', '--platform=node', '--format=cjs', '--target=node20', '--external:@prisma/client', `--outfile=${paths.demoBootstrap}`], { cwd: repo, windowsHide: true, stdio: 'inherit' });
+  child.once('error', reject); child.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`Demo bootstrap build failed (${code})`)));
+});
 console.log(`Prepared packaged Prisma ${actual} runtime: ${root}`);

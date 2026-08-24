@@ -4,7 +4,7 @@ import { prismaRuntimePaths, PRISMA_VERSION } from './prisma-runtime-layout.mjs'
 
 const root = path.resolve(import.meta.dirname, '..', '.runtime', 'db');
 const paths = prismaRuntimePaths(root);
-for (const file of [paths.cli, paths.schemaEngine, paths.queryEngine, paths.client, paths.schema, paths.bootstrap]) {
+for (const file of [paths.cli, paths.schemaEngine, paths.queryEngine, paths.client, paths.schema, paths.bootstrap, paths.demoBootstrap]) {
   if (!(await stat(file)).isFile()) throw new Error(`Missing packaged Prisma runtime file: ${file}`);
 }
 const version = JSON.parse(await readFile(path.join(root, 'node_modules/prisma/package.json'), 'utf8')).version;

@@ -13,6 +13,7 @@ import { findAvailableLoopbackPort } from "./runtime-port";
 
 export const POSTGRES_MAJOR = "16";
 export const DEFAULT_DATABASE = "pasko_performance";
+export const DEMO_DATABASE = "pasko_performance_demo";
 export const PRODUCT_DATA_DIRECTORY = "PaskoPerformance";
 export const LEGACY_DATA_DIRECTORY = "YaroslavichPerformance";
 export const BOOTSTRAP_USER = "yp_bootstrap";
@@ -412,6 +413,21 @@ export async function ensureApplicationDatabase(
       },
       { env: postgresEnv(credentials.bootstrapPassword) },
     );
+}
+
+export async function ensureDemoDatabase(
+  runtime: RunningPostgres,
+  credentials: { bootstrapPassword: string },
+): Promise<void> {
+  const base = ["-h", "127.0.0.1", "-p", String(runtime.port), "-U", BOOTSTRAP_USER, "-d", "postgres"];
+  const exists = await run(
+    { executable: runtime.paths.bin.psql, args: [...base, "-tAc", `SELECT 1 FROM pg_database WHERE datname='${DEMO_DATABASE}'`] },
+    { env: postgresEnv(credentials.bootstrapPassword) },
+  );
+  if (exists.stdout.trim() !== "1") await run(
+    { executable: runtime.paths.bin.createdb, args: ["-h", "127.0.0.1", "-p", String(runtime.port), "-U", BOOTSTRAP_USER, "-O", APPLICATION_USER, DEMO_DATABASE] },
+    { env: postgresEnv(credentials.bootstrapPassword) },
+  );
 }
 
 export async function rotateDatabaseCredentials(

@@ -33,6 +33,7 @@ app.setAppUserModelId(product.appUserModelId);
 const isDevelopment = !app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
 let nextRuntime: PackagedNextRuntime | null = null;
+let demoNextRuntime: PackagedNextRuntime | null = null;
 let databaseRuntime: PackagedDatabaseRuntime | null = null;
 let quitting = false;
 let shutdownStarted = false;
@@ -61,7 +62,7 @@ function openExternal(target: string): void {
     );
 }
 
-function createWindow(internalUrl: URL): void {
+function createWindow(internalUrl: URL, demoUrl?: URL): void {
   mainWindow = new BrowserWindow({
     title: product.display,
     width: 1440,
@@ -79,12 +80,22 @@ function createWindow(internalUrl: URL): void {
     },
   });
   mainWindow.webContents.on("will-navigate", (event, target) => {
+    const parsed = new URL(target);
+    if (demoUrl && parsed.origin === internalUrl.origin && parsed.pathname === '/demo-workspace') {
+      event.preventDefault(); void mainWindow?.loadURL(demoUrl.toString()); return;
+    }
+    if (demoUrl && parsed.origin === demoUrl.origin && parsed.pathname === '/club-workspace') {
+      event.preventDefault(); void mainWindow?.loadURL(internalUrl.toString()); return;
+    }
     const decision = classifyNavigation(target, internalUrl);
+    if (demoUrl && parsed.origin === demoUrl.origin) return;
     if (decision === "internal") return;
     event.preventDefault();
     if (decision === "external") openExternal(target);
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const parsed = new URL(url);
+    if (demoUrl && (parsed.origin === internalUrl.origin || parsed.origin === demoUrl.origin)) return { action: "deny" };
     if (classifyNavigation(url, internalUrl) === "external") openExternal(url);
     return { action: "deny" };
   });
@@ -201,6 +212,10 @@ async function startApplication(): Promise<void> {
     });
     databaseRuntime = services.database;
     nextRuntime = services.web;
+    if (databaseRuntime.demoDatabaseUrl) {
+      try { demoNextRuntime = await startPackagedNext(target.serverPath, databaseRuntime.demoDatabaseUrl, { ...runtimeSource, PASKO_WORKSPACE: 'demo', PASKO_DEMO_DATASET_VERSION: '1.0' }); }
+      catch (error) { appendRedactedRuntimeLog(app.getPath('logs'), `demo runtime unavailable: ${error instanceof Error ? error.message : 'unknown'}`); }
+    }
   } catch (error) {
     const detail = error instanceof Error ? error.message : "";
     if (detail === "SAFE_STORAGE_UNAVAILABLE")
@@ -224,7 +239,7 @@ async function startApplication(): Promise<void> {
     );
     app.quit();
   });
-  createWindow(nextRuntime.origin);
+  createWindow(nextRuntime.origin, demoNextRuntime?.origin);
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -235,7 +250,7 @@ if (!app.requestSingleInstanceLock()) {
     if (!licenseActivationAction || !request || typeof request !== 'object' || typeof (request as { password?: unknown }).password !== 'string') return { state: 'INVALID', message: 'Активация недоступна.' };
     try {
       const result = await licenseActivationAction((request as { password: string }).password);
-      if (result.state === 'VALID') { app.relaunch(); app.exit(0); }
+      if (result.state === 'VALID') { quitting = true; app.relaunch(); app.quit(); }
       return { state: result.state, message: result.message };
     } catch (error) {
       appendRedactedRuntimeLog(app.getPath('logs'), `license activation failed: ${error instanceof Error ? error.message : 'unknown'}`);
@@ -270,9 +285,12 @@ if (!app.requestSingleInstanceLock()) {
     shutdownStarted = true;
     quitting = true;
     const web = nextRuntime;
+    const demoWeb = demoNextRuntime;
     const database = databaseRuntime;
     nextRuntime = null;
+    demoNextRuntime = null;
     databaseRuntime = null;
+    demoWeb?.stop();
     void stopPackagedServices({ web, database }).finally(() => app.exit(0));
   });
   app

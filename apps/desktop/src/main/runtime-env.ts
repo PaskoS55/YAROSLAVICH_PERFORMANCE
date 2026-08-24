@@ -32,6 +32,9 @@ export function buildNextRuntimeEnv(
     PASKO_LOGS_ROOT: source.PASKO_LOGS_ROOT ?? "",
     PASKO_LICENSE_STATE: source.PASKO_LICENSE_STATE ?? "UNLICENSED",
     PASKO_LICENSE_PAYLOAD: source.PASKO_LICENSE_PAYLOAD ?? "",
+    PASKO_WORKSPACE: source.PASKO_WORKSPACE === "demo" ? "demo" : "club",
+    PASKO_DEMO_DATASET_VERSION: source.PASKO_DEMO_DATASET_VERSION ?? "",
+    PASKO_DEMO_AVAILABLE: source.PASKO_DEMO_AVAILABLE ?? "0",
     ...windowsRuntime,
     ...secrets,
   };

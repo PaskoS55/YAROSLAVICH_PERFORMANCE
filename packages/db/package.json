@@ -10,7 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "test:run": "vitest run prisma/reference-data.test.ts"
+    "test:run": "vitest run prisma"
   },
   "dependencies": {
     "@prisma/client": "^5.10.2"

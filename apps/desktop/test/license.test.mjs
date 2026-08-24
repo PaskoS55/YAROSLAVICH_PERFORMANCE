@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateKeyPairSync, sign } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -58,4 +58,14 @@ test('packaging excludes the test issuer and test sources', () => {
   const forge = createRequire(import.meta.url)('../forge.config.cjs');
   assert.ok(forge.packagerConfig.ignore.some((pattern) => pattern.test('/scripts/test-license-issuer.mjs')));
   assert.ok(forge.packagerConfig.ignore.some((pattern) => pattern.test('/test/license.test.mjs')));
+});
+test('TRIAL to PRO replacement changes entitlement without recreating installation data', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'pasko-license-upgrade-'));
+  try {
+    const store = new LicenseStore(root, safeStorage, publicKeys);
+    const businessFixture = path.join(root, 'business-data-sentinel'); writeFileSync(businessFixture, 'unchanged');
+    assert.equal(store.activate(JSON.stringify(envelope({ plan: 'TRIAL', licenseId: 'trial-license' })), installationId, now).payload.plan, 'TRIAL');
+    assert.equal(store.activate(JSON.stringify(envelope({ plan: 'PRO', licenseId: 'pro-license' })), installationId, now).payload.plan, 'PRO');
+    assert.equal(readFileSync(businessFixture, 'utf8'), 'unchanged');
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });

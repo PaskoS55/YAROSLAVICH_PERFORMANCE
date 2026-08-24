@@ -2,13 +2,13 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 export const PACKAGED_PRISMA_VERSION = '5.22.0';
-export interface PrismaRuntimePaths { root: string; cli: string; schemaEngine: string; queryEngine: string; client: string; schema: string; migrations: string; bootstrap: string }
+export interface PrismaRuntimePaths { root: string; cli: string; schemaEngine: string; queryEngine: string; client: string; schema: string; migrations: string; bootstrap: string; demoBootstrap: string }
 export function resolvePrismaRuntime(resourcesPath: string): PrismaRuntimePaths {
   const root = path.resolve(resourcesPath, 'db');
-  return { root, cli: path.join(root, 'node_modules/prisma/build/index.js'), schemaEngine: path.join(root, 'node_modules/@prisma/engines/schema-engine-windows.exe'), queryEngine: path.join(root, 'node_modules/.prisma/client/query_engine-windows.dll.node'), client: path.join(root, 'node_modules/.prisma/client/index.js'), schema: path.join(root, 'prisma/schema.prisma'), migrations: path.join(root, 'prisma/migrations'), bootstrap: path.join(root, 'bootstrap-reference.cjs') };
+  return { root, cli: path.join(root, 'node_modules/prisma/build/index.js'), schemaEngine: path.join(root, 'node_modules/@prisma/engines/schema-engine-windows.exe'), queryEngine: path.join(root, 'node_modules/.prisma/client/query_engine-windows.dll.node'), client: path.join(root, 'node_modules/.prisma/client/index.js'), schema: path.join(root, 'prisma/schema.prisma'), migrations: path.join(root, 'prisma/migrations'), bootstrap: path.join(root, 'bootstrap-reference.cjs'), demoBootstrap: path.join(root, 'bootstrap-demo.cjs') };
 }
 export function verifyPrismaRuntime(paths: PrismaRuntimePaths): void {
-  for (const file of [paths.cli, paths.schemaEngine, paths.queryEngine, paths.client, paths.schema, paths.bootstrap]) if (!existsSync(file) || !statSync(file).isFile()) throw new Error(`Packaged Prisma runtime file is missing: ${path.basename(file)}`);
+  for (const file of [paths.cli, paths.schemaEngine, paths.queryEngine, paths.client, paths.schema, paths.bootstrap, paths.demoBootstrap]) if (!existsSync(file) || !statSync(file).isFile()) throw new Error(`Packaged Prisma runtime file is missing: ${path.basename(file)}`);
   const version = JSON.parse(readFileSync(path.join(paths.root, 'node_modules/prisma/package.json'), 'utf8')) as { version?: string };
   if (version.version !== PACKAGED_PRISMA_VERSION) throw new Error(`Unsupported packaged Prisma version: ${version.version ?? 'unknown'}`);
   const migrations = readdirSync(paths.migrations, { withFileTypes: true }).filter((entry) => entry.isDirectory());
