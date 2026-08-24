@@ -7,6 +7,7 @@ import { resolveAppContext, type AppContextState, type ReadyAppContext } from '.
 import { operationalLicenseRequired } from './license-policy';
 
 export async function getAppContext(): Promise<AppContextState> {
+  if (process.env.PASKO_WORKSPACE === 'demo') return resolveAppContext(prisma, { organizationId: 'demo-organization', teamId: 'demo-team', seasonId: 'demo-season-2026-27' });
   const token = (await cookies()).get(CONTEXT_COOKIE_NAME)?.value;
   let selection = null;
   if (token) {

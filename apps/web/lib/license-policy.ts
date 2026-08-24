@@ -14,3 +14,11 @@ export function readLicenseMetadata(env: NodeJS.ProcessEnv = process.env): Recor
   if (!env.PASKO_LICENSE_PAYLOAD) return null;
   try { return JSON.parse(Buffer.from(env.PASKO_LICENSE_PAYLOAD, 'base64url').toString('utf8')) as Record<string, string | null>; } catch { return null; }
 }
+
+export function trialDisplay(metadata: Record<string, string | null> | null, now = new Date()): { expiresAt: string; daysRemaining: number } | null {
+  if (metadata?.plan !== 'TRIAL' || !metadata.expiresAt) return null;
+  const expires = new Date(metadata.expiresAt); if (Number.isNaN(expires.getTime())) return null;
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const expiryUtc = Date.UTC(expires.getUTCFullYear(), expires.getUTCMonth(), expires.getUTCDate());
+  return { expiresAt: expires.toLocaleDateString('ru-RU', { timeZone: 'UTC' }), daysRemaining: Math.max(0, Math.ceil((expiryUtc - todayUtc) / 86_400_000)) };
+}

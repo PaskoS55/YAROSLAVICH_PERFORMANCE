@@ -16,6 +16,8 @@ import { CopyInstallationId } from "./copy-installation-id";
 import { OrganizationBrandingForm } from "./organization-branding-form";
 import { loadTeamReferenceProfile } from "../../lib/references";
 import { getRuntimeLicenseState, readLicenseMetadata } from '../../lib/license-policy';
+import { isDemoWorkspace } from '../../lib/workspace';
+import { DemoResetForm } from './demo-reset-form';
 
 const field = "mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm";
 const label = "block text-xs font-medium text-gray-500";
@@ -26,6 +28,7 @@ function fmtDate(d: Date | null | undefined) {
 }
 
 export default async function SettingsPage() {
+  if (isDemoWorkspace()) return <div className="space-y-5 p-6"><div><div className="mb-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-extrabold tracking-wide text-amber-900">ДЕМОНСТРАЦИОННЫЕ ДАННЫЕ</div><h1 className="text-3xl font-bold">Настройки демо</h1><p className="mt-2 text-gray-600">Это вымышленная команда. Данные не относятся к вашему клубу.</p></div><div className="rounded-lg border border-gray-200 bg-white p-6"><h2 className="mb-3 text-lg font-bold">Вернуть исходное состояние</h2><DemoResetForm /></div><div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-sm text-gray-600">Резервное копирование, восстановление, импорт, безопасность локального администратора и диагностика production DB недоступны в Demo Workspace.</div><a href="/club-workspace" className="btn-secondary inline-block">Вернуться к клубу</a></div>;
   const licenseState = getRuntimeLicenseState();
   const license = readLicenseMetadata();
   const context = await requireAppContext();

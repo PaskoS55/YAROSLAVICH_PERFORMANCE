@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic';
 import { AppShell } from '../components/layout/AppShell';
 import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
 import { getAppContext } from '../lib/app-context';
-import { getRuntimeLicenseState } from '../lib/license-policy';
+import { getRuntimeLicenseState, readLicenseMetadata, trialDisplay } from '../lib/license-policy';
+import { isDemoWorkspace } from '../lib/workspace';
 
 const inter = Inter({
   subsets: ['cyrillic', 'latin'],
@@ -33,10 +34,12 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const context = await getAppContext();
   const licensed = getRuntimeLicenseState() === 'VALID';
+  const demo = isDemoWorkspace();
+  const trial = trialDisplay(readLicenseMetadata());
   return (
     <html lang="ru">
       <body className={inter.className}>
-        {licensed ? <AppShell context={context.status === 'READY' ? context : null}>{children}</AppShell> : children}
+        {licensed ? <AppShell context={context.status === 'READY' ? context : null} demo={demo} demoAvailable={demo || process.env.PASKO_DEMO_AVAILABLE === '1'} trial={trial}>{children}</AppShell> : children}
       </body>
     </html>
   );

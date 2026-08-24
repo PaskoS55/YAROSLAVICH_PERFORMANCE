@@ -4,6 +4,8 @@ import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { validateOrganizationBranding } from '@pasko-performance/core/product';
 import { requireAppContext } from '../../lib/app-context';
+import { isDemoWorkspace } from '../../lib/workspace';
+import { resetDemoDatabase } from '@pasko-performance/db';
 
 const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 const toDate = (s: string) => (s ? new Date(s + 'T12:00:00.000Z') : null);
@@ -100,6 +102,7 @@ export async function createSeason(formData: FormData): Promise<void> {
 }
 
 export async function resetDemoData(): Promise<void> {
+  if (isDemoWorkspace()) throw new Error('USE_DEMO_RESET_ACTION');
   await requireAppContext();
   // Удаляем рабочие данные, но сохраняем нормативы, справочник тестов и оборудование
   // Порядок: дети → родители (BodyComposition имеет FK на TestSession)
@@ -118,4 +121,15 @@ export async function resetDemoData(): Promise<void> {
   revalidatePath('/players', 'layout');
   revalidatePath('/sessions', 'layout');
   revalidatePath('/settings');
+}
+
+export type DemoResetState = { error?: string; success?: string };
+export async function resetDemoWorkspace(_: DemoResetState, formData: FormData): Promise<DemoResetState> {
+  if (!isDemoWorkspace()) return { error: 'Сброс доступен только в демонстрационном пространстве.' };
+  await requireAppContext();
+  if (str(formData.get('confirmation')) !== 'СБРОСИТЬ ДЕМО') return { error: 'Введите точную строку подтверждения.' };
+  try { await resetDemoDatabase(prisma); }
+  catch { return { error: 'Не удалось восстановить демонстрационные данные. Данные клуба не изменены.' }; }
+  revalidatePath('/', 'layout');
+  return { success: 'Исходные демо-данные восстановлены.' };
 }

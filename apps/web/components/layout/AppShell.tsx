@@ -9,9 +9,15 @@ import type { ReadyAppContext } from "../../lib/app-context-core";
 export function AppShell({
   children,
   context,
+  demo,
+  demoAvailable,
+  trial,
 }: {
   children: React.ReactNode;
   context: ReadyAppContext | null;
+  demo: boolean;
+  demoAvailable: boolean;
+  trial: { expiresAt: string; daysRemaining: number } | null;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -68,6 +74,8 @@ export function AppShell({
             <span className="topbar-brand">{PRODUCT_IDENTITY.canonical}</span>
           </div>
           <div className="topbar-right">
+            {demo && <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-extrabold text-amber-900">ДЕМОНСТРАЦИОННЫЕ ДАННЫЕ</span>}
+            {!demo && trial && <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">TRIAL · до {trial.expiresAt} · {trial.daysRemaining} дн.</span>}
             {context && (
               <a href="/context" className="context-chip">
                 <b>{context.teamName}</b>
@@ -83,6 +91,9 @@ export function AppShell({
           </div>
         </header>
         <main className="content">{children}</main>
+        <div className="mx-6 mb-4 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm">
+          {demo ? <><b>PASKO Demo Volleyball</b><span className="mx-2 text-gray-300">·</span><span className="text-gray-500">Это вымышленная команда.</span><a href="/club-workspace" className="ml-4 font-semibold text-blue-700">Вернуться к клубу →</a></> : demoAvailable ? <a href="/api/demo-enter" className="font-semibold text-blue-700">Демо PASKO Performance →</a> : <span className="text-gray-500">Не удалось подготовить демонстрационные данные. Перезапустите приложение, чтобы повторить.</span>}
+        </div>
         <footer className="footer">
           <div className="footer-line">
             <span className="footer-dot" />

@@ -1,5 +1,7 @@
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const DOMAIN = "PASKO_AUTH_SESSION_V1";
+const DEMO_DOMAIN = "PASKO_DEMO_CAPABILITY_V1";
+const DEMO_TTL_MS = 30 * 60 * 1000;
 export interface SessionPayload {
   version: 1;
   userId: string;
@@ -32,7 +34,7 @@ async function getSecret(): Promise<string> {
   return secret;
 }
 
-async function sign(payload: string, secret: string): Promise<string> {
+async function sign(payload: string, secret: string, domain = DOMAIN): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
@@ -43,7 +45,7 @@ async function sign(payload: string, secret: string): Promise<string> {
   const signature = await crypto.subtle.sign(
     "HMAC",
     key,
-    new TextEncoder().encode(`${DOMAIN}\0${payload}`),
+    new TextEncoder().encode(`${domain}\0${payload}`),
   );
   return Array.from(new Uint8Array(signature))
     .map((b) => b.toString(16).padStart(2, "0"))
@@ -99,4 +101,20 @@ export async function readSession(
 }
 export async function verifySession(token: string): Promise<boolean> {
   return (await readSession(token)) !== null;
+}
+
+export async function createDemoCapability(userId: string, now = Date.now()): Promise<string> {
+  const payload = encode(JSON.stringify({ version: 1, userId, issuedAt: now, expiresAt: now + DEMO_TTL_MS, scope: 'demo' }));
+  return `${payload}.${await sign(payload, await getSecret(), DEMO_DOMAIN)}`;
+}
+
+export async function readDemoCapability(token: string, now = Date.now()): Promise<SessionPayload | null> {
+  try {
+    const [payload, signature, extra] = token.split('.'); if (!payload || !signature || extra) return null;
+    const value = JSON.parse(decode(payload)) as SessionPayload & { scope?: string };
+    if (value.version !== 1 || value.scope !== 'demo' || typeof value.userId !== 'string' || value.issuedAt > now || value.expiresAt <= now || value.expiresAt - value.issuedAt > DEMO_TTL_MS) return null;
+    const expected = await sign(payload, await getSecret(), DEMO_DOMAIN); if (signature.length !== expected.length) return null;
+    let mismatch = 0; for (let index = 0; index < signature.length; index += 1) mismatch |= signature.charCodeAt(index) ^ expected.charCodeAt(index);
+    return mismatch === 0 ? value : null;
+  } catch { return null; }
 }
