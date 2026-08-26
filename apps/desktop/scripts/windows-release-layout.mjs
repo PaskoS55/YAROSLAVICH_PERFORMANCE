@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { lstat, readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -46,8 +47,28 @@ async function existsFile(file) {
   try { return (await stat(file)).isFile(); } catch (error) { if (error?.code === 'ENOENT') return false; throw error; }
 }
 
+async function verifyPackagedPostgresCommands(postgresRoot) {
+  for (const executable of ['initdb.exe', 'postgres.exe', 'pg_ctl.exe', 'pg_dump.exe', 'pg_restore.exe']) {
+    const output = await new Promise((resolve, reject) => {
+      const child = spawn(path.join(postgresRoot, 'bin', executable), ['--version'], {
+        env: { SystemRoot: process.env.SystemRoot, WINDIR: process.env.WINDIR, PATH: `${process.env.SystemRoot}\\System32` },
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let text = '';
+      child.stdout.on('data', (chunk) => { text += String(chunk); });
+      child.stderr.on('data', (chunk) => { text += String(chunk); });
+      child.once('error', reject);
+      child.once('exit', (code) => code === 0 ? resolve(text) : reject(new Error(`Packaged ${executable} --version exited ${code}`)));
+    });
+    if (!/16\.14/.test(output)) throw new Error(`Packaged ${executable} returned an unexpected version`);
+  }
+}
+
 export async function auditRequiredPackagedRuntime(paths, identity) {
+  const { readPostgresManifest, verifyMicrosoftRuntime } = await import('./postgres-runtime-layout.mjs');
   const resources = path.join(paths.packagedRoot, 'resources');
+  const postgresRoot = path.join(resources, 'postgres');
   const required = [
     path.join(paths.packagedRoot, `${identity.product.executableName}.exe`),
     path.join(resources, 'app.asar'),
@@ -67,6 +88,9 @@ export async function auditRequiredPackagedRuntime(paths, identity) {
   const missing = [];
   for (const file of required) if (!(await existsFile(file))) missing.push(path.relative(paths.packagedRoot, file));
   if (missing.length) throw new Error(`Required packaged runtime files are missing:\n${missing.join('\n')}`);
+  const postgresManifest = await readPostgresManifest(path.join(paths.desktopRoot, 'postgres-runtime.json'));
+  await verifyMicrosoftRuntime(postgresRoot, postgresManifest);
+  await verifyPackagedPostgresCommands(postgresRoot);
   return required;
 }
 

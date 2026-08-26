@@ -10,6 +10,8 @@ The installer uses Electron Forge 7.11.2 with Squirrel.Windows as a per-user, no
 
 The installer bundles Electron/Node, the Next.js 16.3.1 standalone server, Prisma 5.22, all migrations, and PostgreSQL 16.14 x64 (`bin`, `lib`, and `share`). System Node.js, npm, Prisma, PostgreSQL, Git, Docker, WSL, DNS, telemetry, or a cloud account are not required for normal operation.
 
+PostgreSQL's Windows binaries depend on the Microsoft Visual C++ v14 runtime. To preserve the per-user, offline, no-admin installation model, the release pipeline app-locally deploys `vcruntime140.dll`, `vcruntime140_1.dll`, and `msvcp140.dll` beside the PostgreSQL executables. They are extracted during the build from Microsoft's official x64 Redistributable version 14.51.36247.0; the source executable, extraction tool, and each deployed DLL are pinned by SHA-256 in `apps/desktop/postgres-runtime.json`. The pipeline never copies runtime DLLs from the build machine, never downloads them at customer startup, and statically verifies the packaged PE dependency closure.
+
 The same generic installer is used for every club. Entitlement is supplied separately as an offline signed `*.pasko-license` file bound to the Installation ID. Customer data, activated licenses, test licenses, private signing keys, Installation IDs, and database clusters are forbidden in release artifacts.
 
 Production data lives in `pasko_performance`. The isolated synthetic Demo Workspace lives in `pasko_performance_demo` and uses `PASKO_DEMO_VOLLEYBALL_V1` version 1.0. Production backups and recovery snapshots exclude Demo data. Demo reset accepts exactly `СБРОСИТЬ ДЕМО` and never accepts a renderer-controlled database target.
@@ -30,7 +32,7 @@ The canonical output directory is `release/` and contains exactly:
 - `SHA256SUMS.txt`
 - `release-manifest.json`
 
-`release:windows` validates synchronized versions, builds and verifies Next standalone, prepares and verifies PostgreSQL and Prisma, creates the Electron x64 package and Squirrel installer, rejects missing runtime files and forbidden artifact names, copies one canonical Setup executable, and writes its SHA-256 and machine-readable manifest. Generated release and Forge outputs are ignored by Git.
+`release:windows` validates synchronized versions, builds and verifies Next standalone, prepares and verifies PostgreSQL (including the app-local Microsoft VC++ runtime and PE dependency closure) and Prisma, creates the Electron x64 package and Squirrel installer, rejects missing runtime files and forbidden artifact names, copies one canonical Setup executable, and writes its SHA-256 and machine-readable manifest. Generated release and Forge outputs are ignored by Git.
 
 Verify a downloaded installer by calculating SHA-256 and comparing it with both `SHA256SUMS.txt` and `release-manifest.json`. Exact binary hashes can differ between separate builds because Squirrel embeds build timestamps; structure and version naming are deterministic, but bit-for-bit reproducibility is not claimed.
 

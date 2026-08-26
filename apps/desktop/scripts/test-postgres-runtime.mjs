@@ -14,6 +14,20 @@ let credentials = { bootstrapPassword: randomBytes(32).toString('base64url'), ap
 const paths = resolvePostgresPaths({ resourcesPath, localAppData: temporaryRoot, dataRoot: temporaryRoot });
 let runtime;
 
+async function assertVersionCommands() {
+  for (const executable of ['initdb.exe', 'postgres.exe', 'pg_ctl.exe', 'pg_dump.exe', 'pg_restore.exe']) {
+    const output = await new Promise((resolve, reject) => {
+      const child = spawn(path.join(path.dirname(paths.bin.initdb), executable), ['--version'], { env: { SystemRoot: process.env.SystemRoot, WINDIR: process.env.WINDIR, PATH: `${process.env.SystemRoot}\\System32` }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      let text = '';
+      child.stdout.on('data', (chunk) => { text += String(chunk); });
+      child.stderr.on('data', (chunk) => { text += String(chunk); });
+      child.once('error', reject);
+      child.once('exit', (code) => code === 0 ? resolve(text) : reject(new Error(`${executable} --version exited ${code}`)));
+    });
+    if (!/16\.14/.test(output)) throw new Error(`${executable} returned an unexpected version`);
+  }
+}
+
 async function assertLoopbackOnly(port) {
   const output = await new Promise((resolve, reject) => { const child = spawn('C:\\Windows\\System32\\netstat.exe', ['-ano', '-p', 'tcp'], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }); let text = ''; child.stdout.on('data', (chunk) => { text += String(chunk); }); child.once('error', reject); child.once('exit', (code) => code === 0 ? resolve(text) : reject(new Error(`netstat exited ${code}`))); });
   const listeners = output.split(/\r?\n/).filter((line) => line.includes(`:${port}`) && /LISTENING/i.test(line));
@@ -21,6 +35,7 @@ async function assertLoopbackOnly(port) {
 }
 
 try {
+  await assertVersionCommands();
   if (!(await initializeCluster(paths, credentials.bootstrapPassword))) throw new Error('Disposable cluster was not initialized');
   runtime = await startPostgres(paths, credentials.bootstrapPassword);
   await assertLoopbackOnly(runtime.port);
@@ -45,7 +60,7 @@ try {
   const recovered = await executeSql({ runtime, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEFAULT_DATABASE, sql: 'SELECT value FROM phase4_persistence WHERE id=1;\n' });
   if (recovered !== 'survives-restart') throw new Error('Unclean recovery value mismatch');
   await runtime.stop(); runtime = undefined;
-  console.log(`PostgreSQL integration PASS: initdb, SCRAM, create database, credential rotation/old rejection, persistence, unclean recovery, loopback listener, fast shutdown (${BOOTSTRAP_USER}/${APPLICATION_USER}; credentials redacted)`);
+  console.log(`PostgreSQL integration PASS: five packaged --version commands, initdb, SCRAM, create database, credential rotation/old rejection, persistence, unclean recovery, loopback listener, fast shutdown (${BOOTSTRAP_USER}/${APPLICATION_USER}; credentials redacted)`);
 } finally {
   if (runtime) await runtime.stop().catch(() => undefined);
   await rm(temporaryRoot, { recursive: true, force: true });

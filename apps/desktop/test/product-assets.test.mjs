@@ -28,3 +28,11 @@ test('Forge uses the official Windows icon and no club product icon', () => {
   assert.match(metadata, /\/brand\/pasko\/apple-touch-icon\.png/);
   assert.doesNotMatch(`${forgeConfig}\n${metadata}`, /Yaroslavich|Ярославич|\/logo\.png/);
 });
+
+test('package and make entry points prepare and verify PostgreSQL runtime', () => {
+  const rootPackage = JSON.parse(readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'));
+  for (const script of ['desktop:package', 'desktop:make']) {
+    assert.match(rootPackage.scripts[script], /desktop:postgres:prepare/);
+    assert.match(rootPackage.scripts[script], /desktop:postgres:verify/);
+  }
+});

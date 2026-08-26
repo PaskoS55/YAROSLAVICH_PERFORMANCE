@@ -4,14 +4,35 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { createRequire } from 'node:module';
-import { assertChecksum, assertSafePostgresStagingPath, POSTGRES_RUNTIME_DIRECTORIES, validatePostgresManifest } from '../scripts/postgres-runtime-layout.mjs';
+import { assertChecksum, assertSafePostgresStagingPath, POSTGRES_RUNTIME_DIRECTORIES, readPortableExecutableImports, REQUIRED_SMOKE_EXECUTABLES, validatePostgresManifest, verifyMicrosoftRuntime } from '../scripts/postgres-runtime-layout.mjs';
 import { buildInitDbCommand, buildLocalDatabaseUrl, buildPgCtlStartCommand, buildPgCtlStopCommand, detectClusterState, detectLegacyDataRoot, redactDatabaseText, resolvePostgresPaths, retainPostgresLogs } from '../dist/main/postgres.js';
 import { loadProductIdentity, resolveProductIdentityPath } from '../dist/main/product-identity.js';
 
 test('validates the pinned PostgreSQL runtime manifest', () => {
-  const manifest = { version: '16.14', major: 16, platform: 'win32', arch: 'x64', archive: 'postgresql-16.14-2-windows-x64-binaries.zip', url: 'https://get.enterprisedb.com/postgresql/postgresql-16.14-2-windows-x64-binaries.zip', sha256: 'a'.repeat(64) };
+  const require = createRequire(import.meta.url);
+  const manifest = require('../postgres-runtime.json');
   assert.equal(validatePostgresManifest(manifest), manifest);
   assert.throws(() => validatePostgresManifest({ ...manifest, major: 17 }));
+});
+
+test('pins the Microsoft VC++ app-local runtime provenance and exact dependency set', () => {
+  const require = createRequire(import.meta.url);
+  const manifest = validatePostgresManifest(require('../postgres-runtime.json'));
+  assert.equal(manifest.microsoftRuntime.version, '14.51.36247.0');
+  assert.equal(new URL(manifest.microsoftRuntime.url).hostname, 'download.visualstudio.microsoft.com');
+  assert.deepEqual(manifest.microsoftRuntime.files.map((item) => item.target).sort(), ['msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll']);
+});
+
+test('packaged PostgreSQL PE dependency closure is self-contained', async () => {
+  const require = createRequire(import.meta.url);
+  const manifest = validatePostgresManifest(require('../postgres-runtime.json'));
+  const runtimeRoot = path.join(path.resolve(import.meta.dirname, '..'), '.runtime', 'postgres');
+  const result = await verifyMicrosoftRuntime(runtimeRoot, manifest);
+  for (const executable of REQUIRED_SMOKE_EXECUTABLES) assert.ok(result.files.includes(executable));
+  assert.ok(result.imports.includes('vcruntime140.dll'));
+  assert.ok(result.imports.includes('msvcp140.dll'));
+  assert.ok(result.imports.includes('vcruntime140_1.dll'));
+  assert.ok((await readPortableExecutableImports(path.join(runtimeRoot, 'bin', 'initdb.exe'))).includes('vcruntime140.dll'));
 });
 
 test('packages only the PostgreSQL server runtime directories', () => {
