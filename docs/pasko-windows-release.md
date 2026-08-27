@@ -18,6 +18,31 @@ Production data lives in `pasko_performance`. The isolated synthetic Demo Worksp
 
 ## Build and verification
 
+### Accepted v1.0 build-chain security exception
+
+The release owner approved this exception on 2026-08-27 for v1.0, based on source/lockfile baseline `53bc5eade77c62a8810e76db08b58f41ad9ea8c4`:
+
+- `npm audit --omit=dev`: 0 vulnerabilities. Customer runtime dependencies are unaffected according to the current npm audit; this is not a claim that the whole product has no security risks.
+- Full `npm audit`: FAIL, 4 low / 22 high / 1 critical; ACCEPTED BUILD-CHAIN SECURITY EXCEPTION, not an audit PASS.
+- Affected area: build/dev tooling. The principal critical is `tar@6.2.1`, reached through Electron Forge 7.11.2 / `@electron/rebuild@3.7.2`, including its `@electron/node-gyp` and `make-fetch-happen` / `cacache` paths. Other affected tooling includes `extract-zip` and `tmp`.
+- No confirmed compatible security backport exists for the current Forge toolchain. Remediation is scheduled post-v1.0 as a separate build-toolchain migration, including assessment of the Node baseline, Packager and Rebuild. No breaking migration or unsafe `tar` override is approved for this RC.
+- Re-run both audits for every RC. Different counts, new advisories or customer/runtime findings require fresh review; this exception does not automatically accept them.
+
+Mandatory v1.0 build mitigations:
+
+1. Build only from the trusted repository and reviewed worktree.
+2. Do not process untrusted archives or external build inputs; use only the approved, pinned build inputs.
+3. Use the committed `package-lock.json` without changing the dependency tree.
+4. Install with `npm ci`, not ad hoc dependency updates.
+5. Use a trusted, protected build machine.
+6. Inspect Git status/worktree before release and account for every change.
+7. Verify the final installer SHA-256 after building.
+8. Run repository and packaged-artifact private-key/security scans.
+9. Never place production private keys in the repository or build tree.
+10. Never use `npm audit fix --force` to satisfy this gate.
+
+Licensing remains FROZEN / ENFORCEMENT OFF. This exception changes neither licensing nor application/security/database behavior, and does not waive the separate clean-Windows and signing RC gates below.
+
 From a clean source tree on Windows x64:
 
 ```powershell
