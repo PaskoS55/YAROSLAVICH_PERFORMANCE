@@ -12,6 +12,7 @@ export function getInternalUrl(value = process.env.PASKO_PERFORMANCE_DESKTOP_DEV
 export function classifyNavigation(target: string, internalUrl: URL): NavigationDecision {
   let candidate: URL;
   try { candidate = new URL(target); } catch { return 'blocked'; }
+  if (candidate.username || candidate.password) return 'blocked';
   if (candidate.origin === internalUrl.origin) return 'internal';
   if (candidate.protocol === 'https:' && !candidate.username && !candidate.password) return 'external';
   return 'blocked';

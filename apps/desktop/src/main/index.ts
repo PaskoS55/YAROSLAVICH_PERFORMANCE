@@ -3,7 +3,7 @@ import path from "node:path";
 import { handleSquirrelStartup } from "./squirrel-startup";
 import { startPackagedNext, type PackagedNextRuntime } from "./packaged-next";
 import { resolveRuntimeTarget } from "./runtime-paths";
-import { classifyNavigation } from "./url-policy";
+import { installWindowNavigation } from "./window-navigation";
 import { loadProductIdentity } from "./product-identity";
 import {
   resolveE2eDataRoot,
@@ -79,26 +79,7 @@ function createWindow(internalUrl: URL, demoUrl?: URL): void {
       devTools: isDevelopment,
     },
   });
-  mainWindow.webContents.on("will-navigate", (event, target) => {
-    const parsed = new URL(target);
-    if (demoUrl && parsed.origin === internalUrl.origin && parsed.pathname === '/demo-workspace') {
-      event.preventDefault(); void mainWindow?.loadURL(demoUrl.toString()); return;
-    }
-    if (demoUrl && parsed.origin === demoUrl.origin && parsed.pathname === '/club-workspace') {
-      event.preventDefault(); void mainWindow?.loadURL(internalUrl.toString()); return;
-    }
-    const decision = classifyNavigation(target, internalUrl);
-    if (demoUrl && parsed.origin === demoUrl.origin) return;
-    if (decision === "internal") return;
-    event.preventDefault();
-    if (decision === "external") openExternal(target);
-  });
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    const parsed = new URL(url);
-    if (demoUrl && (parsed.origin === internalUrl.origin || parsed.origin === demoUrl.origin)) return { action: "deny" };
-    if (classifyNavigation(url, internalUrl) === "external") openExternal(url);
-    return { action: "deny" };
-  });
+  installWindowNavigation(mainWindow.webContents, internalUrl, demoUrl, openExternal);
   mainWindow.once("ready-to-show", () => mainWindow?.show());
   mainWindow.on("closed", () => {
     mainWindow = null;

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-async function doLogout(req: Request) {
-  const res = NextResponse.redirect(new URL("/login", req.url), 303);
+async function doLogout() {
+  const res = new NextResponse(null, { status: 303, headers: { Location: '/login', 'Cache-Control': 'no-store' } });
   const isProduction =
     process.env.NODE_ENV === "production" &&
     process.env.APP_RUNTIME !== "desktop";
@@ -10,13 +10,14 @@ async function doLogout(req: Request) {
     path: "/",
     secure: isProduction,
   });
+  res.cookies.delete({ name: 'pasko_demo_capability', path: '/', secure: isProduction });
   return res;
 }
 
-export async function POST(req: Request) {
-  return doLogout(req);
+export async function POST() {
+  return doLogout();
 }
 
-export async function GET(req: Request) {
-  return doLogout(req);
+export async function GET() {
+  return doLogout();
 }
