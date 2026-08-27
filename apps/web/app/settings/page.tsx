@@ -15,7 +15,7 @@ import { changePassword } from "./security-actions";
 import { CopyInstallationId } from "./copy-installation-id";
 import { OrganizationBrandingForm } from "./organization-branding-form";
 import { loadTeamReferenceProfile } from "../../lib/references";
-import { getRuntimeLicenseState, readLicenseMetadata } from '../../lib/license-policy';
+import { LICENSING_ENFORCEMENT, getRuntimeLicenseState, readLicenseMetadata } from '../../lib/license-policy';
 import { PRODUCT_VERSION, PRODUCT_VERSION_MAJOR_MINOR } from '../../lib/product-version';
 import { isDemoWorkspace } from '../../lib/workspace';
 import { DemoResetForm } from './demo-reset-form';
@@ -249,7 +249,7 @@ export default async function SettingsPage() {
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-lg font-bold">Лицензия</h2>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm"><dt>Статус</dt><dd>{licenseState === 'VALID' ? 'Активна' : licenseState}</dd><dt>Клуб</dt><dd>{license?.customerName ?? '—'}</dd><dt>License ID</dt><dd>{license?.licenseId ?? '—'}</dd><dt>План</dt><dd>{license?.plan ?? '—'}</dd><dt>Срок действия</dt><dd>{license?.expiresAt ?? 'Бессрочно'}</dd><dt>Key ID</dt><dd>{license?.keyId ?? '—'}</dd></dl>
-        <Link href="/license?replace=1" className="btn-secondary mt-4 inline-block">Заменить лицензию</Link>
+        {LICENSING_ENFORCEMENT ? <Link href="/license?replace=1" className="btn-secondary mt-4 inline-block">Заменить лицензию</Link> : <p className="mt-4 text-sm">Обязательное лицензирование в v1.0 отключено. Все функции VOLLEYBALL доступны независимо от состояния файла лицензии.</p>}
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white p-6">

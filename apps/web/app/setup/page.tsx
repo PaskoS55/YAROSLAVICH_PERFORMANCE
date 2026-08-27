@@ -6,9 +6,9 @@ import {
 } from "@pasko-performance/core/product";
 import { prisma } from "../../lib/prisma";
 import { SetupWizard } from "./setup-wizard";
-import { getRuntimeLicenseState } from '../../lib/license-policy';
+import { operationalLicenseAllowed } from '../../lib/license-policy';
 export default async function SetupPage() {
-  if (getRuntimeLicenseState() !== 'VALID') redirect('/license');
+  if (!operationalLicenseAllowed()) redirect('/license');
   if (await prisma.localUser.count()) redirect("/login");
   const organization = await prisma.organization.findFirst({
     where: { deletedAt: null },

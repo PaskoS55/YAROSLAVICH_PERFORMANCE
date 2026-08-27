@@ -1,10 +1,11 @@
 import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { PRODUCT_ASSETS, PRODUCT_IDENTITY } from '@pasko-performance/core/product';
-import { getRuntimeLicenseState, readLicenseMetadata } from '../../lib/license-policy';
+import { LICENSING_ENFORCEMENT, getRuntimeLicenseState, readLicenseMetadata } from '../../lib/license-policy';
 import { LicenseActivation } from './license-activation';
 
 export default async function LicensePage({ searchParams }: { searchParams: Promise<{ replace?: string }> }) {
+  if (!LICENSING_ENFORCEMENT) redirect('/setup');
   const state = getRuntimeLicenseState();
   const replacing = (await searchParams).replace === '1';
   if (state === 'VALID' && !replacing) redirect('/setup');

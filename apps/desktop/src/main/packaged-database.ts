@@ -147,6 +147,7 @@ export async function migrateAndBootstrapDemo(input: {
 }
 
 export async function startPackagedDatabase(input: {
+  licensingEnforcement?: boolean;
   resourcesPath: string;
   localAppData: string;
   dataRoot?: string;
@@ -210,7 +211,7 @@ export async function startPackagedDatabase(input: {
       throw error;
     }
     let demoDatabaseUrl: string | null = null;
-    if (input.source.PASKO_LICENSE_STATE === 'VALID') {
+    if (input.licensingEnforcement === false || input.source.PASKO_LICENSE_STATE === 'VALID') {
       try {
         await ensureDemoDatabase(postgres, active);
         const candidate = buildLocalDatabaseUrl({ host: '127.0.0.1', port: postgres.port, database: DEMO_DATABASE, username: APPLICATION_USER, password: active.applicationPassword });

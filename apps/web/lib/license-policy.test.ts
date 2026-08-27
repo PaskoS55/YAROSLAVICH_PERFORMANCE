@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getRuntimeLicenseState, operationalLicenseRequired, trialDisplay } from './license-policy';
+import { LICENSING_ENFORCEMENT, getRuntimeLicenseState, operationalLicenseAllowed, operationalLicenseRequired, trialDisplay } from './license-policy';
 
 describe('trusted runtime license policy', () => {
   it('allows explicit non-desktop development only', () => {
@@ -7,9 +7,17 @@ describe('trusted runtime license policy', () => {
     expect(getRuntimeLicenseState({ NODE_ENV: 'production', APP_RUNTIME: 'desktop', PASKO_LICENSE_MODE: 'development' })).toBe('UNLICENSED');
     expect(getRuntimeLicenseState({ NODE_ENV: 'development', APP_RUNTIME: 'desktop', PASKO_LICENSE_MODE: 'development' })).toBe('UNLICENSED');
   });
-  it('blocks operational mutations while backup/recovery policy can remain separate', () => {
-    expect(() => operationalLicenseRequired({ NODE_ENV: 'production', APP_RUNTIME: 'desktop', PASKO_LICENSE_STATE: 'EXPIRED' })).toThrow('LICENSE_RESTRICTED');
-    expect(() => operationalLicenseRequired({ NODE_ENV: 'production', APP_RUNTIME: 'desktop', PASKO_LICENSE_STATE: 'VALID' })).not.toThrow();
+  it.each(['UNLICENSED', 'INVALID', 'EXPIRED', 'VALID', 'WRONG_INSTALLATION', 'NOT_YET_VALID', 'CLOCK_ROLLBACK_SUSPECTED'])('allows v1.0 operations for %s without falsifying verification state', (state) => {
+    const env: NodeJS.ProcessEnv = { NODE_ENV: 'production', APP_RUNTIME: 'desktop', PASKO_LICENSE_STATE: state };
+    expect(LICENSING_ENFORCEMENT).toBe(false);
+    expect(getRuntimeLicenseState(env)).toBe(state);
+    expect(operationalLicenseAllowed(env)).toBe(true);
+    expect(() => operationalLicenseRequired(env)).not.toThrow();
+  });
+  it('cannot toggle product enforcement through environment variables', () => {
+    for (const value of ['ON', 'OFF', 'true', 'false', '1', '0']) {
+      expect(operationalLicenseAllowed({ NODE_ENV: 'production', APP_RUNTIME: 'desktop', LICENSING_ENFORCEMENT: value, PASKO_LICENSE_ENFORCEMENT: value })).toBe(true);
+    }
   });
 });
 

@@ -1,4 +1,12 @@
+import { PRODUCT_IDENTITY } from '@pasko-performance/core/product';
+
+// Build/product configuration only. Never read enforcement from process.env.
+export const LICENSING_ENFORCEMENT = PRODUCT_IDENTITY.licensingEnforcement;
 export type RuntimeLicenseState = 'UNLICENSED' | 'VALID' | 'EXPIRED' | 'INVALID' | 'WRONG_INSTALLATION' | 'NOT_YET_VALID' | 'CLOCK_ROLLBACK_SUSPECTED';
+
+export function operationalLicenseAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  return !LICENSING_ENFORCEMENT || getRuntimeLicenseState(env) === 'VALID';
+}
 
 export function getRuntimeLicenseState(env: NodeJS.ProcessEnv = process.env): RuntimeLicenseState {
   if ((env.NODE_ENV === 'development' || env.NODE_ENV === 'test') && env.APP_RUNTIME !== 'desktop' && env.PASKO_LICENSE_MODE === 'development') return 'VALID';
@@ -7,7 +15,7 @@ export function getRuntimeLicenseState(env: NodeJS.ProcessEnv = process.env): Ru
 }
 
 export function operationalLicenseRequired(env: NodeJS.ProcessEnv = process.env): void {
-  if (getRuntimeLicenseState(env) !== 'VALID') throw new Error('LICENSE_RESTRICTED');
+  if (!operationalLicenseAllowed(env)) throw new Error('LICENSE_RESTRICTED');
 }
 
 export function readLicenseMetadata(env: NodeJS.ProcessEnv = process.env): Record<string, string | null> | null {

@@ -185,6 +185,7 @@ async function startApplication(): Promise<void> {
     const services = await startPackagedServices({
       startDatabase: async () => {
         const runtime = await startPackagedDatabase({
+          licensingEnforcement: product.licensingEnforcement,
           resourcesPath: process.resourcesPath,
           localAppData,
           dataRoot,

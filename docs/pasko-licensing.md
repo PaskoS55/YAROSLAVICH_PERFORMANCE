@@ -1,5 +1,11 @@
 # PASKO licensing foundation
 
+## v1.0 release policy: FROZEN / ENFORCEMENT OFF
+
+`packages/core/product-identity.json` sets `licensingEnforcement: false`. This is build/product configuration, not an environment override. All VOLLEYBALL v1.0 features and Demo are available regardless of missing, invalid, expired or valid license files. New installations proceed to First Run; configured installations proceed to Login. `/license` redirects into that normal flow; no activation or trial-expiry banner is required.
+
+LicenseStore, actual license-state diagnostics, Ed25519 verification, public keys 2026_01/2026_03, activation IPC and the separate Issuer remain intact. Authentication, Installation ID, safeStorage, database migrations and recovery authorization are unchanged. Re-enable enforcement by changing the single product field to `true` and rebuilding both desktop and web; rerun the enforced-policy acceptance tests before release. Do not use an external environment variable to toggle this policy.
+
 Licensing authorizes a club installation to use PASKO Performance. It is separate from LocalUser authentication, the Recovery Key and the immutable Installation ID.
 
 ## Offline license

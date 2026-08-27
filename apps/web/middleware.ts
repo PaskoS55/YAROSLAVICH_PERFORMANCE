@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { readDemoCapability, readSession, verifySession } from "./lib/session";
 import { DEMO_CAPABILITY_COOKIE } from './lib/workspace';
-import { getRuntimeLicenseState } from './lib/license-policy';
+import { operationalLicenseAllowed } from './lib/license-policy';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
   const demoBlocked = pathname.startsWith('/api/backup') || pathname.startsWith('/api/restore') || pathname.startsWith('/api/export') || pathname.startsWith('/api/import') || pathname.startsWith('/import') || pathname.startsWith('/recover') || pathname.startsWith('/setup') || pathname.startsWith('/settings/diagnostics');
   if (demo && demoBlocked) return NextResponse.json({ error: 'Операция недоступна в демонстрационном пространстве.' }, { status: 403 });
   const licensePublic = pathname.startsWith('/license') || pathname.startsWith('/login') || pathname.startsWith('/recover') || pathname.startsWith('/api/backup') || pathname.startsWith('/api/export') || pathname.startsWith('/api/restore') || pathname.startsWith('/api/diagnostics') || pathname.startsWith('/api/support-bundle') || pathname.startsWith('/settings/diagnostics') || pathname.startsWith('/api/auth');
-  if (getRuntimeLicenseState() !== 'VALID' && !licensePublic && !/\.(png|jpe?g|webp|svg|ico|css|js)$/.test(pathname)) return NextResponse.redirect(new URL('/license', request.url));
+  if (!operationalLicenseAllowed() && !licensePublic && !/\.(png|jpe?g|webp|svg|ico|css|js)$/.test(pathname)) return NextResponse.redirect(new URL('/license', request.url));
 
   // Открытые пути: вход, auth-API и статические файлы
   if (

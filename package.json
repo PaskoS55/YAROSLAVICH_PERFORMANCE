@@ -23,6 +23,7 @@
     "desktop:prisma:verify": "node apps/desktop/scripts/verify-prisma-runtime.mjs",
     "desktop:prisma:test": "npm run build --workspace @pasko-performance/desktop && npm run desktop:prisma:prepare && node apps/desktop/scripts/test-prisma-embedded-runtime.mjs",
     "desktop:demo:test": "npm run build --workspace @pasko-performance/desktop && npm run desktop:prisma:prepare && node apps/desktop/scripts/test-demo-workspace.mjs",
+    "desktop:licensing:test": "npm run build --workspace @pasko-performance/desktop && node apps/desktop/scripts/test-licensing-freeze.mjs",
     "test:context:integration": "tsx apps/web/scripts/test-context-integration.ts",
     "desktop:package": "npm run desktop:web:build && npm run desktop:postgres:prepare && npm run desktop:postgres:verify && npm run desktop:prisma:prepare && npm run desktop:prisma:verify && npm run build --workspace @pasko-performance/desktop && npm run package --workspace @pasko-performance/desktop",
     "release:windows": "node apps/desktop/scripts/release-windows.mjs",
