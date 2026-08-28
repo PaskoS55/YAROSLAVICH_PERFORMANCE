@@ -6,7 +6,7 @@ export default function RadarChart({
   teamValues,
   playerLabel,
 }: {
-  categories: { id: string; name: string }[];
+  categories: { id: string; name: string; description?: string }[];
   values: (number | null)[];
   teamValues: (number | null)[];
   playerLabel: string;
@@ -24,7 +24,7 @@ export default function RadarChart({
 
   return (
     <>
-      <svg viewBox="0 0 260 240" className="w-full">
+      <svg viewBox="0 0 260 240" className="w-full" role="img" aria-label="Профиль игрока по категориям">
         {[25, 50, 75, 100].map((lvl) => (
           <polygon
             key={lvl}
@@ -47,6 +47,7 @@ export default function RadarChart({
           const val = values[i];
           return (
             <text key={c.id} x={lx} y={ly} fontSize="9" textAnchor="middle" fill="#6b7280">
+              {c.description && <title>{c.description}</title>}
               {c.name} {val !== null ? val : '—'}
             </text>
           );

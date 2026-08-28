@@ -40,6 +40,10 @@ try {
   const qcIsolation = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT (SELECT count(*) FROM test_results WHERE "qcStatus"='FAILED'),(SELECT count(*) FROM test_results WHERE "qcStatus"='FAILED' AND (score IS NOT NULL OR "pbAchieved"=true));` });
   if (qcIsolation !== '1|0') throw new Error(`QC fixture contributes downstream: ${qcIsolation}`);
   await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `UPDATE players SET "firstName"='Изменено' WHERE id='demo-player-01';` });
+  await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `DELETE FROM audit_logs WHERE id='demo-reference-compatibility';` });
+  if (await run(path.join(prismaRoot, 'bootstrap-demo.cjs'), [], prismaEnv(demoUrl)) !== 0) throw new Error('Existing Demo profile compatibility upgrade failed');
+  const upgrade = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT (SELECT "firstName" FROM players WHERE id='demo-player-01'),(SELECT count(*) FROM test_results),(SELECT count(*) FROM audit_logs WHERE id='demo-reference-compatibility');` });
+  if (upgrade !== 'Изменено|504|1') throw new Error('Existing Demo upgrade changed player/results or omitted compatibility declaration');
   if (await run(path.join(prismaRoot, 'bootstrap-demo.cjs'), [], prismaEnv(demoUrl, { PASKO_DEMO_RESET: '1' })) !== 0) throw new Error('Demo reset failed');
   const resetName = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT "firstName" FROM players WHERE id='demo-player-01';` });
   if (resetName !== 'Антон') throw new Error('Demo reset did not restore canonical baseline');

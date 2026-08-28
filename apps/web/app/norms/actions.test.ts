@@ -9,9 +9,11 @@ const mocks = vi.hoisted(() => ({
   profileCreate: vi.fn(),
   entryCreate: vi.fn(),
   entrySourceCreateMany: vi.fn(),
+  auditCreate: vi.fn(),
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('../../lib/current-user', () => ({ requireCurrentUser: vi.fn(async () => ({ id: 'admin' })) }));
 vi.mock('../../lib/app-context', () => ({ requireAppContext: vi.fn(async () => mocks.context) }));
 vi.mock('../../lib/prisma', () => ({
   prisma: {
@@ -22,6 +24,8 @@ vi.mock('../../lib/prisma', () => ({
       normProfile: { create: mocks.profileCreate },
       normEntry: { create: mocks.entryCreate },
       normEntrySource: { createMany: mocks.entrySourceCreateMany },
+      team: { update: mocks.teamUpdate },
+      auditLog: { create: mocks.auditCreate },
     })),
   },
 }));
@@ -106,5 +110,17 @@ describe('reference profile server actions', () => {
   it('exposes no delete action for reference profiles', () => {
     expect(actions).not.toHaveProperty('deleteReferenceProfile');
     expect(actions).not.toHaveProperty('deleteReferenceEntry');
+  });
+
+  it('requires compatibility confirmation and records only the server-selected team/profile metadata', async () => {
+    const profile = { ...legacyProfile, id: 'system', scope: 'SYSTEM' };
+    mocks.profileFindFirst.mockResolvedValue(profile);
+    const form = new FormData(); form.set('profileId', 'system'); form.set('teamId', 'forged'); form.set('sex', 'FEMALE');
+    expect(await actions.assignReferenceProfile(null, form)).toHaveProperty('error');
+    expect(mocks.teamUpdate).not.toHaveBeenCalled();
+    form.set('compatibilityConfirmed', 'yes');
+    expect(await actions.assignReferenceProfile(null, form)).toMatchObject({ ok: true });
+    expect(mocks.teamUpdate).toHaveBeenCalledWith({ where: { id: 'team-current' }, data: { activeNormProfileId: 'system' } });
+    expect(mocks.auditCreate.mock.calls[0][0].data).toMatchObject({ entityId: 'team-current', newValues: { profileId: 'system', version: 'legacy', sex: 'MALE' } });
   });
 });

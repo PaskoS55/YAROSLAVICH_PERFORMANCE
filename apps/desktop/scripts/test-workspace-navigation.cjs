@@ -50,7 +50,7 @@ async function main() {
     INSERT INTO seasons(id,name,"startDate","endDate","updatedAt") VALUES ('nav-season','Synthetic Season','2026-01-01','2027-01-01',now());
     INSERT INTO "_SeasonToTeam"("A","B") VALUES ('nav-season','nav-team');`);
   const counts = `SELECT (SELECT count(*) FROM organizations),(SELECT count(*) FROM teams),(SELECT count(*) FROM players),(SELECT count(*) FROM test_sessions),(SELECT count(*) FROM test_results),(SELECT count(*) FROM local_users);`;
-  const clubBefore = await sql(counts); const demoBefore = await sql(counts, DEMO_DATABASE);
+  let clubBefore = await sql(counts); let demoBefore = await sql(counts, DEMO_DATABASE);
   club = await startPackagedNext(runtime.serverPath, database.databaseUrl, source);
   demo = await startPackagedNext(runtime.serverPath, database.demoDatabaseUrl, { ...source, PASKO_WORKSPACE: 'demo', PASKO_DEMO_DATASET_VERSION: '1.0' });
   const now = Date.now(); const payload = Buffer.from(JSON.stringify({ version: 1, userId: 'nav-admin', issuedAt: now, expiresAt: now + 3600000 })).toString('base64url');
@@ -63,6 +63,8 @@ async function main() {
   contents.session.webRequest.onCompleted((event) => { if (event.resourceType === 'mainFrame') completed.push(new URL(event.url)); });
   installWindowNavigation(contents, club.origin, demo.origin, (url) => external.push(url));
   await win.loadURL(club.origin.href); await at(club.origin.href);
+  await require('./test-player-profile.cjs')({ win, club, demo, sql, auth, demoDatabase: DEMO_DATABASE });
+  clubBefore = await sql(counts); demoBefore = await sql(counts, DEMO_DATABASE);
   const enter = async () => { await click('a[href="/api/demo-enter"]'); await at(demo.origin.href); };
   await enter();
   const cookies = await contents.session.cookies.get({ url: demo.origin.href });

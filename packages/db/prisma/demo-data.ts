@@ -36,6 +36,14 @@ const checkpoints = [
 const baseValues: Record<string, number> = { PWR_CMJ: 39, SPD_10: 1.82, SPD_20: 3.18, AGI_TTEST: 9.75, VB_APP: 338, VB_BLOCK: 318, BC_MASS: 91, BC_FAT: 13.5, BC_FFM: 78.7 };
 const progress: Record<string, number> = { PWR_CMJ: 1.2, SPD_10: -0.025, SPD_20: -0.035, AGI_TTEST: -0.08, VB_APP: 2.1, VB_BLOCK: 1.5, BC_MASS: 0.1, BC_FAT: -0.25, BC_FFM: 0.3 };
 
+// Known synthetic adult male volleyball cohort, not an inference about user data.
+async function confirmSyntheticReference(db: Db) {
+  const team = await db.team.findUnique({ where: { id: 'demo-team' }, include: { activeNormProfile: true } });
+  const profile = team?.activeNormProfile;
+  if (team?.organizationId !== 'demo-organization' || profile?.code !== PASKO_REFERENCE_V1_CODE) return;
+  await db.auditLog.upsert({ where: { id: 'demo-reference-compatibility' }, update: {}, create: { id: 'demo-reference-compatibility', action: 'REFERENCE_PROFILE_COMPATIBILITY_CONFIRMED', entity: 'Team', entityId: team.id, newValues: { profileId: profile.id, version: profile.version, sport: profile.sport, sex: profile.sex, ageGroup: profile.ageGroup, level: profile.level } } });
+}
+
 async function clearDemo(db: Db, capability: symbol): Promise<void> {
   if (capability !== RESET_CAPABILITY) throw new Error('DEMO_RESET_CAPABILITY_REJECTED');
   await db.qCFlag.deleteMany(); await db.testResult.deleteMany(); await db.bodyComposition.deleteMany();
@@ -54,6 +62,7 @@ async function seedDemoData(db: Db, capability: symbol): Promise<void> {
   const profile = await db.normProfile.findUniqueOrThrow({ where: { code: PASKO_REFERENCE_V1_CODE } });
   await db.organization.create({ data: { id: 'demo-organization', name: 'PASKO Demo Club', shortName: 'PASKO DEMO', code: DEMO_ORGANIZATION_CODE } });
   await db.team.create({ data: { id: 'demo-team', name: 'PASKO Demo Volleyball', code: DEMO_TEAM_CODE, organizationId: 'demo-organization', activeNormProfileId: profile.id } });
+  await confirmSyntheticReference(db);
   await db.season.create({ data: { id: DEMO_SEASON_ID, name: '2026/27', startDate: new Date('2026-08-01T00:00:00.000Z'), endDate: new Date('2027-05-31T23:59:59.000Z'), teams: { connect: { id: 'demo-team' } } } });
   await db.player.createMany({ data: roster.map(([playerId, firstName, lastName, number, position, height], index) => ({ id: `demo-player-${String(index + 1).padStart(2, '0')}`, playerId, firstName, lastName, number, position, height, status: 'ACTIVE', teamId: 'demo-team', birthDate: new Date(`${1995 + (index % 7)}-${String((index % 9) + 1).padStart(2, '0')}-15T00:00:00.000Z`) })) });
   for (let playerIndex = 0; playerIndex < roster.length; playerIndex += 1) {
@@ -89,7 +98,11 @@ async function seedDemoData(db: Db, capability: symbol): Promise<void> {
 export async function initializeDemoDatabase(prisma: PrismaClient, databaseUrl = process.env.DATABASE_URL): Promise<void> {
   assertDemoDatabaseUrl(databaseUrl);
   const existingMarker = await prisma.auditLog.findUnique({ where: { id: 'demo-dataset-identity' } });
-  if (existingMarker) return;
+  if (existingMarker) {
+    if (existingMarker.action !== PASKO_DEMO_DATASET_CODE || existingMarker.entityId !== PASKO_DEMO_DATASET_VERSION) throw new Error('DEMO_DATASET_MARKER_REJECTED');
+    await confirmSyntheticReference(prisma);
+    return;
+  }
   const businessRows = await prisma.organization.count();
   if (businessRows !== 0) throw new Error('UNMARKED_DEMO_DATABASE_NOT_EMPTY');
   await prisma.$transaction((tx) => seedDemoData(tx, RESET_CAPABILITY), { maxWait: 10_000, timeout: 120_000 });

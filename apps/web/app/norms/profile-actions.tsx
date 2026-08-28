@@ -6,7 +6,7 @@ import { assignReferenceProfile, cloneReferenceProfile, updateReferenceEntry, ty
 const initial: ReferenceActionState = null;
 export function AssignProfileButton({ profileId, selected }: { profileId: string; selected: boolean }) {
   const [state, action, pending] = useActionState(assignReferenceProfile, initial);
-  return <form action={action} className="space-y-1"><input type="hidden" name="profileId" value={profileId} /><button disabled={selected || pending} className="btn-primary disabled:opacity-50">{selected ? 'Используется' : pending ? 'Сохраняем…' : 'Использовать'}</button>{state?.error && <p className="text-xs text-red-600">{state.error}</p>}</form>;
+  return <form action={action} className="max-w-sm space-y-2"><input type="hidden" name="profileId" value={profileId} /><label className="block text-xs"><input type="checkbox" name="compatibilityConfirmed" value="yes" required /> Подтверждаю соответствие команды полу, возрастной группе, уровню, единицам и протоколам этого референса. Не применяйте полоспецифичный профиль к смешанной команде.</label><button disabled={pending} className="btn-primary disabled:opacity-50">{pending ? 'Сохраняем…' : selected ? 'Подтвердить совместимость' : 'Подтвердить и использовать'}</button>{state?.error && <p className="text-xs text-red-600">{state.error}</p>}{state?.ok && <p className="text-xs text-green-700">Совместимость подтверждена для текущей команды и версии профиля.</p>}</form>;
 }
 
 export function CloneProfileForm({ profileId, suggestedName }: { profileId: string; suggestedName: string }) {

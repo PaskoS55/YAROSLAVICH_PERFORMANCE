@@ -3,9 +3,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PrintButton from './print-button';
 import RadarChart from '../../../components/RadarChart';
-import { computePercentile } from '../../../lib/analytics';
+import { aggregateProfileScores, profileHighlights, scoreProfileMetric } from '../../../lib/player-profile';
+import { hasProfileConfirmation } from '../../../lib/profile-confirmation';
 import { requireAppContext } from '../../../lib/app-context';
-import { empiricalAnchors, loadTeamReferenceProfile, referenceEntryMap, resolveReferenceEntry } from '../../../lib/references';
+import { loadTeamReferenceProfile, referenceEntryMap, resolveReferenceEntry } from '../../../lib/references';
 
 const positionLabels: Record<string, string> = {
   outside_hitter: 'Доигровщик',
@@ -71,6 +72,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
 
   const referenceProfile = await loadTeamReferenceProfile(context.teamId);
   const referenceByKey = referenceEntryMap(referenceProfile?.entries ?? []);
+  const referenceConfirmed = !!referenceProfile?.explicitlySelected && await hasProfileConfirmation(context.teamId, referenceProfile);
   const referenceLabel = (code: string, unit: string) => {
     const entry = resolveReferenceEntry(referenceByKey, code, player.position);
     if (!entry) return 'Нет референса';
@@ -113,12 +115,16 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
       direction: string;
       alertBelow: number | null;
       alertAbove: number | null;
+      testId: string;
+      measuredAt: Date;
     }
   >();
   for (const s of player.testSessions) {
     for (const r of s.testResults) {
       if (!latest.has(r.testId)) {
         latest.set(r.testId, {
+          testId: r.testId,
+          measuredAt: s.DateTime,
           value: r.value,
           code: r.test.code,
           name: r.test.name,
@@ -146,22 +152,13 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
     }
   }
 
-  const catAcc = new Map<string, { sum: number; count: number }>();
-  for (const { value, code, categoryId, direction } of Array.from(latest.values())) {
-    if (!categoryId || !radarCatIds.has(categoryId)) continue;
-    const pct = computePercentile(value, empiricalAnchors(resolveReferenceEntry(referenceByKey, code, player.position)), direction);
-    if (pct === null) continue;
-    const acc = catAcc.get(categoryId) ?? { sum: 0, count: 0 };
-    acc.sum += pct;
-    acc.count += 1;
-    catAcc.set(categoryId, acc);
-  }
+  const catAcc = aggregateProfileScores(Array.from(latest.values()).filter(m => m.categoryId && radarCatIds.has(m.categoryId)).map(metric => ({ ...metric, score: scoreProfileMetric(metric, resolveReferenceEntry(referenceByKey, metric.code, player.position), referenceProfile, player, referenceConfirmed) })));
 
   const teamAcc = new Map<string, { sum: number; count: number }>();
   for (const tp of allPlayers) {
     const tLatest = new Map<
       string,
-      { value: number; code: string; categoryId: string | null; direction: string }
+      { value: number; code: string; categoryId: string | null; direction: string; name: string; unit: string; testId: string; measuredAt: Date }
     >();
     const sorted = [...tp.testSessions].sort(
       (a, b) => new Date(b.DateTime).getTime() - new Date(a.DateTime).getTime()
@@ -170,6 +167,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
       for (const r of s.testResults) {
         if (!tLatest.has(r.testId)) {
           tLatest.set(r.testId, {
+            testId: r.testId, measuredAt: s.DateTime, name: r.test.name, unit: r.test.unit,
             value: r.value,
             code: r.test.code,
             categoryId: r.test.categoryId,
@@ -178,16 +176,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
         }
       }
     }
-    const pCat = new Map<string, { sum: number; count: number }>();
-    for (const { value, code, categoryId, direction } of Array.from(tLatest.values())) {
-      if (!categoryId || !radarCatIds.has(categoryId)) continue;
-      const pct = computePercentile(value, empiricalAnchors(resolveReferenceEntry(referenceByKey, code, tp.position)), direction);
-      if (pct === null) continue;
-      const acc = pCat.get(categoryId) ?? { sum: 0, count: 0 };
-      acc.sum += pct;
-      acc.count += 1;
-      pCat.set(categoryId, acc);
-    }
+    const pCat = aggregateProfileScores(Array.from(tLatest.values()).filter(m => m.categoryId && radarCatIds.has(m.categoryId)).map(metric => ({ ...metric, score: scoreProfileMetric(metric, resolveReferenceEntry(referenceByKey, metric.code, tp.position), referenceProfile, tp, referenceConfirmed) })));
     for (const [catId, acc] of Array.from(pCat)) {
       const t = teamAcc.get(catId) ?? { sum: 0, count: 0 };
       t.sum += acc.sum / acc.count;
@@ -210,11 +199,10 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
     .map((c) => ({
       key: c.id,
       label: c.name,
-      pct: Math.round(catAcc.get(c.id)!.sum / catAcc.get(c.id)!.count),
+      score: catAcc.get(c.id)!.sum / catAcc.get(c.id)!.count,
     }));
 
-  const strengths = [...cats].sort((a, b) => b.pct - a.pct).slice(0, 3);
-  const zones = [...cats].sort((a, b) => a.pct - b.pct).slice(0, 3);
+  const { strengths, zones } = profileHighlights(cats);
 
   const pbMap = new Map<string, { name: string; unit: string; value: number; date: Date }>();
   for (const s of [...player.testSessions].reverse()) {
@@ -290,9 +278,10 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-lg bg-white p-6 shadow">
           <h2 className="mb-2 text-xl font-bold">Профиль игрока</h2>
+          {!referenceConfirmed && <p className="mb-2 text-sm text-amber-700">Для стандартизированного профиля подтвердите соответствие команды полу, возрасту и уровню выбранного референса в <Link href="/norms" className="underline">«Референсы и нормативы»</Link>. Для возрастных референсов также нужна дата рождения игрока.</p>}
           {radarCategories.length >= 3 ? (
             <RadarChart
-              categories={radarCategories.map((c) => ({ id: c.id, name: c.name }))}
+              categories={radarCategories.map((c) => ({ id: c.id, name: c.name, description: catAcc.get(c.id)?.descriptions.join('; ') ?? 'Недостаточно совместимых данных' }))}
               values={values}
               teamValues={teamValues}
               playerLabel="Игрок"
@@ -304,21 +293,22 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
             </p>
           )}
           <p className="mt-2 text-xs text-gray-500">
-            Средний процентиль (0–100) относительно нормативов амплуа «{positionLabels[player.position]}».
+            Стандартизированный профиль: 50 — среднее референсной группы, 60 — +1 SD, 40 — −1 SD в направлении лучшей производительности. Эмпирический перцентиль рассчитывается отдельно только для записей соответствующего типа. Категория — среднее доступных баллов; типы указаны в подсказках. График ограничен 0–100, исходные баллы не обрезаются.
           </p>
+          {referenceProfile && <Link href={`/norms?profile=${referenceProfile.id}`} className="text-xs underline">{referenceProfile.name} · v{referenceProfile.version} · источники и протоколы</Link>}
         </div>
 
         <div className="space-y-6">
           <div className="rounded-lg bg-white p-6 shadow">
             <h2 className="mb-3 text-xl font-bold">Сильные стороны</h2>
             {strengths.length === 0 ? (
-              <p className="text-sm text-gray-500">Нет данных по категориям профиля.</p>
+              <p className="text-sm text-gray-500">{cats.length ? 'Нет категорий с баллом ≥ 60.' : 'Нет совместимых данных по категориям профиля.'}</p>
             ) : (
               <ul className="space-y-2">
                 {strengths.map((s) => (
                   <li key={s.key} className="flex items-center justify-between rounded-lg bg-green-50 px-3 py-2">
                     <span className="text-sm font-medium text-green-800">↑ {s.label}</span>
-                    <span className="font-mono text-sm font-bold text-green-700">p{s.pct}</span>
+                    <span className="font-mono text-sm font-bold text-green-700">{Math.round(s.score)} баллов</span>
                   </li>
                 ))}
               </ul>
@@ -327,19 +317,19 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
           <div className="rounded-lg bg-white p-6 shadow">
             <h2 className="mb-3 text-xl font-bold">Зоны роста</h2>
             {zones.length === 0 ? (
-              <p className="text-sm text-gray-500">Нет данных по категориям профиля.</p>
+              <p className="text-sm text-gray-500">{cats.length ? 'Нет категорий с баллом ≤ 40.' : 'Нет совместимых данных по категориям профиля.'}</p>
             ) : (
               <ul className="space-y-2">
                 {zones.map((s) => (
                   <li key={s.key} className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2">
                     <span className="text-sm font-medium text-amber-800">↓ {s.label}</span>
-                    <span className="font-mono text-sm font-bold text-amber-700">p{s.pct}</span>
+                    <span className="font-mono text-sm font-bold text-amber-700">{Math.round(s.score)} баллов</span>
                   </li>
                 ))}
               </ul>
             )}
             <p className="mt-3 text-xs text-gray-500">
-              Категории с самым низким процентилем — фокус ближайшего микроцикла.
+              Выраженные зоны роста показываются только при балле ≤ 40, сильные стороны — при балле ≥ 60.
             </p>
           </div>
         </div>

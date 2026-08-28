@@ -6,6 +6,8 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '../../lib/prisma';
 import { requireAppContext } from '../../lib/app-context';
 import { validateReferenceFields } from '../../lib/reference-policy';
+import { PROFILE_CONFIRMATION_ACTION, profileConfirmation } from '../../lib/player-profile';
+import { requireCurrentUser } from '../../lib/current-user';
 
 export type ReferenceActionState = { ok?: boolean; error?: string; profileId?: string } | null;
 const numberOrNull = (value: FormDataEntryValue | null) => {
@@ -16,11 +18,17 @@ const numberOrNull = (value: FormDataEntryValue | null) => {
 };
 
 export async function assignReferenceProfile(_state: ReferenceActionState, formData: FormData): Promise<ReferenceActionState> {
+  await requireCurrentUser();
   const context = await requireAppContext();
   const profileId = String(formData.get('profileId') ?? '');
   const profile = await prisma.normProfile.findFirst({ where: { id: profileId, deletedAt: null, status: 'ACTIVE', OR: [{ scope: 'SYSTEM' }, { scope: 'ORGANIZATION', organizationId: context.organizationId }] } });
   if (!profile) return { error: 'Профиль недоступен для текущей организации.' };
-  await prisma.team.update({ where: { id: context.teamId }, data: { activeNormProfileId: profile.id } });
+  if (formData.get('compatibilityConfirmed') !== 'yes') return { error: 'Подтвердите соответствие команды полу, возрастной группе, уровню и протоколам выбранного референса.' };
+  await prisma.$transaction(async tx => {
+    await tx.team.update({ where: { id: context.teamId }, data: { activeNormProfileId: profile.id } });
+    await tx.auditLog.create({ data: { action: PROFILE_CONFIRMATION_ACTION, entity: 'Team', entityId: context.teamId, newValues: profileConfirmation(profile) } });
+  });
+  revalidatePath('/players', 'layout');
   revalidatePath('/norms'); revalidatePath('/settings'); revalidatePath('/analytics'); revalidatePath('/compare');
   return { ok: true, profileId: profile.id };
 }
