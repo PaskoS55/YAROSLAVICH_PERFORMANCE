@@ -3,6 +3,7 @@ import type { ReferenceEntryWithTest } from './references';
 import { aggregateProfileScores, matchesProfileConfirmation, profileConfirmation, profileHighlights, scoreProfileMetric, type ProfileMetric } from './player-profile';
 import { computePercentile } from './analytics';
 import { empiricalAnchors } from './reference-policy';
+import { profileCategoryCoverage } from './profile-coverage';
 
 const profile = { id: 'ref', version: '1.0', sport: 'VOLLEYBALL', sex: 'MALE', ageGroup: 'ADULT', level: 'ELITE' } as const;
 const player: { position: string; birthDate: Date | null } = { position: 'setter', birthDate: new Date('1990-01-01') };
@@ -59,5 +60,42 @@ describe('Player Profile standardized reference scores', () => {
     expect(profileHighlights(cats).strengths.map(c=>c.id)).toEqual(['power']);
     expect(profileHighlights(cats).zones.map(c=>c.id)).toEqual(['speed']);
     expect(profileHighlights([{ score: 59.99 },{ score: 40.01 }])).toEqual({ strengths: [], zones: [] });
+  });
+});
+
+describe('Player Profile coverage states', () => {
+  const definition = { ...metric, id: metric.testId };
+  const coverage = (entries = [entry], results = new Map([[metric.testId, metric]]), p = player, confirmed = true) =>
+    profileCategoryCoverage([definition], entries, profile, p, confirmed, results, metric.measuredAt);
+  it('distinguishes numeric results, absent results and zero reference coverage', () => {
+    expect(coverage()).toMatchObject({ state: 'NUMERIC', score: 60, supported: 1 });
+    expect(coverage([entry], new Map())).toMatchObject({ state: 'MISSING', score: null, supported: 1, reason: 'Нет результата' });
+    expect(coverage([])).toMatchObject({ state: 'UNSUPPORTED', score: null, supported: 0, reason: 'Нет утверждённого числового референса' });
+    expect(coverage([{ ...entry, interpretationType: 'CONTEXT_ONLY' }])).toMatchObject({ state: 'UNSUPPORTED', supported: 0, reason: 'Контекстная оценка; числовой референс не утверждён' });
+  });
+  it('explains confirmation, age, position, unit, source and distribution incompatibility', () => {
+    expect(coverage([entry], undefined, player, false).reason).toContain('Не подтверждено');
+    expect(coverage([entry], undefined, { ...player, birthDate: null }).reason).toContain('дата рождения');
+    expect(coverage([entry], undefined, { ...player, birthDate: new Date('2015-01-01') }).reason).toContain('Возраст');
+    for (const [change, reason] of [[{ position: 'libero' }, 'амплуа'], [{ test: { ...entry.test, unit: 'm' } }, 'единица'], [{ sourceText: null }, 'происхождение'], [{ sd: 0 }, 'SD']] as const) {
+      expect(coverage([{ ...entry, ...change }])).toMatchObject({ state: 'INCOMPATIBLE', supported: 0, score: null });
+      expect(coverage([{ ...entry, ...change }]).reason).toContain(reason);
+    }
+  });
+  it('reports actual used names and full category denominator without inventing a missing score', () => {
+    const result = profileCategoryCoverage([definition, { ...definition, id: 'bj', code: 'PWR_BJ', name: 'Прыжок в длину' }], [entry], profile, player, true, new Map([[metric.testId, metric]]), metric.measuredAt);
+    expect(result).toMatchObject({ total: 2, supported: 1, score: 60 });
+    expect(result.used.map(m => m.name)).toEqual(['CMJ']);
+    expect(result.metrics[1].score).toBeNull();
+  });
+  it('keeps empirical scores unchanged and rejects non-numeric reference types', () => {
+    const empirical = { ...entry, interpretationType: 'EMPIRICAL_PERCENTILE' as const, p10: 10, p25: 25, p50: 50, p75: 75, p90: 90 };
+    expect(coverage([empirical]).score).toBe(scoreProfileMetric(metric, empirical, profile, player, true)?.raw);
+    for (const interpretationType of ['CONTEXT_ONLY', 'NO_REFERENCE', 'POOLED_ESTIMATE', 'REFERENCE_RANGE'] as const) expect(coverage([{ ...entry, interpretationType }]).supported).toBe(0);
+  });
+  it('does not turn an invalid recorded value into a missing-result or zero score', () => {
+    const result = coverage([entry], new Map([[metric.testId, { ...metric, value: NaN }]]));
+    expect(result).toMatchObject({ state: 'INCOMPATIBLE', score: null });
+    expect(result.reason).toContain('Результат несовместим');
   });
 });
