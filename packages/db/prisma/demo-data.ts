@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { PASKO_REFERENCE_V1_CODE, seedReferenceData } from './reference-data';
+import { demoTimeline, timelineMetadata, DEMO_TIMELINE_VERSION } from './demo-timeline';
 
 export const PASKO_DEMO_DATASET_CODE = 'PASKO_DEMO_VOLLEYBALL_V1';
 export const PASKO_DEMO_DATASET_VERSION = '1.0';
@@ -28,10 +29,10 @@ const roster = [
   ['D13', 'Александр', 'Фомин', 6, 'libero', 184], ['D14', 'Олег', 'Нестеров', 14, 'libero', 186],
 ] as const;
 const checkpoints = [
-  ['PRESEASON', '2026-08-10T09:00:00.000Z', 'Предсезонное тестирование'],
-  ['CAMP', '2026-09-05T09:00:00.000Z', 'Сборы'],
-  ['INSEASON', '2026-10-12T09:00:00.000Z', 'Начало сезона'],
-  ['INSEASON', '2027-01-18T09:00:00.000Z', 'Текущий контроль'],
+  ['PRESEASON', 'Предсезонное тестирование'],
+  ['CAMP', 'Сборы'],
+  ['INSEASON', 'Начало сезона'],
+  ['INSEASON', 'Текущий контроль'],
 ] as const;
 const baseValues: Record<string, number> = { PWR_CMJ: 39, SPD_10: 1.82, SPD_20: 3.18, AGI_TTEST: 9.75, VB_APP: 338, VB_BLOCK: 318, BC_MASS: 91, BC_FAT: 13.5, BC_FFM: 78.7 };
 const progress: Record<string, number> = { PWR_CMJ: 1.2, SPD_10: -0.025, SPD_20: -0.035, AGI_TTEST: -0.08, VB_APP: 2.1, VB_BLOCK: 1.5, BC_MASS: 0.1, BC_FAT: -0.25, BC_FFM: 0.3 };
@@ -55,7 +56,8 @@ async function clearDemo(db: Db, capability: symbol): Promise<void> {
   await db.importJob.deleteMany(); await db.auditLog.deleteMany();
 }
 
-async function seedDemoData(db: Db, capability: symbol): Promise<void> {
+async function seedDemoData(db: Db, capability: symbol, now: Date): Promise<void> {
+  const timeline = demoTimeline(now);
   await clearDemo(db, capability);
   const { tests } = await seedReferenceData(db as Prisma.TransactionClient);
   const testsByCode = new Map(tests.map((test) => [test.code, test]));
@@ -63,12 +65,13 @@ async function seedDemoData(db: Db, capability: symbol): Promise<void> {
   await db.organization.create({ data: { id: 'demo-organization', name: 'PASKO Demo Club', shortName: 'PASKO DEMO', code: DEMO_ORGANIZATION_CODE } });
   await db.team.create({ data: { id: 'demo-team', name: 'PASKO Demo Volleyball', code: DEMO_TEAM_CODE, organizationId: 'demo-organization', activeNormProfileId: profile.id } });
   await confirmSyntheticReference(db);
-  await db.season.create({ data: { id: DEMO_SEASON_ID, name: '2026/27', startDate: new Date('2026-08-01T00:00:00.000Z'), endDate: new Date('2027-05-31T23:59:59.000Z'), teams: { connect: { id: 'demo-team' } } } });
+  await db.season.create({ data: { id: DEMO_SEASON_ID, ...timeline.season, teams: { connect: { id: 'demo-team' } } } });
   await db.player.createMany({ data: roster.map(([playerId, firstName, lastName, number, position, height], index) => ({ id: `demo-player-${String(index + 1).padStart(2, '0')}`, playerId, firstName, lastName, number, position, height, status: 'ACTIVE', teamId: 'demo-team', birthDate: new Date(`${1995 + (index % 7)}-${String((index % 9) + 1).padStart(2, '0')}-15T00:00:00.000Z`) })) });
   for (let playerIndex = 0; playerIndex < roster.length; playerIndex += 1) {
     const playerId = `demo-player-${String(playerIndex + 1).padStart(2, '0')}`;
     for (let checkpointIndex = 0; checkpointIndex < checkpoints.length; checkpointIndex += 1) {
-      const [phase, date, label] = checkpoints[checkpointIndex];
+      const [phase, label] = checkpoints[checkpointIndex];
+      const date = timeline.checkpoints[checkpointIndex];
       const sessionId = `demo-session-${playerIndex + 1}-${checkpointIndex + 1}`;
       await db.testSession.create({ data: { id: sessionId, sessionId, DateTime: new Date(date), phase, status: 'FULL', source: 'MANUAL', comment: label, playerId, teamId: 'demo-team', seasonId: DEMO_SEASON_ID } });
       const offset = (playerIndex % 5) - 2;
@@ -88,29 +91,61 @@ async function seedDemoData(db: Db, capability: symbol): Promise<void> {
   }
   const cmj = testsByCode.get('PWR_CMJ')!; const sprint = testsByCode.get('SPD_10')!; const attack = testsByCode.get('VB_APP')!;
   await db.playerGoal.createMany({ data: [
-    { id: 'demo-goal-achieved', playerId: 'demo-player-07', testId: cmj.id, targetValue: 45, targetDate: new Date('2027-02-01T00:00:00.000Z'), achieved: true, achievedAt: new Date('2027-01-18T09:00:00.000Z') },
-    { id: 'demo-goal-active', playerId: 'demo-player-03', testId: attack.id, targetValue: 352, targetDate: new Date('2027-04-01T00:00:00.000Z') },
-    { id: 'demo-goal-near', playerId: 'demo-player-05', testId: sprint.id, targetValue: 1.68, targetDate: new Date('2027-03-01T00:00:00.000Z') },
+    { id: 'demo-goal-achieved', playerId: 'demo-player-07', testId: cmj.id, targetValue: 45, targetDate: timeline.goalDeadlines[0], achieved: true, achievedAt: timeline.anchor },
+    { id: 'demo-goal-active', playerId: 'demo-player-03', testId: attack.id, targetValue: 352, targetDate: timeline.goalDeadlines[1] },
+    { id: 'demo-goal-near', playerId: 'demo-player-05', testId: sprint.id, targetValue: 1.68, targetDate: timeline.goalDeadlines[2] },
   ] });
-  await db.auditLog.create({ data: { id: 'demo-dataset-identity', action: PASKO_DEMO_DATASET_CODE, entity: 'DemoDataset', entityId: PASKO_DEMO_DATASET_VERSION, newValues: { version: PASKO_DEMO_DATASET_VERSION, synthetic: true } } });
+  await db.auditLog.create({ data: { id: 'demo-dataset-identity', action: PASKO_DEMO_DATASET_CODE, entity: 'DemoDataset', entityId: PASKO_DEMO_DATASET_VERSION, newValues: { version: PASKO_DEMO_DATASET_VERSION, synthetic: true, ...timelineMetadata(now) } } });
+}
+
+async function assertConnectedDemo(prisma: PrismaClient) {
+  const rows = await prisma.$queryRaw<{ name: string }[]>`SELECT current_database() AS name`;
+  if (rows[0]?.name !== PASKO_DEMO_DATABASE) throw new Error('DEMO_DATABASE_IDENTITY_REJECTED');
+}
+
+async function normalizeLegacyTimeline(db: Prisma.TransactionClient, now: Date) {
+  const marker = await db.auditLog.findUniqueOrThrow({ where: { id: 'demo-dataset-identity' } });
+  if (marker.action !== PASKO_DEMO_DATASET_CODE || marker.entityId !== PASKO_DEMO_DATASET_VERSION) throw new Error('DEMO_DATASET_MARKER_REJECTED');
+  const metadata = marker.newValues && typeof marker.newValues === 'object' && !Array.isArray(marker.newValues) ? marker.newValues : {};
+  if (metadata.timelineVersion !== undefined) {
+    if (metadata.timelineVersion !== DEMO_TIMELINE_VERSION || typeof metadata.anchor !== 'string' || !Number.isFinite(Date.parse(metadata.anchor))) throw new Error('DEMO_TIMELINE_MARKER_REJECTED');
+    return;
+  }
+  const team = await db.team.findFirst({ where: { id: 'demo-team', code: DEMO_TEAM_CODE, organization: { id: 'demo-organization', code: DEMO_ORGANIZATION_CODE } } });
+  if (!team) throw new Error('DEMO_SYNTHETIC_IDENTITY_REJECTED');
+  const timeline = demoTimeline(now);
+  for (let p = 1; p <= roster.length; p++) {
+    for (let c = 1; c <= checkpoints.length; c++) {
+      await db.testSession.updateMany({ where: { id: `demo-session-${p}-${c}`, sessionId: `demo-session-${p}-${c}`, playerId: `demo-player-${String(p).padStart(2, '0')}`, teamId: team.id, seasonId: DEMO_SEASON_ID }, data: { DateTime: timeline.checkpoints[c - 1] } });
+    }
+  }
+  await db.season.updateMany({ where: { id: DEMO_SEASON_ID, teams: { some: { id: team.id } } }, data: timeline.season });
+  for (const [i, id] of ['demo-goal-achieved', 'demo-goal-active', 'demo-goal-near'].entries()) {
+    const goal = await db.playerGoal.findFirst({ where: { id, player: { teamId: team.id } } });
+    if (goal) await db.playerGoal.update({ where: { id }, data: { targetDate: timeline.goalDeadlines[i], achievedAt: goal.achieved ? timeline.anchor : null } });
+  }
+  await db.auditLog.update({ where: { id: marker.id }, data: { newValues: { ...metadata, ...timelineMetadata(now) } } });
 }
 
 export async function initializeDemoDatabase(prisma: PrismaClient, databaseUrl = process.env.DATABASE_URL): Promise<void> {
   assertDemoDatabaseUrl(databaseUrl);
+  await assertConnectedDemo(prisma);
   const existingMarker = await prisma.auditLog.findUnique({ where: { id: 'demo-dataset-identity' } });
   if (existingMarker) {
     if (existingMarker.action !== PASKO_DEMO_DATASET_CODE || existingMarker.entityId !== PASKO_DEMO_DATASET_VERSION) throw new Error('DEMO_DATASET_MARKER_REJECTED');
+    await prisma.$transaction(tx => normalizeLegacyTimeline(tx, new Date()), { maxWait: 10_000, timeout: 120_000 });
     await confirmSyntheticReference(prisma);
     return;
   }
   const businessRows = await prisma.organization.count();
   if (businessRows !== 0) throw new Error('UNMARKED_DEMO_DATABASE_NOT_EMPTY');
-  await prisma.$transaction((tx) => seedDemoData(tx, RESET_CAPABILITY), { maxWait: 10_000, timeout: 120_000 });
+  await prisma.$transaction((tx) => seedDemoData(tx, RESET_CAPABILITY, new Date()), { maxWait: 10_000, timeout: 120_000 });
 }
 
 export async function resetDemoDatabase(prisma: PrismaClient, databaseUrl = process.env.DATABASE_URL): Promise<void> {
   assertDemoDatabaseUrl(databaseUrl);
+  await assertConnectedDemo(prisma);
   const marker = await prisma.auditLog.findUnique({ where: { id: 'demo-dataset-identity' } });
   if (!marker || marker.action !== PASKO_DEMO_DATASET_CODE || marker.entityId !== PASKO_DEMO_DATASET_VERSION) throw new Error('DEMO_DATASET_MARKER_REJECTED');
-  await prisma.$transaction((tx) => seedDemoData(tx, RESET_CAPABILITY), { maxWait: 10_000, timeout: 120_000 });
+  await prisma.$transaction((tx) => seedDemoData(tx, RESET_CAPABILITY, new Date()), { maxWait: 10_000, timeout: 120_000 });
 }

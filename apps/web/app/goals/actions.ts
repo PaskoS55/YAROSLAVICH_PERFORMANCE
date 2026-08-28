@@ -51,6 +51,7 @@ export async function createGoal(formData: FormData) {
 
 export async function syncGoals() {
   const context = await requireAppContext();
+  const now = new Date();
   const goals = await prisma.playerGoal.findMany({
     where: { achieved: false, deletedAt: null, player: { teamId: context.teamId } },
     include: { test: true },
@@ -69,7 +70,7 @@ export async function syncGoals() {
       testId: { in: testIds },
       deletedAt: null,
       qcStatus: 'PASSED',
-      testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
+      testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } },
     },
     orderBy: { testSession: { DateTime: 'desc' } },
   });

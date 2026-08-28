@@ -9,8 +9,9 @@ function fmtDate(d: Date | null | undefined) {
 
 export default async function ReportsPage() {
   const context = await requireAppContext();
+  const now = new Date();
   const sessions = await prisma.testSession.findMany({
-    where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
+    where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } },
     orderBy: { DateTime: 'desc' },
     include: { player: { select: { lastName: true, firstName: true } } },
   });

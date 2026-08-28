@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
@@ -35,6 +36,32 @@ try {
   if (composition !== 'libero:2,middle_blocker:3,opposite:3,outside_hitter:4,setter:2') throw new Error(`Unexpected roster: ${composition}`);
   const timeline = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT count(DISTINCT "DateTime") FROM test_sessions;` });
   if (timeline !== '4') throw new Error('Demo timeline is not four checkpoints');
+  const demoSql = sql => executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql });
+  const captureTimeline = () => demoSql(`SELECT json_build_object('sessions',(SELECT json_agg(t ORDER BY id) FROM (SELECT id,"DateTime" FROM test_sessions) t),'marker',(SELECT "newValues" FROM audit_logs WHERE id='demo-dataset-identity'))::text`);
+  const historical = () => demoSql(`SELECT (SELECT count(*) FROM test_sessions WHERE "DateTime">now()),(SELECT count(*) FROM test_sessions WHERE "DateTime"> (SELECT ("newValues"->>'anchor')::timestamptz FROM audit_logs WHERE id='demo-dataset-identity')),(SELECT count(*) FROM player_goals WHERE "achievedAt">now()),(SELECT count(DISTINCT "DateTime") FROM test_sessions)`);
+  assert.equal(await historical(),'0|0|0|4');
+  const stable = await captureTimeline();
+  assert.equal(await run(path.join(prismaRoot,'bootstrap-demo.cjs'),[],prismaEnv(demoUrl)),0);
+  assert.equal(await captureTimeline(),stable,'Relaunch moved the anchor');
+  // Recreate the old temporal revision without replacing any non-temporal data.
+  const resultBytes = await demoSql(`SELECT json_agg(t ORDER BY id)::text FROM test_results t`);
+  await demoSql(`UPDATE audit_logs SET "newValues"='{"version":"1.0","synthetic":true}'::jsonb WHERE id='demo-dataset-identity';
+    UPDATE test_sessions SET "DateTime"=CASE split_part(id,'-',4) WHEN '1' THEN '2026-08-10'::timestamp WHEN '2' THEN '2026-09-05'::timestamp WHEN '3' THEN '2026-10-12'::timestamp ELSE '2027-01-18'::timestamp END;
+    UPDATE player_goals SET "achievedAt"='2027-01-18' WHERE achieved=true;
+    INSERT INTO local_users(id,"displayName",login,login_normalized,password_hash,recovery_key_hash,created_at,updated_at) VALUES ('timeline-local','Synthetic','timeline-local','timeline-local','synthetic','synthetic',now(),now());`);
+  const localUsers = await demoSql(`SELECT json_agg(t ORDER BY id)::text FROM local_users t`);
+  const legacy = await captureTimeline();
+  await demoSql(`CREATE FUNCTION reject_timeline_goal() RETURNS trigger LANGUAGE plpgsql AS 'BEGIN RAISE EXCEPTION ''synthetic rollback test''; END'; CREATE TRIGGER reject_timeline_goal BEFORE UPDATE ON player_goals FOR EACH ROW EXECUTE FUNCTION reject_timeline_goal();`);
+  assert.notEqual(await run(path.join(prismaRoot,'bootstrap-demo.cjs'),[],prismaEnv(demoUrl)),0,'Injected failure was ignored');
+  assert.equal(await captureTimeline(),legacy,'Failed normalization partially changed dates/marker');
+  await demoSql(`DROP TRIGGER reject_timeline_goal ON player_goals; DROP FUNCTION reject_timeline_goal();`);
+  assert.equal(await run(path.join(prismaRoot,'bootstrap-demo.cjs'),[],prismaEnv(demoUrl)),0,'Legacy upgrade failed');
+  assert.equal(await historical(),'0|0|0|4');
+  assert.equal(await demoSql(`SELECT json_agg(t ORDER BY id)::text FROM test_results t`),resultBytes,'Normalization changed measurements');
+  assert.equal(await demoSql(`SELECT json_agg(t ORDER BY id)::text FROM local_users t`),localUsers,'Normalization changed LocalUser');
+  const upgraded = await captureTimeline();
+  assert.equal(await run(path.join(prismaRoot,'bootstrap-demo.cjs'),[],prismaEnv(demoUrl)),0);
+  assert.equal(await captureTimeline(),upgraded,'Legacy upgrade repeated');
   const science = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT (SELECT count(*) FROM norm_entries e JOIN tests t ON t.id=e.test_id WHERE t.code='VB_APP' AND e.position='middle_blocker' AND e.mean=349 AND e.sd=14),(SELECT count(*) FROM norm_entries e JOIN tests t ON t.id=e.test_id WHERE t.code='PWR_CMJ' AND e.mean=42 AND e.sd=6),(SELECT count(*) FROM norm_entries e JOIN tests t ON t.id=e.test_id WHERE t.code='BC_FAT' AND e.interpretation_type='POOLED_ESTIMATE' AND e.p10 IS NULL);` });
   if (science !== '1|1|1') throw new Error(`Demo science fixture mismatch: ${science}`);
   const qcIsolation = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT (SELECT count(*) FROM test_results WHERE "qcStatus"='FAILED'),(SELECT count(*) FROM test_results WHERE "qcStatus"='FAILED' AND (score IS NOT NULL OR "pbAchieved"=true));` });
@@ -44,7 +71,14 @@ try {
   if (await run(path.join(prismaRoot, 'bootstrap-demo.cjs'), [], prismaEnv(demoUrl)) !== 0) throw new Error('Existing Demo profile compatibility upgrade failed');
   const upgrade = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT (SELECT "firstName" FROM players WHERE id='demo-player-01'),(SELECT count(*) FROM test_results),(SELECT count(*) FROM audit_logs WHERE id='demo-reference-compatibility');` });
   if (upgrade !== 'Изменено|504|1') throw new Error('Existing Demo upgrade changed player/results or omitted compatibility declaration');
+  await demoSql(`UPDATE audit_logs SET "newValues"=jsonb_set("newValues",'{anchor}','"2000-01-01T12:00:00.000Z"'::jsonb) WHERE id='demo-dataset-identity'`);
   if (await run(path.join(prismaRoot, 'bootstrap-demo.cjs'), [], prismaEnv(demoUrl, { PASKO_DEMO_RESET: '1' })) !== 0) throw new Error('Demo reset failed');
+  assert.equal(await historical(),'0|0|0|4');
+  assert.notEqual(await demoSql(`SELECT "newValues"->>'anchor' FROM audit_logs WHERE id='demo-dataset-identity'`),'2000-01-01T12:00:00.000Z');
+  const resetTimeline = await captureTimeline();
+  assert.equal(await run(path.join(prismaRoot,'bootstrap-demo.cjs'),[],prismaEnv(demoUrl)),0);
+  assert.equal(await captureTimeline(),resetTimeline,'Reset anchor moved on relaunch');
+  assert.equal(await demoSql(`SELECT json_agg(t ORDER BY id)::text FROM local_users t`),localUsers,'Demo reset changed LocalUser');
   const resetName = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT "firstName" FROM players WHERE id='demo-player-01';` });
   if (resetName !== 'Антон') throw new Error('Demo reset did not restore canonical baseline');
   if (await run(path.join(prismaRoot, 'bootstrap-demo.cjs'), [], prismaEnv(productionUrl, { PASKO_DEMO_RESET: '1' })) === 0) throw new Error('Production DB accepted Demo reset');
@@ -54,4 +88,5 @@ try {
   const idempotent = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT (SELECT count(*) FROM players),(SELECT count(*) FROM test_sessions),(SELECT count(*) FROM test_results);` });
   if (idempotent !== '14|56|504') throw new Error(`Demo initialization duplicated rows: ${idempotent}`);
   console.log('Demo DB integration PASS: separate exact database, 14-player deterministic dataset, four checkpoints, references, QC fixture, idempotence, reset, production isolation, arbitrary target rejection');
+  console.log('Demo timeline PASS: historical anchor, stable relaunch, legacy normalization, measurement/LocalUser preservation, new reset anchor and four stages');
 } finally { if (postgres) await postgres.stop().catch(() => undefined); await rm(temporaryRoot, { recursive: true, force: true }); }

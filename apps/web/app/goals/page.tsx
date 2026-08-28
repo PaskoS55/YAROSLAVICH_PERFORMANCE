@@ -40,6 +40,7 @@ export default async function GoalsPage({
 }) {
   const query = await searchParams;
   const context = await requireAppContext();
+  const now = new Date();
   const f = query.f ?? 'ALL';
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -68,7 +69,7 @@ export default async function GoalsPage({
       testId: { in: testIds },
       deletedAt: null,
       qcStatus: 'PASSED',
-      testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
+      testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } },
     },
     orderBy: { testSession: { DateTime: 'desc' } },
   });

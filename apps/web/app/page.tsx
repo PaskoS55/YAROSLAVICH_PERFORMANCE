@@ -36,9 +36,10 @@ const ic = (paths: React.ReactNode) => (
 
 export default async function HomePage() {
   const context = await requireAppContext();
-  const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+  const now = new Date();
+  const since = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
   const playerScope = { teamId: context.teamId, deletedAt: null } as const;
-  const sessionScope = { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null } as const;
+  const sessionScope = { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } } as const;
 
   const [
     playersTotal,
@@ -59,9 +60,9 @@ export default async function HomePage() {
     prisma.testSession.count({ where: sessionScope }),
     prisma.testResult.count({ where: { deletedAt: null, testSession: sessionScope } }),
     prisma.playerGoal.count({ where: { deletedAt: null, achieved: false, player: { teamId: context.teamId } } }),
-    prisma.testSession.count({ where: { ...sessionScope, DateTime: { gte: since } } }),
+    prisma.testSession.count({ where: { ...sessionScope, DateTime: { gte: since, lte: now } } }),
     prisma.testResult.count({
-      where: { deletedAt: null, testSession: { ...sessionScope, DateTime: { gte: since } } },
+      where: { deletedAt: null, testSession: { ...sessionScope, DateTime: { gte: since, lte: now } } },
     }),
     prisma.testSession.findFirst({
       where: sessionScope,

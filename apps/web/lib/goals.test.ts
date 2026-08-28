@@ -10,6 +10,15 @@ describe('goal direction rules', () => {
 });
 
 describe('goal downstream scoping', () => {
+  it('a future-only PASSED result cannot achieve a goal', async () => {
+    const future = new Date('2099-01-01');
+    const update = vi.fn();
+    const findMany = vi.fn(async ({ where }: { where: { testSession: { DateTime: { lte: Date } } } }) => future <= where.testSession.DateTime.lte ? [{ value: 99 }] : []);
+    await syncGoalsForResult({ test: { findUnique: async () => ({ direction: 'HIGHER_IS_BETTER' }) },
+      testResult: { findMany }, playerGoal: { findMany: async () => [{ id: 'g', targetValue: 60, achieved: false }], update } } as never, 'p', 't', 's');
+    expect(findMany).toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
   it('recalculates from PASSED results in the active season only', async () => {
     const findResults = vi.fn(async () => [{ value: 51 }]);
     const updateGoal = vi.fn(async () => undefined);
@@ -30,7 +39,7 @@ describe('goal downstream scoping', () => {
         testId: 'test-a',
         deletedAt: null,
         qcStatus: 'PASSED',
-        testSession: { seasonId: 'season-a', deletedAt: null },
+        testSession: { seasonId: 'season-a', deletedAt: null, DateTime: { lte: expect.any(Date) } },
       },
       select: { value: true },
     });

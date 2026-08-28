@@ -11,12 +11,13 @@ export default async function ComparePage({
 }) {
   const query = await searchParams;
   const context = await requireAppContext();
+  const now = new Date();
   const players = await prisma.player.findMany({
     where: { teamId: context.teamId, deletedAt: null },
     orderBy: { lastName: 'asc' },
     include: {
       testSessions: {
-        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
+        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } },
         orderBy: { DateTime: 'desc' },
         include: {
           testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },

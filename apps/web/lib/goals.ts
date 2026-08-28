@@ -15,6 +15,7 @@ export async function syncGoalsForResult(
   testId: string,
   seasonId: string
 ) {
+  const now = new Date();
   const test = await tx.test.findUnique({ where: { id: testId } });
   if (!test) return;
 
@@ -27,7 +28,7 @@ export async function syncGoalsForResult(
       testId,
       deletedAt: null,
       qcStatus: 'PASSED',
-      testSession: { seasonId, deletedAt: null },
+      testSession: { seasonId, deletedAt: null, DateTime: { lte: now } },
     },
     select: { value: true },
   });
@@ -39,7 +40,7 @@ export async function syncGoalsForResult(
     if (g.achieved !== achieved) {
       await tx.playerGoal.update({
         where: { id: g.id },
-        data: { achieved, achievedAt: achieved ? new Date() : null },
+        data: { achieved, achievedAt: achieved ? now : null },
       });
     }
   }

@@ -37,6 +37,7 @@ const label = 'block text-xs font-medium text-gray-500';
 
 export default async function BodyCompositionPage() {
   const context = await requireAppContext();
+  const now = new Date();
   const players = await prisma.player.findMany({
     where: { teamId: context.teamId, deletedAt: null },
     orderBy: { playerId: 'asc' },
@@ -48,6 +49,7 @@ export default async function BodyCompositionPage() {
             teamId: context.teamId,
             seasonId: context.seasonId,
             deletedAt: null,
+            DateTime: { lte: now },
           },
         },
         orderBy: { createdAt: 'asc' },

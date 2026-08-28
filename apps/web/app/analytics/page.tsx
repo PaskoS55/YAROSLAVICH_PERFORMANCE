@@ -12,6 +12,7 @@ export default async function AnalyticsPage({
 }) {
   const query = await searchParams;
   const context = await requireAppContext();
+  const now = new Date();
   const players = await prisma.player.findMany({
     where: { teamId: context.teamId, deletedAt: null },
     orderBy: { lastName: 'asc' },
@@ -62,7 +63,7 @@ export default async function AnalyticsPage({
     where: { teamId: context.teamId, deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
     include: {
       testSessions: {
-        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
+        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } },
         include: {
           testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
         },
@@ -71,7 +72,7 @@ export default async function AnalyticsPage({
   });
 
   const sessionsAsc = await prisma.testSession.findMany({
-    where: { playerId: player.id, teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
+    where: { playerId: player.id, teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } },
     orderBy: { DateTime: 'asc' },
     include: {
       testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },

@@ -54,12 +54,13 @@ function fmtDate(d: Date | null | undefined) {
 export default async function PlayerCardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const context = await requireAppContext();
+  const now = new Date();
   const player = await prisma.player.findFirst({
     where: { id, teamId: context.teamId, deletedAt: null },
     include: {
       team: true,
       testSessions: {
-        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
+        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } },
         orderBy: { DateTime: 'desc' },
         include: {
           testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
@@ -96,7 +97,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
     where: { teamId: context.teamId, deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
     include: {
       testSessions: {
-        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null },
+        where: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } },
         include: {
           testResults: { where: { deletedAt: null, qcStatus: 'PASSED' }, include: { test: true } },
         },

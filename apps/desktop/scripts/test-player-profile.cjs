@@ -30,6 +30,7 @@ module.exports = async function testPlayerProfile({ win, club, demo, sql, auth, 
   for (const [code,value] of [['PWR_CMJ','48'],['SPD_10','1.83'],['AGI_TTEST','9.84'],['STR_SQUAT','150'],['STR_PULL','220']]) {
     const testId = await sql(`SELECT id FROM tests WHERE code='${code}'`);
     await navigate(club.origin,'/testing/team');
+    await set('input[type="date"]',new Date(Date.now()-86400000).toISOString().slice(0,10));
     await set('main select',testId);
     await set('input[inputmode="decimal"]',value);
     await until(async()=>(await text()).includes('Введено 1 из 1'),'Controlled result input did not update');
@@ -89,6 +90,7 @@ module.exports = async function testPlayerProfile({ win, club, demo, sql, auth, 
   assert.equal(await persisted(),beforeRead,'Synthetic layout fixture did not preserve data');
   console.log('Player Profile: missing vs unsupported vs incompatible, no zero vertices, PB/data preserved, Cyrillic SVG bounds at 216/280/420px PASS');
   console.log('Player Profile: real create/player, manual team-testing forms, compatible reference confirmation, radar/strong/growth/partial categories PASS');
+  await require('./test-historical-timeline.cjs')({ win, club, sql, id });
 
   // Pin a valid current context before introducing an unrelated team/club.
   const payload = Buffer.from(JSON.stringify({organizationId:'nav-org',teamId:'nav-team',seasonId:'nav-season'})).toString('base64url');
@@ -97,7 +99,7 @@ module.exports = async function testPlayerProfile({ win, club, demo, sql, auth, 
   await sql(`INSERT INTO organizations(id,name,code,"updatedAt") VALUES ('profile-other-org','Other Synthetic','OTHER',now());
     INSERT INTO teams(id,name,code,"organizationId","updatedAt") VALUES ('profile-other-team','Other','OTHER','profile-other-org',now());
     INSERT INTO players(id,"playerId","firstName","lastName",position,"teamId","updatedAt") VALUES ('profile-other-player','OTHER','Other','Synthetic','libero','profile-other-team',now());
-    INSERT INTO test_sessions(id,"sessionId","DateTime",phase,"playerId","teamId","seasonId","updatedAt") VALUES ('profile-failed','profile-failed','2090-01-01','INSEASON','${id}','nav-team','nav-season',now());
+    INSERT INTO test_sessions(id,"sessionId","DateTime",phase,"playerId","teamId","seasonId","updatedAt") VALUES ('profile-failed','profile-failed',now()-interval '1 second','INSEASON','${id}','nav-team','nav-season',now());
     INSERT INTO test_results(id,value,"testId","playerId","testSessionId","qcStatus","updatedAt") SELECT 'profile-failed-result',100,id,'${id}','profile-failed','FAILED',now() FROM tests WHERE code='PWR_CMJ';`);
   await navigate(club.origin,`/players/${id}`);
   assert.ok((await radar()).some(r=>/Мощность 60$/.test(r.label)), 'Latest FAILED result must not replace last PASSED');
@@ -107,6 +109,8 @@ module.exports = async function testPlayerProfile({ win, club, demo, sql, auth, 
   await web.executeJavaScript(`document.querySelector('a[href="/api/demo-enter"]').click(); undefined;`);
   await until(async()=>web.getURL()===demo.origin.href&&!web.isLoading(),'Demo entry failed');
   await navigate(demo.origin,'/players/demo-player-01');
+  assert.match(await text(),/История тестирований \(4\)/);
+  assert.equal(await sql(`SELECT count(*) FROM test_sessions WHERE "DateTime">now()`,demoDatabase),'0');
   axes = await radar();
   assert.ok(axes.some(r=>/Мощность 50$/.test(r.label)));
   assert.ok(axes.some(r=>/Волейбол 51$/.test(r.label)),'Setter-specific reach reference was not used');
