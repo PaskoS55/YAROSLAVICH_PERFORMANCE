@@ -2,10 +2,10 @@ import { prisma } from '../../../lib/prisma';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PrintButton from './print-button';
-import RadarChart from '../../../components/RadarChart';
-import { aggregateProfileScores, profileHighlights, scoreProfileMetric } from '../../../lib/player-profile';
+import PlayerProfilePanel from '../../../components/PlayerProfilePanel';
+import { buildProfileModel } from '../../../lib/profile-model';
+import { latestMeasurements, personalBests } from '../../../lib/measurements';
 import { hasProfileConfirmation } from '../../../lib/profile-confirmation';
-import { profileCategoryCoverage } from '../../../lib/profile-coverage';
 import { requireAppContext } from '../../../lib/app-context';
 import { loadTeamReferenceProfile, referenceEntryMap, resolveReferenceEntry } from '../../../lib/references';
 
@@ -91,7 +91,6 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
     include: { tests: { where: { deletedAt: null }, orderBy: { code: 'asc' } } },
     orderBy: [{ radarOrder: 'asc' }, { sortOrder: 'asc' }],
   });
-  const radarCatIds = new Set(radarCategories.map((c) => c.id));
 
   const allPlayers = await prisma.player.findMany({
     where: { teamId: context.teamId, deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
@@ -107,39 +106,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
 
   const lastSession = player.testSessions[0];
 
-  const latest = new Map<
-    string,
-    {
-      value: number;
-      code: string;
-      name: string;
-      unit: string;
-      categoryId: string | null;
-      direction: string;
-      alertBelow: number | null;
-      alertAbove: number | null;
-      testId: string;
-      measuredAt: Date;
-    }
-  >();
-  for (const s of player.testSessions) {
-    for (const r of s.testResults) {
-      if (!latest.has(r.testId)) {
-        latest.set(r.testId, {
-          testId: r.testId,
-          measuredAt: s.DateTime,
-          value: r.value,
-          code: r.test.code,
-          name: r.test.name,
-          unit: r.test.unit,
-          categoryId: r.test.categoryId,
-          direction: r.test.direction,
-          alertBelow: r.test.alertBelow,
-          alertAbove: r.test.alertAbove,
-        });
-      }
-    }
-  }
+  const latest = latestMeasurements(player.testSessions, now);
 
   const alerts: string[] = [];
   for (const { value, name, unit, alertBelow, alertAbove } of Array.from(latest.values())) {
@@ -156,68 +123,10 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
   }
 
 
-  const teamAcc = new Map<string, { sum: number; count: number }>();
-  for (const tp of allPlayers) {
-    const tLatest = new Map<
-      string,
-      { value: number; code: string; categoryId: string | null; direction: string; name: string; unit: string; testId: string; measuredAt: Date }
-    >();
-    const sorted = [...tp.testSessions].sort(
-      (a, b) => new Date(b.DateTime).getTime() - new Date(a.DateTime).getTime()
-    );
-    for (const s of sorted) {
-      for (const r of s.testResults) {
-        if (!tLatest.has(r.testId)) {
-          tLatest.set(r.testId, {
-            testId: r.testId, measuredAt: s.DateTime, name: r.test.name, unit: r.test.unit,
-            value: r.value,
-            code: r.test.code,
-            categoryId: r.test.categoryId,
-            direction: r.test.direction,
-          });
-        }
-      }
-    }
-    const pCat = aggregateProfileScores(Array.from(tLatest.values()).filter(m => m.categoryId && radarCatIds.has(m.categoryId)).map(metric => ({ ...metric, score: scoreProfileMetric(metric, resolveReferenceEntry(referenceByKey, metric.code, tp.position), referenceProfile, tp, referenceConfirmed) })));
-    for (const [catId, acc] of Array.from(pCat)) {
-      const t = teamAcc.get(catId) ?? { sum: 0, count: 0 };
-      t.sum += acc.sum / acc.count;
-      t.count += 1;
-      teamAcc.set(catId, t);
-    }
-  }
+  const profileModel = buildProfileModel(radarCategories, referenceProfile?.entries ?? [], referenceProfile, player, referenceConfirmed, now, allPlayers);
+  const { cats, strengths, zones } = profileModel;
+  const pbMap = personalBests(player.testSessions, now);
 
-  const coverageAt = new Date();
-  const coverage = radarCategories.map(c => ({ ...c, coverage: profileCategoryCoverage(c.tests, referenceProfile?.entries ?? [], referenceProfile, player, referenceConfirmed, latest, coverageAt) }));
-  const numericCategories = coverage.filter(c => c.coverage.supported > 0);
-  const values = numericCategories.map(c => c.coverage.score === null ? null : Math.round(c.coverage.score));
-  const teamValues = numericCategories.map((c) => {
-    const acc = teamAcc.get(c.id);
-    return acc ? Math.round(acc.sum / acc.count) : null;
-  });
-
-  const cats = coverage
-    .filter((c) => c.coverage.score !== null)
-    .map((c) => ({
-      key: c.id,
-      label: c.name,
-      score: c.coverage.score!,
-    }));
-
-  const { strengths, zones } = profileHighlights(cats);
-
-  const pbMap = new Map<string, { name: string; unit: string; value: number; date: Date }>();
-  for (const s of [...player.testSessions].reverse()) {
-    for (const r of s.testResults) {
-      if (r.test.direction === 'CONTEXTUAL') continue;
-      const cur = pbMap.get(r.testId);
-      const better =
-        !cur || (r.test.direction === 'HIGHER_IS_BETTER' ? r.value > cur.value : r.value < cur.value);
-      if (better) {
-        pbMap.set(r.testId, { name: r.test.name, unit: r.test.unit, value: r.value, date: s.DateTime });
-      }
-    }
-  }
   const pbList = [...pbMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 
   return (
@@ -278,38 +187,7 @@ export default async function PlayerCardPage({ params }: { params: Promise<{ id:
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-2 text-xl font-bold">Профиль игрока</h2>
-          {!referenceConfirmed && <p className="mb-2 text-sm text-amber-700">Для стандартизированного профиля подтвердите соответствие команды полу, возрасту и уровню выбранного референса в <Link href="/norms" className="underline">«Референсы и нормативы»</Link>. Для возрастных референсов также нужна дата рождения игрока.</p>}
-          {numericCategories.length >= 3 ? (
-            <RadarChart
-              categories={numericCategories.map((c) => ({ id: c.id, name: c.name, missingLabel: c.coverage.reason, description: c.coverage.used.map(m => `${m.name}: ${m.score!.description} — ${m.score!.raw.toFixed(2)}`).join('; ') || c.coverage.reason }))}
-              values={values}
-              teamValues={teamValues}
-              playerLabel="Игрок"
-            />
-          ) : (
-            <p className="text-sm text-gray-500">
-              Для радара нужны минимум три категории с совместимыми числовыми референсами. Доступные оценки и причины приведены ниже.
-            </p>
-          )}
-          <ul className="mt-3 space-y-2 text-sm" aria-label="Покрытие числовой оценки">
-            {numericCategories.map(c => <li key={c.id}>
-              <b>{c.name} — {c.coverage.used.length}/{c.coverage.total}</b>
-              <div>{c.coverage.score === null ? c.coverage.reason : `${Math.round(c.coverage.score)} баллов. Использованы: ${c.coverage.used.map(m => m.name).join(', ')}`}</div>
-              <div className="text-xs text-gray-500">Совместимые числовые референсы: {c.coverage.supported}/{c.coverage.total}.</div>
-              {c.coverage.metrics.filter(m => !m.score).map(m => <div key={m.id} className="text-xs text-gray-500">{m.name}: {m.reason}</div>)}
-            </li>)}
-          </ul>
-          {coverage.some(c => c.coverage.supported === 0) && <section className="mt-4 rounded border p-3">
-            <h3 className="font-semibold">Недоступно для числовой оценки</h3>
-            <ul className="mt-2 space-y-2 text-sm">{coverage.filter(c => c.coverage.supported === 0).map(c => <li key={c.id}>{c.name} — {c.coverage.reason}</li>)}</ul>
-          </section>}
-          <p className="mt-2 text-xs text-gray-500">
-            Стандартизированный профиль: 50 — среднее референсной группы, 60 — +1 SD, 40 — −1 SD в направлении лучшей производительности. Эмпирический перцентиль рассчитывается отдельно только для записей соответствующего типа. Категория — среднее доступных баллов; типы указаны в подсказках. График ограничен 0–100, исходные баллы не обрезаются.
-          </p>
-          {referenceProfile && <Link href={`/norms?profile=${referenceProfile.id}`} className="text-xs underline">{referenceProfile.name} · v{referenceProfile.version} · источники и протоколы</Link>}
-        </div>
+        <PlayerProfilePanel model={profileModel} referenceConfirmed={referenceConfirmed} referenceProfile={referenceProfile} />
 
         <div className="space-y-6">
           <div className="rounded-lg bg-white p-6 shadow">

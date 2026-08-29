@@ -2,13 +2,15 @@
 
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { goalReached } from '../../lib/goals';
+import { syncGoalsForResult } from '../../lib/goals';
 import { requireAppContext } from '../../lib/app-context';
+import { measurementDay } from '../../lib/measurement-date';
+import { redirect } from 'next/navigation';
 
 export async function markGoalAchieved(formData: FormData) {
   const context = await requireAppContext();
   const id = String(formData.get('id'));
-  const goal = await prisma.playerGoal.findFirst({ where: { id, deletedAt: null, player: { teamId: context.teamId } }, select: { id: true } });
+  const goal = await prisma.playerGoal.findFirst({ where: { id, achieved: false, deletedAt: null, player: { teamId: context.teamId, deletedAt: null } }, select: { id: true } });
   if (!goal) return;
   await prisma.playerGoal.update({
     where: { id: goal.id },
@@ -22,12 +24,13 @@ export async function createGoal(formData: FormData) {
   const context = await requireAppContext();
   const playerId = String(formData.get('playerId') ?? '');
   const testId = String(formData.get('testId') ?? '');
-  const targetValue = Number(String(formData.get('targetValue') ?? '').replace(',', '.'));
+  const targetValueText = String(formData.get('targetValue') ?? '').trim();
+  const targetValue = Number(targetValueText.replace(',', '.'));
   const targetDateStr = String(formData.get('targetDate') ?? '');
-  if (!playerId || !testId || !Number.isFinite(targetValue) || !targetDateStr) return;
+  if (!playerId || !testId || !targetValueText || !Number.isFinite(targetValue) || !targetDateStr) redirect('/goals?error=invalid');
 
+  try { measurementDay(targetDateStr); } catch { redirect('/goals?error=invalid'); }
   const targetDate = new Date(targetDateStr);
-  if (Number.isNaN(targetDate.getTime())) return;
 
   const [player, test] = await Promise.all([
     prisma.player.findFirst({ where: { id: playerId, teamId: context.teamId, deletedAt: null } }),
@@ -35,14 +38,12 @@ export async function createGoal(formData: FormData) {
   ]);
   if (!player || !test) return;
 
-  await prisma.playerGoal.create({
-    data: {
-      playerId,
-      testId,
-      targetValue,
-      targetDate,
-      achieved: false,
-    },
+  await prisma.$transaction(async tx => {
+    // Serialize same-player retries: no schema/season ownership inference needed.
+    await tx.$queryRaw`SELECT id FROM players WHERE id = ${playerId} FOR UPDATE`;
+    const existing = await tx.playerGoal.findFirst({where: {playerId, testId, targetValue, targetDate, deletedAt: null}});
+    if (!existing) await tx.playerGoal.create({data: {playerId, testId, targetValue, targetDate, achieved: false}});
+    await syncGoalsForResult(tx, playerId, testId, context.teamId);
   });
 
   revalidatePath('/goals');
@@ -51,46 +52,18 @@ export async function createGoal(formData: FormData) {
 
 export async function syncGoals() {
   const context = await requireAppContext();
-  const now = new Date();
-  const goals = await prisma.playerGoal.findMany({
-    where: { achieved: false, deletedAt: null, player: { teamId: context.teamId } },
-    include: { test: true },
-  });
-  if (goals.length === 0) {
-    revalidatePath('/goals');
-    return;
-  }
-
-  // Один запрос на все пары (playerId, testId) вместо N+1
-  const playerIds = [...new Set(goals.map((g) => g.playerId))];
-  const testIds = [...new Set(goals.map((g) => g.testId))];
-  const results = await prisma.testResult.findMany({
-    where: {
-      playerId: { in: playerIds },
-      testId: { in: testIds },
-      deletedAt: null,
-      qcStatus: 'PASSED',
-      testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } },
-    },
-    orderBy: { testSession: { DateTime: 'desc' } },
-  });
-
-  const latestByPair = new Map<string, number>();
-  for (const r of results) {
-    const key = `${r.playerId}|${r.testId}`;
-    if (!latestByPair.has(key)) latestByPair.set(key, r.value);
-  }
-
-  for (const g of goals) {
-    const v = latestByPair.get(`${g.playerId}|${g.testId}`);
-    if (v === undefined) continue;
-    if (goalReached(g.test.direction, g.targetValue, v)) {
-      await prisma.playerGoal.update({
-        where: { id: g.id },
-        data: { achieved: true, achievedAt: new Date() },
-      });
+  // Achievement means at least one eligible historical measurement reached the
+  // target, not necessarily the most recent measurement. Same rule as QC/import.
+  await prisma.$transaction(async tx => {
+    const goals = await tx.playerGoal.findMany({
+      where: { deletedAt: null, player: { teamId: context.teamId, deletedAt: null } },
+      select: { playerId: true, testId: true },
+    });
+    const pairs = new Map(goals.map(goal => [`${goal.playerId}|${goal.testId}`, goal]));
+    for (const { playerId, testId } of pairs.values()) {
+      await syncGoalsForResult(tx, playerId, testId, context.teamId);
     }
-  }
+  });
 
   revalidatePath('/goals');
   revalidatePath('/players', 'layout');

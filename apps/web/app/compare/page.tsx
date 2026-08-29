@@ -1,8 +1,11 @@
 import { prisma } from '../../lib/prisma';
 import CompareControls from './compare-controls';
-import { computePercentile, fmtVal } from '../../lib/analytics';
+import { latestMeasurements } from '../../lib/measurements';
+import { profileCategoryCoverage } from '../../lib/profile-coverage';
+import { hasProfileConfirmation } from '../../lib/profile-confirmation';
+import { fmtVal } from '../../lib/analytics';
 import { requireAppContext } from '../../lib/app-context';
-import { empiricalAnchors, loadTeamReferenceProfile, referenceEntryMap, resolveReferenceEntry } from '../../lib/references';
+import { loadTeamReferenceProfile } from '../../lib/references';
 
 export default async function ComparePage({
   searchParams,
@@ -43,89 +46,36 @@ export default async function ComparePage({
   const same = !!query.a && query.a === query.b;
 
   const referenceProfile = await loadTeamReferenceProfile(context.teamId);
-  const referenceByKey = referenceEntryMap(referenceProfile?.entries ?? []);
-
-  const latestOf = (pl: (typeof players)[number]) => {
-    const m = new Map<
-      string,
-      { value: number; name: string; unit: string; code: string; direction: string }
-    >();
-    for (const s of pl.testSessions) {
-      for (const r of s.testResults) {
-        if (!m.has(r.testId)) {
-          m.set(r.testId, {
-            value: r.value,
-            name: r.test.name,
-            unit: r.test.unit,
-            code: r.test.code,
-            direction: r.test.direction,
-          });
-        }
-      }
-    }
-    return m;
-  };
-
-  const la = latestOf(a);
-  const lb = latestOf(b);
-
-  const rows: {
-    testId: string;
-    name: string;
-    unit: string;
-    va: number;
-    vb: number;
-    pa: number | null;
-    pb: number | null;
-    win: 'a' | 'b' | null;
-    direction: string;
-  }[] = [];
-
-  for (const [testId, ra] of la) {
-    const rb = lb.get(testId);
-    if (!rb) continue;
-    const pa = computePercentile(
-      ra.value,
-      empiricalAnchors(resolveReferenceEntry(referenceByKey, ra.code, a.position)),
-      ra.direction
-    );
-    const pb = computePercentile(
-      rb.value,
-      empiricalAnchors(resolveReferenceEntry(referenceByKey, rb.code, b.position)),
-      rb.direction
-    );
+  const confirmed = !!referenceProfile?.explicitlySelected && await hasProfileConfirmation(context.teamId, referenceProfile);
+  const tests = await prisma.test.findMany({ where: { deletedAt: null }, orderBy: { code: 'asc' } });
+  const la = latestMeasurements(a.testSessions, now);
+  const lb = latestMeasurements(b.testSessions, now);
+  const entries = referenceProfile?.entries ?? [];
+  const ca = profileCategoryCoverage(tests, entries, referenceProfile, a, confirmed, la, now);
+  const cb = profileCategoryCoverage(tests, entries, referenceProfile, b, confirmed, lb, now);
+  const label = (metric: (typeof ca.metrics)[number]) => metric.score
+    ? `${metric.score.description}: ${fmtVal(metric.score.raw)}` : metric.reason;
+  const rows = tests.map((test, index) => {
+    const va = la.get(test.id)?.value ?? null;
+    const vb = lb.get(test.id)?.value ?? null;
     let win: 'a' | 'b' | null = null;
-    if (ra.direction === 'HIGHER_IS_BETTER') win = ra.value > rb.value ? 'a' : ra.value < rb.value ? 'b' : null;
-    if (ra.direction === 'LOWER_IS_BETTER') win = ra.value < rb.value ? 'a' : ra.value > rb.value ? 'b' : null;
-    rows.push({
-      testId,
-      name: ra.name,
-      unit: ra.unit,
-      va: ra.value,
-      vb: rb.value,
-      pa,
-      pb,
-      win,
-      direction: ra.direction,
-    });
-  }
+    if (va !== null && vb !== null) {
+      if (test.direction === 'HIGHER_IS_BETTER') win = va > vb ? 'a' : va < vb ? 'b' : null;
+      if (test.direction === 'LOWER_IS_BETTER') win = va < vb ? 'a' : va > vb ? 'b' : null;
+    }
+    return { testId: test.id, name: test.name, unit: test.unit, va, vb, win,
+      labelA: label(ca.metrics[index]), labelB: label(cb.metrics[index]) };
+  }).filter(row => row.va !== null || row.vb !== null);
 
   const winsA = rows.filter((r) => r.win === 'a').length;
   const winsB = rows.filter((r) => r.win === 'b').length;
-
-  const pctLabel = (p: number | null, direction: string) => {
-    if (p !== null) return `p${p}`;
-    return direction === 'CONTEXTUAL'
-      ? 'процентиль не применяется'
-      : 'нет процентильной оценки';
-  };
 
   return (
     <div className="space-y-5 p-6">
       <div>
         <h1 className="text-3xl font-bold">Сравнение</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Два игрока по последним результатам общих тестов.
+          Два игрока по последним подтверждённым историческим результатам.
         </p>
       </div>
 
@@ -182,7 +132,7 @@ export default async function ComparePage({
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan={3} className="py-8 text-center text-gray-500">
-                      У игроков нет общих тестов с результатами.
+                      У игроков нет подтверждённых исторических результатов.
                     </td>
                   </tr>
                 )}
@@ -191,15 +141,15 @@ export default async function ComparePage({
                     <td className="px-4 py-3 text-gray-600">{r.name}</td>
                     <td className={`px-4 py-3 text-right ${r.win === 'a' ? 'bg-green-50' : ''}`}>
                       <div className="font-mono text-gray-900">
-                        {fmtVal(r.va)} {r.unit}
+                        {r.va === null ? 'Нет результата' : `${fmtVal(r.va)} ${r.unit}`}
                       </div>
-                      <div className="text-xs text-gray-400">{pctLabel(r.pa, r.direction)}</div>
+                      <div className="text-xs text-gray-400">{r.labelA}</div>
                     </td>
                     <td className={`px-4 py-3 text-right ${r.win === 'b' ? 'bg-green-50' : ''}`}>
                       <div className="font-mono text-gray-900">
-                        {fmtVal(r.vb)} {r.unit}
+                        {r.vb === null ? 'Нет результата' : `${fmtVal(r.vb)} ${r.unit}`}
                       </div>
-                      <div className="text-xs text-gray-400">{pctLabel(r.pb, r.direction)}</div>
+                      <div className="text-xs text-gray-400">{r.labelB}</div>
                     </td>
                   </tr>
                 ))}
@@ -208,10 +158,7 @@ export default async function ComparePage({
           </div>
 
           <p className="text-xs text-gray-500">
-            Зелёным отмечен лучший абсолютный результат (с учётом направления теста). pXX —
-            положение каждого игрока относительно эмпирических перцентилей его позиции. Если
-            процентильной оценки нет, сравнение работает по абсолютным значениям. Для
-            контекстных тестов лучший результат и процентиль автоматически не определяются.
+            Зелёным отмечен лучший абсолютный результат с учётом направления теста, а не персональный рекорд. Стандартизированный балл и эмпирический перцентиль — разные оценки; источник и совместимость проверяются так же, как в профиле игрока. Для контекстных тестов лучший результат автоматически не определяется.
           </p>
         </>
       )}

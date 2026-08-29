@@ -1,10 +1,12 @@
 'use server';
+import { assertBodyMetricWritable, lockMeasurementSession, projectBodyMetric } from '../../../lib/body-metrics';
 
 import { prisma } from '../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { computeQcStatus, syncQcFlag } from '../../../lib/qc';
 import { syncGoalsForResult } from '../../../lib/goals';
 import { requireAppContext } from '../../../lib/app-context';
+import { measurementDay } from '../../../lib/measurement-date';
 
 type Phase = 'PRESEASON' | 'CAMP' | 'INSEASON' | 'POSTSEASON' | 'RECOVERY';
 const PHASES = new Set<string>(['PRESEASON', 'CAMP', 'INSEASON', 'POSTSEASON', 'RECOVERY']);
@@ -19,8 +21,7 @@ export async function saveTeamResults(params: {
   if (!PHASES.has(params.phase)) throw new Error('Некорректная фаза сезона.');
   if (!params.entries.length) throw new Error('Нет ни одного результата для сохранения.');
 
-  const date = new Date(params.date + 'T12:00:00.000Z');
-  if (Number.isNaN(date.getTime())) throw new Error('Некорректная дата.');
+  const { start: date, end: dayEnd } = measurementDay(params.date);
 
   const phase = params.phase as Phase;
 
@@ -28,6 +29,7 @@ export async function saveTeamResults(params: {
   if (!test) throw new Error('Тест не найден или архивирован.');
 
   const playerIds = [...new Set(params.entries.map((e) => e.playerId))];
+  if (playerIds.length !== params.entries.length) throw new Error('В запросе повторяется игрок.');
   const players = await prisma.player.findMany({
     where: { id: { in: playerIds }, deletedAt: null, teamId: context.teamId },
     select: { id: true },
@@ -46,7 +48,8 @@ export async function saveTeamResults(params: {
 
     for (const e of params.entries) {
       let session = await tx.testSession.findFirst({
-        where: { playerId: e.playerId, teamId: context.teamId, seasonId: context.seasonId, DateTime: date, phase },
+        where: { playerId: e.playerId, teamId: context.teamId, seasonId: context.seasonId, DateTime: { gte: date, lt: dayEnd }, phase },
+        orderBy: [{ DateTime: 'desc' }, { id: 'desc' }],
       });
 
       let created = false;
@@ -70,6 +73,8 @@ export async function saveTeamResults(params: {
         });
       }
 
+      await lockMeasurementSession(tx, session.id);
+      await assertBodyMetricWritable(tx, session.id, e.playerId, test);
       const qcStatus = computeQcStatus(test, e.value);
       const result = await tx.testResult.upsert({
         where: {
@@ -85,7 +90,8 @@ export async function saveTeamResults(params: {
         },
       });
       await syncQcFlag(tx, result.id, test, e.value, qcStatus);
-      await syncGoalsForResult(tx, e.playerId, test.id, context.seasonId);
+      await projectBodyMetric(tx, session.id, e.playerId, test.code, e.value);
+      await syncGoalsForResult(tx, e.playerId, test.id, context.teamId);
 
       out.push({ playerId: e.playerId, sessionId: session.sessionId, created });
     }
@@ -97,6 +103,7 @@ export async function saveTeamResults(params: {
   revalidatePath('/analytics', 'layout');
   revalidatePath('/compare');
   revalidatePath('/qc');
+  revalidatePath('/body');
   revalidatePath('/goals', 'layout');
   revalidatePath('/');
   return summary;

@@ -38,11 +38,12 @@ export async function resolveFlag(formData: FormData): Promise<void> {
         tx,
         flag.testResult.playerId,
         flag.testResult.testId,
-        context.seasonId
+        context.teamId
       );
     }
   });
   revalidatePath('/qc');
+  revalidatePath('/body');
   revalidatePath('/goals', 'layout');
   revalidatePath('/analytics', 'layout');
   revalidatePath('/compare');

@@ -1,9 +1,12 @@
 import { prisma } from '../../lib/prisma';
 import AnalyticsControls from './analytics-controls';
-import { computePercentile, fmtVal } from '../../lib/analytics';
-import RadarChart from '../../components/RadarChart';
+import { fmtVal } from '../../lib/analytics';
+import PlayerProfilePanel from '../../components/PlayerProfilePanel';
+import { buildProfileModel } from '../../lib/profile-model';
+import { hasProfileConfirmation } from '../../lib/profile-confirmation';
+import { historicalSessions } from '../../lib/measurements';
 import { requireAppContext } from '../../lib/app-context';
-import { empiricalAnchors, loadTeamReferenceProfile, referenceEntryMap, resolveReferenceEntry } from '../../lib/references';
+import { loadTeamReferenceProfile } from '../../lib/references';
 
 export default async function AnalyticsPage({
   searchParams,
@@ -51,13 +54,13 @@ export default async function AnalyticsPage({
   }
 
   const referenceProfile = await loadTeamReferenceProfile(context.teamId);
-  const referenceByKey = referenceEntryMap(referenceProfile?.entries ?? []);
+  const referenceConfirmed = !!referenceProfile?.explicitlySelected && await hasProfileConfirmation(context.teamId, referenceProfile);
 
   const radarCategories = await prisma.testCategory.findMany({
     where: { active: true, includeInRadar: true },
+    include: { tests: { where: { deletedAt: null }, orderBy: { code: 'asc' } } },
     orderBy: [{ radarOrder: 'asc' }, { sortOrder: 'asc' }],
   });
-  const radarCatIds = new Set(radarCategories.map((c) => c.id));
 
   const allPlayers = await prisma.player.findMany({
     where: { teamId: context.teamId, deletedAt: null, status: { in: ['ACTIVE', 'LIMITED'] } },
@@ -79,91 +82,10 @@ export default async function AnalyticsPage({
     },
   });
 
-  const latest = new Map<
-    string,
-    { value: number; testCode: string; categoryId: string | null; direction: string }
-  >();
-  for (const s of [...sessionsAsc].reverse()) {
-    for (const r of s.testResults) {
-      if (!latest.has(r.testId)) {
-        latest.set(r.testId, {
-          value: r.value,
-          testCode: r.test.code,
-          categoryId: r.test.categoryId,
-          direction: r.test.direction,
-        });
-      }
-    }
-  }
+  const profileModel = buildProfileModel(radarCategories, referenceProfile?.entries ?? [], referenceProfile,
+    { ...player, testSessions: sessionsAsc }, referenceConfirmed, now, allPlayers);
 
-  const catAcc = new Map<string, { sum: number; count: number }>();
-  for (const { value, testCode, categoryId, direction } of Array.from(latest.values())) {
-    if (!categoryId || !radarCatIds.has(categoryId)) continue;
-    const pct = computePercentile(
-      value,
-      empiricalAnchors(resolveReferenceEntry(referenceByKey, testCode, player.position)),
-      direction
-    );
-    if (pct === null) continue;
-    const acc = catAcc.get(categoryId) ?? { sum: 0, count: 0 };
-    acc.sum += pct;
-    acc.count += 1;
-    catAcc.set(categoryId, acc);
-  }
-
-  const teamAcc = new Map<string, { sum: number; count: number }>();
-  for (const tp of allPlayers) {
-    const tLatest = new Map<
-      string,
-      { value: number; testCode: string; categoryId: string | null; direction: string }
-    >();
-    const sorted = [...tp.testSessions].sort(
-      (a, b) => new Date(b.DateTime).getTime() - new Date(a.DateTime).getTime()
-    );
-    for (const s of sorted) {
-      for (const r of s.testResults) {
-        if (!tLatest.has(r.testId)) {
-          tLatest.set(r.testId, {
-            value: r.value,
-            testCode: r.test.code,
-            categoryId: r.test.categoryId,
-            direction: r.test.direction,
-          });
-        }
-      }
-    }
-    const pCat = new Map<string, { sum: number; count: number }>();
-    for (const { value, testCode, categoryId, direction } of Array.from(tLatest.values())) {
-      if (!categoryId || !radarCatIds.has(categoryId)) continue;
-      const pct = computePercentile(
-        value,
-        empiricalAnchors(resolveReferenceEntry(referenceByKey, testCode, tp.position)),
-        direction
-      );
-      if (pct === null) continue;
-      const acc = pCat.get(categoryId) ?? { sum: 0, count: 0 };
-      acc.sum += pct;
-      acc.count += 1;
-      pCat.set(categoryId, acc);
-    }
-    for (const [catId, acc] of Array.from(pCat)) {
-      const t = teamAcc.get(catId) ?? { sum: 0, count: 0 };
-      t.sum += acc.sum / acc.count;
-      t.count += 1;
-      teamAcc.set(catId, t);
-    }
-  }
-
-  const values = radarCategories.map((c) => {
-    const acc = catAcc.get(c.id);
-    return acc ? Math.round(acc.sum / acc.count) : null;
-  });
-  const teamValues = radarCategories.map((c) => {
-    const acc = teamAcc.get(c.id);
-    return acc ? Math.round(acc.sum / acc.count) : null;
-  });
-
-  const points = sessionsAsc
+  const points = historicalSessions(sessionsAsc, now).reverse()
     .map((s) => {
       const r = s.testResults.find((r) => r.testId === selectedTest.id);
       return r ? { date: s.DateTime, value: r.value } : null;
@@ -213,24 +135,7 @@ export default async function AnalyticsPage({
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-2 text-xl font-bold">
-            Профиль: {player.lastName} {player.firstName}
-          </h2>
-          {radarCategories.length >= 3 ? (
-            <RadarChart
-              categories={radarCategories.map((c) => ({ id: c.id, name: c.name }))}
-              values={values}
-              teamValues={teamValues}
-              playerLabel={`${player.lastName} ${player.firstName}`}
-            />
-          ) : (
-            <p className="text-sm text-gray-500">
-              Профиль спортсмена не настроен. Включите минимум три категории в «Тесты →
-              Категории».
-            </p>
-          )}
-        </div>
+        <PlayerProfilePanel model={profileModel} referenceConfirmed={referenceConfirmed} referenceProfile={referenceProfile} />
 
         <div className="rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="text-xl font-bold">{selectedTest.name}</h2>

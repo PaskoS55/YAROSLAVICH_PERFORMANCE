@@ -37,6 +37,8 @@ try {
   const timeline = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT count(DISTINCT "DateTime") FROM test_sessions;` });
   if (timeline !== '4') throw new Error('Demo timeline is not four checkpoints');
   const demoSql = sql => executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql });
+  const bodyConflicts = () => demoSql(`SELECT count(*) FROM body_compositions b CROSS JOIN (VALUES ('BC_MASS'),('BC_FAT'),('BC_FFM')) metric(code) LEFT JOIN tests t ON t.code=metric.code LEFT JOIN test_results r ON r."testSessionId"=b."testSessionId" AND r."testId"=t.id WHERE r.id IS NULL OR r."playerId"<>b."playerId" OR r.value IS DISTINCT FROM CASE metric.code WHEN 'BC_MASS' THEN b.mass_kg WHEN 'BC_FAT' THEN b.fat_pct ELSE b.ffm_kg END`);
+  assert.equal(await bodyConflicts(),'0','Fresh Demo has two competing body values');
   const captureTimeline = () => demoSql(`SELECT json_build_object('sessions',(SELECT json_agg(t ORDER BY id) FROM (SELECT id,"DateTime" FROM test_sessions) t),'marker',(SELECT "newValues" FROM audit_logs WHERE id='demo-dataset-identity'))::text`);
   const historical = () => demoSql(`SELECT (SELECT count(*) FROM test_sessions WHERE "DateTime">now()),(SELECT count(*) FROM test_sessions WHERE "DateTime"> (SELECT ("newValues"->>'anchor')::timestamptz FROM audit_logs WHERE id='demo-dataset-identity')),(SELECT count(*) FROM player_goals WHERE "achievedAt">now()),(SELECT count(DISTINCT "DateTime") FROM test_sessions)`);
   assert.equal(await historical(),'0|0|0|4');
@@ -78,6 +80,7 @@ try {
   const resetTimeline = await captureTimeline();
   assert.equal(await run(path.join(prismaRoot,'bootstrap-demo.cjs'),[],prismaEnv(demoUrl)),0);
   assert.equal(await captureTimeline(),resetTimeline,'Reset anchor moved on relaunch');
+  assert.equal(await bodyConflicts(),'0','Reset Demo has two competing body values');
   assert.equal(await demoSql(`SELECT json_agg(t ORDER BY id)::text FROM local_users t`),localUsers,'Demo reset changed LocalUser');
   const resetName = await executeSql({ runtime: postgres, username: APPLICATION_USER, password: credentials.applicationPassword, database: DEMO_DATABASE, sql: `SELECT "firstName" FROM players WHERE id='demo-player-01';` });
   if (resetName !== 'Антон') throw new Error('Demo reset did not restore canonical baseline');

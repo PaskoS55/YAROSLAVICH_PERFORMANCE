@@ -1,56 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { importRows, type ImportRow } from './actions';
-
-type Parsed = ImportRow & { line: number; valid: boolean; problem?: string };
+import { importRows } from './actions';
+import { parseImport, type ParsedImportRow } from './parse';
 
 export default function ImportForm() {
-  const [rows, setRows] = useState<Parsed[]>([]);
+  const [rows, setRows] = useState<ParsedImportRow[]>([]);
   const [fileName, setFileName] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: number; errors: string[] } | null>(null);
-
-  function parse(text: string): Parsed[] {
-    const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '');
-    const delim =
-      (text.match(/;/g)?.length ?? 0) >= (text.match(/,/g)?.length ?? 0) ? ';' : ',';
-    const parsed: Parsed[] = [];
-    lines.forEach((line, idx) => {
-      const cells = line.split(delim).map((c) => c.trim());
-      if (cells.length < 4) {
-        parsed.push({
-          line: idx + 1,
-          playerCode: cells[0] || '',
-          date: cells[1] || '',
-          testCode: cells[2] || '',
-          value: 0,
-          phase: cells[4] || '',
-          valid: false,
-          problem: 'Недостаточно колонок: ожидается минимум 4',
-        });
-        return;
-      }
-      const [playerCode, date, testCode, valueStr, phaseStr = ''] = cells;
-      const value = Number(valueStr.replace(',', '.'));
-      if (idx === 0 && Number.isNaN(value)) return;
-      const problems: string[] = [];
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
-        problems.push('дата (нужен формат ГГГГ-ММ-ДД)');
-      if (Number.isNaN(value)) problems.push('значение не число');
-      parsed.push({
-        line: idx + 1,
-        playerCode,
-        date,
-        testCode,
-        value: Number.isNaN(value) ? 0 : value,
-        phase: phaseStr,
-        valid: problems.length === 0,
-        problem: problems.join('; '),
-      });
-    });
-    return parsed;
-  }
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -58,9 +16,10 @@ export default function ImportForm() {
     setFileName(f.name);
     const reader = new FileReader();
     reader.onload = () => {
-      setRows(parse(String(reader.result ?? '')));
+      setRows(parseImport(String(reader.result ?? '')));
       setResult(null);
     };
+    reader.onerror=()=>{setRows([]);setResult({ok:0,errors:['Не удалось прочитать CSV-файл.']});};
     reader.readAsText(f, 'utf-8');
   }
 
@@ -68,6 +27,7 @@ export default function ImportForm() {
     const valid = rows.filter((r) => r.valid);
     if (valid.length === 0) return;
     setBusy(true);
+    try {
     const res = await importRows(
       valid.map(({ playerCode, date, testCode, value, phase }) => ({
         playerCode,
@@ -78,7 +38,8 @@ export default function ImportForm() {
       }))
     );
     setResult(res);
-    setBusy(false);
+    } catch { setResult({ok:0,errors:['Не удалось завершить импорт. Проверьте подключение и повторите попытку.']}); }
+    finally { setBusy(false); }
   }
 
   const validCount = rows.filter((r) => r.valid).length;
@@ -133,7 +94,7 @@ export default function ImportForm() {
                   <td className="py-1 pr-4">{r.date}</td>
                   <td className="py-1 pr-4 font-mono">{r.testCode}</td>
                   <td className="py-1 pr-4 font-mono">
-                    {r.valid || r.value !== 0 ? r.value : '—'}
+                    {Number.isFinite(r.value) ? String(r.value).replace('.', ',') : '—'}
                   </td>
                   <td className="py-1 pr-4 text-xs text-gray-500">
                     {r.phase || <span className="text-gray-400">INSEASON</span>}

@@ -6,9 +6,11 @@ import { validateOrganizationBranding } from '@pasko-performance/core/product';
 import { requireAppContext } from '../../lib/app-context';
 import { isDemoWorkspace } from '../../lib/workspace';
 import { resetDemoDatabase } from '@pasko-performance/db';
+import { requireCurrentUser } from '../../lib/current-user';
+import { createSeasonOnce, seasonDate } from '../../lib/seasons';
 
 const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
-const toDate = (s: string) => (s ? new Date(s + 'T12:00:00.000Z') : null);
+const toDate = seasonDate;
 
 export interface OrganizationFormState { error?: string; success?: string }
 
@@ -96,14 +98,16 @@ export async function createSeason(formData: FormData): Promise<void> {
   const start = toDate(str(formData.get('startDate')));
   const end = toDate(str(formData.get('endDate')));
   if (!name || !start || !end || end < start) return;
-  await prisma.season.create({ data: { name, startDate: start, endDate: end, teams: { connect: { id: context.teamId } } } });
+  await createSeasonOnce(prisma, context.teamId, name, start, end);
   revalidatePath('/settings');
   revalidatePath('/context');
 }
 
-export async function resetDemoData(): Promise<void> {
+export async function resetDemoData(formData: FormData): Promise<void> {
   if (isDemoWorkspace()) throw new Error('USE_DEMO_RESET_ACTION');
+  await requireCurrentUser();
   await requireAppContext();
+  if (String(formData.get('confirmation') ?? '') !== 'СБРОСИТЬ') throw new Error('RESET_NOT_CONFIRMED');
   // Удаляем рабочие данные, но сохраняем нормативы, справочник тестов и оборудование
   // Порядок: дети → родители (BodyComposition имеет FK на TestSession)
   await prisma.$transaction(async (tx) => {

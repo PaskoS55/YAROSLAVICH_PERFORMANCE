@@ -36,7 +36,8 @@ function age(birthDate: Date | null) {
   return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
 }
 
-export default async function TeamPage() {
+export default async function TeamPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const query = await searchParams;
   const context = await requireAppContext();
   const players = await prisma.player.findMany({
     where: { teamId: context.teamId, deletedAt: null },
@@ -57,6 +58,7 @@ export default async function TeamPage() {
 
   return (
     <div className="space-y-6 p-6">
+      {query.error && <p role="alert" className="text-sm text-red-700">{query.error}</p>}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">{context.teamName}</h1>

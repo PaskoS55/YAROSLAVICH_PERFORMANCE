@@ -7,7 +7,7 @@ export default async function EditTestPage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const test = await prisma.test.findUnique({
     where: { id },
-    include: { _count: { select: { testResults: true } } },
+    include: { _count: { select: { testResults: true, normEntries: true } } },
   });
   if (!test) notFound();
 
@@ -67,6 +67,7 @@ export default async function EditTestPage({ params }: { params: Promise<{ id: s
         categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         hasResults={resultsCount > 0}
         resultsCount={resultsCount}
+        hasReferences={test._count.normEntries > 0}
       />
     </div>
   );

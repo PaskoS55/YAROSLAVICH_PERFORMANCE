@@ -11,9 +11,11 @@ const label = 'block text-xs font-medium text-gray-500';
 export default function ReportsCards({
   players,
   sessions,
+  demo = false,
 }: {
   players: Player[];
   sessions: Session[];
+  demo?: boolean;
 }) {
   const [playerId, setPlayerId] = useState(players[0]?.id ?? '');
   const [sessionId, setSessionId] = useState(sessions[0]?.id ?? '');
@@ -27,6 +29,7 @@ export default function ReportsCards({
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {demo && <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm lg:col-span-3">Экспорт недоступен в Demo Workspace. Здесь можно ознакомиться с видами отчётов; выгрузка доступна в рабочем пространстве клуба.</p>}
       <div className="rounded-lg border border-gray-200 bg-white p-5">
         <h2 className="text-lg font-bold">Командная сводка</h2>
         <p className="mt-1 text-sm text-gray-600">
@@ -34,6 +37,7 @@ export default function ReportsCards({
         </p>
         <button
           className="btn-primary mt-4"
+          disabled={demo}
           onClick={() => download('/api/export?type=team')}
         >
           Скачать CSV
@@ -65,7 +69,7 @@ export default function ReportsCards({
         )}
         <button
           className="btn-primary mt-4"
-          disabled={!playerId}
+          disabled={demo || !playerId}
           onClick={() => download(`/api/export?type=player&id=${playerId}`)}
         >
           Скачать CSV
@@ -97,7 +101,7 @@ export default function ReportsCards({
         )}
         <button
           className="btn-primary mt-4"
-          disabled={!sessionId}
+          disabled={demo || !sessionId}
           onClick={() => download(`/api/export?type=session&id=${sessionId}`)}
         >
           Скачать CSV

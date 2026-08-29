@@ -63,7 +63,40 @@ async function main() {
   contents.session.webRequest.onCompleted((event) => { if (event.resourceType === 'mainFrame') completed.push(new URL(event.url)); });
   installWindowNavigation(contents, club.origin, demo.origin, (url) => external.push(url));
   await win.loadURL(club.origin.href); await at(club.origin.href);
+  if (process.argv.includes('--goal-scope-only')) {
+    await require('./test-goal-workspaces.cjs')({ win, club, demo, sql, auth, demoDatabase: DEMO_DATABASE });
+    contents.session.webRequest.onCompleted((event) => { if (event.resourceType === 'mainFrame') completed.push(new URL(event.url)); });
+    return;
+  }
+  if (process.argv.includes('--metric-entry-only')) {
+    await require('./test-metric-entry.cjs')({ win, club, sql });
+    return;
+  }
+  if (process.argv.includes('--mutation-only')) {
+    await require('./test-mutation-controls.cjs')({win,club,sql,auth});
+    return;
+  }
+  if (process.argv.includes('--references-only')) {
+    await require('./test-reference-workspaces.cjs')({win,club,demo,sql,demoDatabase:DEMO_DATABASE});
+    return;
+  }
+  if (process.argv.includes('--auth-only')) {
+    await require('./test-auth-recovery.cjs')({win,club,sql});
+    return;
+  }
+  if (process.argv.includes('--body-source-only')) {
+    await require('./test-body-source-consistency.cjs')({ win, club, sql, temp });
+    return;
+  }
   await require('./test-player-profile.cjs')({ win, club, demo, sql, auth, demoDatabase: DEMO_DATABASE });
+  await require('./test-cross-screen-metrics.cjs')({ win, club, demo, sql, demoDatabase: DEMO_DATABASE });
+  await require('./test-goal-workspaces.cjs')({ win, club, demo, sql, auth, demoDatabase: DEMO_DATABASE });
+  await require('./test-reference-workspaces.cjs')({win,club,demo,sql,demoDatabase:DEMO_DATABASE});
+  await require('./test-mutation-controls.cjs')({win,club,sql,auth});
+  contents.session.webRequest.onCompleted((event) => { if (event.resourceType === 'mainFrame') completed.push(new URL(event.url)); });
+  await require('./test-body-source-consistency.cjs')({ win, club, sql, temp });
+  await require('./test-metric-entry.cjs')({ win, club, sql });
+  await require('./test-data-scale.cjs')({ win, club, sql });
   clubBefore = await sql(counts); demoBefore = await sql(counts, DEMO_DATABASE);
   const enter = async () => { await click('a[href="/api/demo-enter"]'); await at(demo.origin.href); };
   await enter();

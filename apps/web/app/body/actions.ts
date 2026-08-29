@@ -2,6 +2,11 @@
 
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { measurementDay } from '../../lib/measurement-date';
+import { BODY_METRICS, assertBodyMetricWritable, lockMeasurementSession, projectBodyMetric, type BodyMetricCode } from '../../lib/body-metrics';
+import { computeQcStatus, syncQcFlag } from '../../lib/qc';
+import { syncGoalsForResult } from '../../lib/goals';
 import { requireAppContext } from '../../lib/app-context';
 
 type Phase = 'PRESEASON' | 'CAMP' | 'INSEASON' | 'POSTSEASON' | 'RECOVERY';
@@ -22,66 +27,62 @@ export async function createBodyComposition(formData: FormData): Promise<void> {
   const phase = num(formData.get('phase'));
   const phaseStr = String(formData.get('sessionPhase') ?? 'INSEASON').toUpperCase();
 
+  function invalid(): never { return redirect('/body?error=invalid'); }
+
   // Валидация
   if (!playerId || !dateStr) {
-    console.error('Body composition: игрок и дата обязательны.');
-    return;
+    invalid();
   }
   if (mass === null || fat === null || ffm === null) {
-    console.error('Body composition: масса, жир и БЖМ обязательны.');
-    return;
+    invalid();
   }
   if (!Number.isFinite(mass) || !Number.isFinite(fat) || !Number.isFinite(ffm)) {
-    console.error('Body composition: все значения должны быть числами.');
-    return;
+    invalid();
   }
   if (mass <= 0 || mass > 300) {
-    console.error('Body composition: масса должна быть от 0 до 300 кг.');
-    return;
+    invalid();
   }
   if (fat < 0 || fat > 60) {
-    console.error('Body composition: процент жира должен быть от 0 до 60%.');
-    return;
+    invalid();
   }
-  if (ffm <= 0 || ffm > 300) {
-    console.error('Body composition: БЖМ должна быть от 0 до 300 кг.');
-    return;
+  if (ffm <= 0 || ffm > mass) {
+    invalid();
   }
   if (phase !== null && (!Number.isFinite(phase) || phase < 0 || phase > 15)) {
-    console.error('Body composition: фазовый угол должен быть от 0 до 15°.');
-    return;
+    invalid();
   }
   if (!PHASES.has(phaseStr)) {
-    console.error('Body composition: некорректная фаза сезона.');
-    return;
+    invalid();
   }
 
-  const date = new Date(dateStr + 'T12:00:00.000Z');
-  if (Number.isNaN(date.getTime())) {
-    console.error('Body composition: некорректная дата.');
-    return;
-  }
+  let date: Date;
+  let dayEnd: Date;
+  try { ({ start: date, end: dayEnd } = measurementDay(dateStr)); }
+  catch { return invalid(); }
 
   const player = await prisma.player.findFirst({
     where: { id: playerId, teamId: context.teamId, deletedAt: null },
   });
   if (!player) {
-    console.error('Body composition: игрок не найден или удалён.');
-    return;
+    invalid();
   }
 
   try {
     await prisma.$transaction(async (tx) => {
-      let session = await tx.testSession.findFirst({
+      await tx.$queryRaw`SELECT id FROM players WHERE id = ${playerId} FOR UPDATE`;
+      const candidates = await tx.testSession.findMany({
         where: {
           playerId,
-          DateTime: date,
+          DateTime: { gte: date, lt: dayEnd },
           phase: phaseStr as Phase,
           teamId: context.teamId,
           seasonId: context.seasonId,
         },
+        take: 2,
       });
 
+      if (candidates.length > 1) throw new Error('BODY_AMBIGUOUS_SESSION');
+      let session = candidates[0];
       if (!session) {
         const sessionId = `S-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
         session = await tx.testSession.create({
@@ -101,22 +102,41 @@ export async function createBodyComposition(formData: FormData): Promise<void> {
         });
       }
 
-      await tx.bodyComposition.create({
-        data: {
-          playerId,
-          testSessionId: session.id,
-          mass_kg: mass,
-          fat_pct: fat,
-          ffm_kg: ffm,
-          phase_angle: phase,
-        },
+      await lockMeasurementSession(tx, session.id);
+      const tests = await tx.test.findMany({ where: { code: { in: Object.keys(BODY_METRICS) }, deletedAt: null } });
+      if (tests.length !== 3) throw new Error('BODY_METRIC_DEFINITION_MISSING');
+      for (const test of tests) await assertBodyMetricWritable(tx, session.id, playerId, test);
+      const values: Record<BodyMetricCode, number> = { BC_MASS: mass, BC_FAT: fat, BC_FFM: ffm };
+      for (const test of tests) {
+        const value = values[test.code as BodyMetricCode];
+        const qcStatus = computeQcStatus(test, value);
+        const result = await tx.testResult.upsert({
+          where: { testSessionId_testId: { testSessionId: session.id, testId: test.id } },
+          update: { value, qcStatus, playerId, deletedAt: null },
+          create: { value, qcStatus, playerId, testId: test.id, testSessionId: session.id },
+        });
+        await syncQcFlag(tx, result.id, test, value, qcStatus);
+        await projectBodyMetric(tx, session.id, playerId, test.code, value);
+        await syncGoalsForResult(tx, playerId, test.id, context.teamId);
+      }
+      await tx.bodyComposition.updateMany({
+        where: { testSessionId: session.id, playerId, deletedAt: null }, data: { phase_angle: phase },
       });
     });
 
     revalidatePath('/body');
     revalidatePath('/players', 'layout');
     revalidatePath('/analytics', 'layout');
-  } catch (err) {
-    console.error('Body composition: ошибка записи', err);
+    revalidatePath('/compare');
+    revalidatePath('/reports');
+    revalidatePath('/goals');
+    revalidatePath('/sessions');
+    revalidatePath('/qc');
+    revalidatePath('/');
+  } catch (error) {
+    const code = error instanceof Error && error.message.startsWith('BODY_CONFLICT') ? 'conflict'
+      : error instanceof Error && error.message === 'BODY_AMBIGUOUS_SESSION' ? 'ambiguous' : 'save';
+    redirect(`/body?error=${code}`);
   }
+  redirect('/body?saved=1');
 }

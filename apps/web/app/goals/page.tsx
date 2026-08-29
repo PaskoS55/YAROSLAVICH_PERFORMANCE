@@ -4,6 +4,7 @@ import { markGoalAchieved, createGoal } from './actions';
 import GoalsHeader from './new-goal-section';
 import ConfirmMarkButton from './confirm-mark-button';
 import { requireAppContext } from '../../lib/app-context';
+import { goalMeasurements } from '../../lib/goals';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -36,7 +37,7 @@ type StatusKey = 'DONE' | 'OVERDUE' | 'SOON' | 'WORK';
 export default async function GoalsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ f?: string }>;
+  searchParams: Promise<{ f?: string; error?: string }>;
 }) {
   const query = await searchParams;
   const context = await requireAppContext();
@@ -63,16 +64,7 @@ export default async function GoalsPage({
   // Один запрос вместо N+1: последние результаты по всем парам (playerId, testId)
   const playerIds = [...new Set(goalsRaw.map((g) => g.playerId))];
   const testIds = [...new Set(goalsRaw.map((g) => g.testId))];
-  const results = await prisma.testResult.findMany({
-    where: {
-      playerId: { in: playerIds },
-      testId: { in: testIds },
-      deletedAt: null,
-      qcStatus: 'PASSED',
-      testSession: { teamId: context.teamId, seasonId: context.seasonId, deletedAt: null, DateTime: { lte: now } },
-    },
-    orderBy: { testSession: { DateTime: 'desc' } },
-  });
+  const results = await goalMeasurements(prisma, playerIds, testIds, context.teamId, now);
   const latestByPair = new Map<string, number>();
   for (const r of results) {
     const key = `${r.playerId}|${r.testId}`;
@@ -136,6 +128,7 @@ export default async function GoalsPage({
 
   return (
     <div className="space-y-5 p-6">
+      {query.error === 'invalid' && <p role="alert" className="text-sm text-red-700">Укажите игрока, тест, числовую цель и корректную дату.</p>}
       <GoalsHeader>
         <form action={createGoal} className="grid grid-cols-1 gap-4 md:grid-cols-5">
           <label className={label}>
@@ -173,6 +166,7 @@ export default async function GoalsPage({
           </div>
         </form>
       </GoalsHeader>
+      <p className="text-sm text-gray-500">Цели игрока действуют во всех сезонах. Текущее значение — последний проверенный результат; достижение — первый подходящий результат.</p>
 
       <div className="flex flex-wrap gap-2">
         {chips.map((c) => (

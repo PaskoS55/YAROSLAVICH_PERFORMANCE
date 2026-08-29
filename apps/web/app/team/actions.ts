@@ -3,6 +3,8 @@
 import { prisma } from '../../lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { requireAppContext } from '../../lib/app-context';
+import { validatePlayerFields } from '../../lib/player';
+import { redirect } from 'next/navigation';
 
 export async function updatePlayerStatus(formData: FormData): Promise<void> {
   const context = await requireAppContext();
@@ -25,6 +27,8 @@ export async function updatePlayerStatus(formData: FormData): Promise<void> {
 
 export async function createPlayer(formData: FormData): Promise<void> {
   const context = await requireAppContext();
+  const validated = validatePlayerFields(formData);
+  if (!validated.ok) redirect(`/team?error=${encodeURIComponent(validated.error)}`);
   const playerId = String(formData.get('playerId') ?? '').trim();
   const firstName = String(formData.get('firstName') ?? '').trim();
   const lastName = String(formData.get('lastName') ?? '').trim();
@@ -37,8 +41,7 @@ export async function createPlayer(formData: FormData): Promise<void> {
   const joinedDateStr = String(formData.get('joinedDate') ?? '').trim();
 
   if (!playerId || !firstName || !lastName || !position) {
-    console.error('createPlayer: заполните обязательные поля.');
-    return;
+    redirect('/team?error=Заполните обязательные поля.');
   }
 
   const exists = await prisma.player.findUnique({
@@ -53,8 +56,8 @@ export async function createPlayer(formData: FormData): Promise<void> {
     return;
   }
 
-  const number = numberStr ? parseInt(numberStr, 10) : null;
-  const height = heightStr ? parseInt(heightStr, 10) : null;
+  const number = numberStr ? validated.data.number as number : null;
+  const height = heightStr ? validated.data.height as number : null;
   const birthDate = birthDateStr ? new Date(birthDateStr + 'T12:00:00.000Z') : null;
   const joinedDate = joinedDateStr ? new Date(joinedDateStr + 'T12:00:00.000Z') : null;
 

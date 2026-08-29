@@ -19,8 +19,9 @@ describe('goal downstream scoping', () => {
     expect(findMany).toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
   });
-  it('recalculates from PASSED results in the active season only', async () => {
-    const findResults = vi.fn(async () => [{ value: 51 }]);
+  it('recalculates from PASSED historical results across seasons in the owning team', async () => {
+    const measuredAt = new Date('2025-01-02T12:00:00Z');
+    const findResults = vi.fn(async () => [{ playerId: 'player-a', testId: 'test-a', value: 51, testSession: { id: 's', playerId: 'player-a', DateTime: measuredAt, createdAt: measuredAt } }]);
     const updateGoal = vi.fn(async () => undefined);
     const tx = {
       test: { findUnique: vi.fn(async () => ({ direction: 'HIGHER_IS_BETTER' })) },
@@ -31,21 +32,22 @@ describe('goal downstream scoping', () => {
       testResult: { findMany: findResults },
     };
 
-    await syncGoalsForResult(tx as never, 'player-a', 'test-a', 'season-a');
+    await syncGoalsForResult(tx as never, 'player-a', 'test-a', 'team-a');
 
     expect(findResults).toHaveBeenCalledWith({
       where: {
-        playerId: 'player-a',
-        testId: 'test-a',
+        playerId: { in: ['player-a'] },
+        testId: { in: ['test-a'] },
+        player: { teamId: 'team-a', deletedAt: null },
         deletedAt: null,
         qcStatus: 'PASSED',
-        testSession: { seasonId: 'season-a', deletedAt: null, DateTime: { lte: expect.any(Date) } },
+        testSession: { teamId: 'team-a', playerId: { in: ['player-a'] }, deletedAt: null, DateTime: { lte: expect.any(Date) } },
       },
-      select: { value: true },
+      select: { playerId: true, testId: true, value: true, testSession: { select: { id: true, playerId: true, DateTime: true, createdAt: true } } },
     });
     expect(updateGoal).toHaveBeenCalledWith({
       where: { id: 'goal-a' },
-      data: { achieved: true, achievedAt: expect.any(Date) },
+      data: { achieved: true, achievedAt: measuredAt },
     });
   });
 });

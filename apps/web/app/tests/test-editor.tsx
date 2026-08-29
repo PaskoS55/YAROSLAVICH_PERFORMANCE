@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useFormState } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { createTest, updateTest } from './actions';
+import ConfirmFormButton from '../../components/ConfirmFormButton';
 
 export type Cat = { id: string; name: string };
 export type TestInit = {
@@ -46,20 +47,9 @@ function FieldHelp({ text }: { text: string }) {
 }
 
 export function ArchiveButton() {
-  return (
-    <button
-      type="submit"
-      className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-      onClick={(e) => {
-        const ok = window.prompt(
-          'Архивировать тест? Он исчезнет из нового тестирования и целей, но все исторические данные и аналитика сохранятся.\n\nДля подтверждения введите АРХИВ:'
-        );
-        if (ok !== 'АРХИВ') e.preventDefault();
-      }}
-    >
-      Архивировать
-    </button>
-  );
+  return <ConfirmFormButton label="Архивировать" confirmation="АРХИВ"
+    description="Тест исчезнет из нового тестирования и целей. Исторические данные и аналитика сохранятся."
+    className="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100" />;
 }
 
 export default function TestEditor({
@@ -67,11 +57,13 @@ export default function TestEditor({
   categories,
   hasResults,
   resultsCount,
+  hasReferences,
 }: {
   test: TestInit | null;
   categories: Cat[];
   hasResults: boolean;
   resultsCount: number;
+  hasReferences: boolean;
 }) {
   const router = useRouter();
   const [state, formAction] = useFormState(test?.id ? updateTest : createTest, null);
@@ -106,6 +98,7 @@ export default function TestEditor({
     <form action={formAction} onSubmit={onSubmit} className="space-y-5">
       {test?.id && <input type="hidden" name="id" value={test.id} />}
       <input type="hidden" name="confirmed" defaultValue="" />
+      {hasReferences && <div role="note" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">У теста есть референсные данные. Единица, направление и категория защищены от изменения; для другой методики создайте новый тест.</div>}
 
       <div className={section}>
         <h2 className={h2}>Основное</h2>

@@ -47,7 +47,10 @@ export async function POST(req: Request) {
   }
 
   if (
+    !backup || typeof backup !== 'object' || Array.isArray(backup) ||
     (backup as { brand?: string }).brand !== 'PASKO PERFORMANCE' ||
+    (backup.product !== undefined && backup.product !== 'PASKO PERFORMANCE PLATFORM') ||
+    (backup.sportVertical !== undefined && backup.sportVertical !== 'VOLLEYBALL') ||
     !Array.isArray((backup as { tests?: unknown }).tests)
   ) {
     return NextResponse.json(
@@ -106,6 +109,17 @@ export async function POST(req: Request) {
       { error: 'Неподдерживаемая версия или неполная структура резервной копии.' },
       { status: 400 }
     );
+  }
+
+  // Reject malformed rows before traversing IDs/relations. Prisma validates
+  // individual model fields later, inside the all-or-nothing transaction.
+  const invalidRows = requiredArrays.some(key => (backup[key] as unknown[]).some(row =>
+    !row || typeof row !== 'object' || Array.isArray(row)));
+  const invalidReferenceDates = normEntries.some(entry => entry &&
+    [entry.validFrom, entry.validUntil].some(date => date != null &&
+      (typeof date !== 'string' || !Number.isFinite(new Date(date).getTime()))));
+  if (invalidRows || invalidReferenceDates) {
+    return NextResponse.json({ error: 'Резервная копия содержит некорректные записи или даты.' }, { status: 400 });
   }
 
   const ids = <T extends { id: string }>(rows: T[]) => new Set(rows.map((row) => row.id));
@@ -271,7 +285,10 @@ export async function POST(req: Request) {
         }
       }
       for (const team of teams) {
-        if (team.activeNormProfileId) await tx.team.update({ where: { id: team.id }, data: { activeNormProfileId: team.activeNormProfileId } });
+        // Restoring relations must not manufacture a later modification date.
+        await tx.team.update({ where: { id: team.id }, data: {
+          activeNormProfileId: team.activeNormProfileId, updatedAt: team.updatedAt,
+        } });
       }
     });
   } catch {

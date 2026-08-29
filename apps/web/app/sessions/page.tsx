@@ -32,7 +32,7 @@ export default async function SessionsPage({
     orderBy: { DateTime: 'desc' },
     include: {
       player: { select: { id: true, lastName: true, firstName: true, playerId: true } },
-      testResults: { select: { qcStatus: true } },
+      testResults: { where: { deletedAt: null }, select: { qcStatus: true } },
     },
   });
 

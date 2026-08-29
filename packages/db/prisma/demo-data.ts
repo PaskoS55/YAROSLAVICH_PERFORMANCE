@@ -75,6 +75,7 @@ async function seedDemoData(db: Db, capability: symbol, now: Date): Promise<void
       const sessionId = `demo-session-${playerIndex + 1}-${checkpointIndex + 1}`;
       await db.testSession.create({ data: { id: sessionId, sessionId, DateTime: new Date(date), phase, status: 'FULL', source: 'MANUAL', comment: label, playerId, teamId: 'demo-team', seasonId: DEMO_SEASON_ID } });
       const offset = (playerIndex % 5) - 2;
+      const bodyValues: Record<string, number> = {};
       for (const [code, base] of Object.entries(baseValues)) {
         const test = testsByCode.get(code); if (!test) throw new Error(`DEMO_TEST_MISSING:${code}`);
         let value = base + offset * (code.startsWith('VB_') ? 2.5 : code.startsWith('BC_') ? 0.6 : 0.22) + progress[code] * checkpointIndex;
@@ -82,11 +83,12 @@ async function seedDemoData(db: Db, capability: symbol, now: Date): Promise<void
         if (playerIndex === 6 && checkpointIndex === 3 && code === 'PWR_CMJ') value = 46.2;
         const failed = playerIndex === 13 && checkpointIndex === 0 && code === 'PWR_CMJ'; if (failed) value = 95;
         const contextual = code.startsWith('BC_');
+        if (contextual) bodyValues[code] = Number(value.toFixed(2));
         const resultId = `demo-result-${playerIndex + 1}-${checkpointIndex + 1}-${code.toLowerCase()}`;
         await db.testResult.create({ data: { id: resultId, value: Number(value.toFixed(2)), score: contextual || failed ? null : Math.max(12, Math.min(94, 48 + offset * 4 + checkpointIndex * 5)), pbAchieved: !failed && checkpointIndex === 3, testId: test.id, playerId, testSessionId: sessionId, qcStatus: failed ? 'FAILED' : 'PASSED', source: 'MANUAL' } });
         if (failed) await db.qCFlag.create({ data: { id: 'demo-qc-outlier', testResultId: resultId, field: 'value', expected: '20–80 cm', actual: '95 cm', description: 'Демонстрационный выброс: результат исключён из аналитики.' } });
       }
-      await db.bodyComposition.create({ data: { id: `demo-body-${playerIndex + 1}-${checkpointIndex + 1}`, playerId, testSessionId: sessionId, mass_kg: Number((baseValues.BC_MASS + offset * 0.6 + checkpointIndex * 0.1).toFixed(1)), fat_pct: Number((baseValues.BC_FAT + offset * 0.25 - checkpointIndex * 0.2).toFixed(1)), ffm_kg: Number((baseValues.BC_FFM + offset * 0.4 + checkpointIndex * 0.3).toFixed(1)) } });
+      await db.bodyComposition.create({ data: { id: `demo-body-${playerIndex + 1}-${checkpointIndex + 1}`, playerId, testSessionId: sessionId, mass_kg: bodyValues.BC_MASS, fat_pct: bodyValues.BC_FAT, ffm_kg: bodyValues.BC_FFM } });
     }
   }
   const cmj = testsByCode.get('PWR_CMJ')!; const sprint = testsByCode.get('SPD_10')!; const attack = testsByCode.get('VB_APP')!;

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createPlayer } from './actions';
+import { randomUUID } from 'node:crypto';
 
 const positions: [string, string][] = [
   ['outside_hitter', 'Доигровщик'],
@@ -12,18 +13,22 @@ const positions: [string, string][] = [
 const field = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm';
 const label = 'block text-xs font-medium text-gray-500';
 
-export default function NewPlayerPage() {
+export default async function NewPlayerPage({searchParams}: {searchParams: Promise<{error?: string}>}) {
+  const {error} = await searchParams;
+  const submissionId = randomUUID();
   return (
     <div className="space-y-6 p-6">
       <div className="text-sm text-gray-500">
         <Link href="/players" className="link-action hover:underline">Игроки</Link> / новый
       </div>
       <h1 className="text-3xl font-bold">Добавить игрока</h1>
+      {error && <p role="alert" className="text-sm text-red-700">{error === 'duplicate' ? 'Код игрока уже используется, в том числе в архиве. Выберите другой код или восстановите игрока.' : error === 'retry' || error === 'foreign' ? 'Обновите форму и повторите ввод.' : error}</p>}
 
       <form
         action={createPlayer}
         className="grid max-w-3xl grid-cols-1 gap-4 rounded-lg border border-gray-200 bg-white p-6 md:grid-cols-2"
       >
+        <input type="hidden" name="submissionId" value={submissionId} />
         <label className={label}>
           Фамилия *
           <input name="lastName" required className={field} />

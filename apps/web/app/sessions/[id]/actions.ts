@@ -1,4 +1,5 @@
 'use server';
+import { assertBodyMetricWritable, lockMeasurementSession, projectBodyMetric } from '../../../lib/body-metrics';
 
 import { prisma } from '../../../lib/prisma';
 import { revalidatePath } from 'next/cache';
@@ -46,6 +47,8 @@ export async function saveResults(
   await prisma.$transaction(async (tx) => {
     for (const e of entries) {
       const test = byId.get(e.testId)!;
+      await lockMeasurementSession(tx, session.id);
+      await assertBodyMetricWritable(tx, session.id, session.playerId, test);
       const qcStatus = computeQcStatus(test, e.value);
       const result = await tx.testResult.upsert({
         where: {
@@ -61,7 +64,8 @@ export async function saveResults(
         },
       });
       await syncQcFlag(tx, result.id, test, e.value, qcStatus);
-      await syncGoalsForResult(tx, session.playerId, e.testId, context.seasonId);
+      await projectBodyMetric(tx, session.id, session.playerId, test.code, e.value);
+      await syncGoalsForResult(tx, session.playerId, e.testId, context.teamId);
     }
   });
 
@@ -70,6 +74,7 @@ export async function saveResults(
   revalidatePath('/analytics', 'layout');
   revalidatePath('/compare');
   revalidatePath('/qc');
+  revalidatePath('/body');
   revalidatePath('/goals', 'layout');
   revalidatePath('/');
   return { ok: true };

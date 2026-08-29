@@ -26,7 +26,7 @@ module.exports = async function testPlayerProfile({ win, club, demo, sql, auth, 
   await web.executeJavaScript(`document.querySelector('input[name="lastName"]').form.querySelector('button').click(); undefined;`);
   await until(async()=>web.getURL()===new URL('/players',club.origin).href,'Player create did not redirect');
   const id = await sql(`SELECT id FROM players WHERE "playerId"='PROFILE-UI' AND "teamId"='nav-team'`);
-  assert.match(id,/^[a-z0-9]+$/);
+  assert.match(id,/^[a-z0-9-]+$/);
   for (const [code,value] of [['PWR_CMJ','48'],['SPD_10','1.83'],['AGI_TTEST','9.84'],['STR_SQUAT','150'],['STR_PULL','220']]) {
     const testId = await sql(`SELECT id FROM tests WHERE code='${code}'`);
     await navigate(club.origin,'/testing/team');
@@ -65,6 +65,10 @@ module.exports = async function testPlayerProfile({ win, club, demo, sql, auth, 
   assert.doesNotMatch(await section('Сильные стороны'),/Скорость/);
   const beforeRead = await persisted();
   const pbBefore = await section('Персональные рекорды');
+  const profileBefore = { axes: await radar(), coverage: await coverageText(), unavailable: await unavailable() };
+  await navigate(club.origin,`/analytics?playerId=${id}`);
+  assert.deepEqual({ axes: await radar(), coverage: await coverageText(), unavailable: await unavailable() }, profileBefore,
+    'Club Dynamics and Player Details must use identical profile semantics');
   await navigate(club.origin,`/players/${id}`);
   assert.equal(await persisted(),beforeRead,'Profile read changed persisted categories/tests/results/sessions');
   assert.equal(await section('Персональные рекорды'),pbBefore,'PB changed');
@@ -122,6 +126,19 @@ module.exports = async function testPlayerProfile({ win, club, demo, sql, auth, 
   assert.doesNotMatch(await section('Сильные стороны'),/Мощность|Волейбол/,'Near-average categories must not be presented as strengths');
   assert.match(await section('Зоны роста'),/Нет категорий с баллом ≤ 40/);
   assert.equal(await sql('SELECT count(*) FROM test_results',demoDatabase),demoBefore,'Production manual actions changed Demo results');
+  await navigate(demo.origin,'/players/demo-player-08');
+  const d08 = { axes: await radar(), coverage: await coverageText(), unavailable: await unavailable() };
+  const blockId = await sql(`SELECT id FROM tests WHERE code='VB_BLOCK'`, demoDatabase);
+  await navigate(demo.origin,`/analytics?playerId=demo-player-08&testId=${blockId}`);
+  assert.deepEqual({ axes: await radar(), coverage: await coverageText(), unavailable: await unavailable() }, d08,
+    'D08 block history must not coexist with an empty legacy profile');
+  assert.match(await text(),/318/);
+  assert.match(await text(),/322[.,]5/);
+  assert.ok((await radar()).some(r => /^Волейбол \d+$/.test(r.label)));
+  await navigate(demo.origin,'/compare?a=demo-player-08&b=demo-player-01');
+  assert.match(await text(),/Стандартизированный балл по опубликованным среднему и SD/);
+  assert.doesNotMatch(await text(),/нет процентильной оценки/);
+  console.log('Cross-screen Club/Demo Player vs Dynamics profile equality; D08 block history + numeric profile; Compare standardized semantics PASS');
   await navigate(demo.origin,`/players/${id}`);
   assert.equal((await radar()).length,0,'Production player leaked into Demo');
   await navigate(demo.origin,'/players/demo-player-01');

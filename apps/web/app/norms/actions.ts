@@ -7,7 +7,7 @@ import { prisma } from '../../lib/prisma';
 import { requireAppContext } from '../../lib/app-context';
 import { validateReferenceFields } from '../../lib/reference-policy';
 import { PROFILE_CONFIRMATION_ACTION, profileConfirmation } from '../../lib/player-profile';
-import { requireCurrentUser } from '../../lib/current-user';
+import { requireReferenceActor } from '../../lib/reference-actor';
 
 export type ReferenceActionState = { ok?: boolean; error?: string; profileId?: string } | null;
 const numberOrNull = (value: FormDataEntryValue | null) => {
@@ -18,7 +18,7 @@ const numberOrNull = (value: FormDataEntryValue | null) => {
 };
 
 export async function assignReferenceProfile(_state: ReferenceActionState, formData: FormData): Promise<ReferenceActionState> {
-  await requireCurrentUser();
+  const actorId = await requireReferenceActor();
   const context = await requireAppContext();
   const profileId = String(formData.get('profileId') ?? '');
   const profile = await prisma.normProfile.findFirst({ where: { id: profileId, deletedAt: null, status: 'ACTIVE', OR: [{ scope: 'SYSTEM' }, { scope: 'ORGANIZATION', organizationId: context.organizationId }] } });
@@ -26,7 +26,7 @@ export async function assignReferenceProfile(_state: ReferenceActionState, formD
   if (formData.get('compatibilityConfirmed') !== 'yes') return { error: 'Подтвердите соответствие команды полу, возрастной группе, уровню и протоколам выбранного референса.' };
   await prisma.$transaction(async tx => {
     await tx.team.update({ where: { id: context.teamId }, data: { activeNormProfileId: profile.id } });
-    await tx.auditLog.create({ data: { action: PROFILE_CONFIRMATION_ACTION, entity: 'Team', entityId: context.teamId, newValues: profileConfirmation(profile) } });
+    await tx.auditLog.create({ data: { action: PROFILE_CONFIRMATION_ACTION, entity: 'Team', entityId: context.teamId, userId: actorId, newValues: profileConfirmation(profile) } });
   });
   revalidatePath('/players', 'layout');
   revalidatePath('/norms'); revalidatePath('/settings'); revalidatePath('/analytics'); revalidatePath('/compare');
@@ -34,6 +34,7 @@ export async function assignReferenceProfile(_state: ReferenceActionState, formD
 }
 
 export async function cloneReferenceProfile(_state: ReferenceActionState, formData: FormData): Promise<ReferenceActionState> {
+  await requireReferenceActor();
   const context = await requireAppContext();
   const sourceId = String(formData.get('profileId') ?? '');
   const name = String(formData.get('name') ?? '').trim();
@@ -55,6 +56,7 @@ export async function cloneReferenceProfile(_state: ReferenceActionState, formDa
 }
 
 export async function updateReferenceEntry(_state: ReferenceActionState, formData: FormData): Promise<ReferenceActionState> {
+  await requireReferenceActor();
   const context = await requireAppContext();
   const entryId = String(formData.get('entryId') ?? '');
   const entry = await prisma.normEntry.findFirst({ where: { id: entryId, deletedAt: null, profile: { scope: 'ORGANIZATION', organizationId: context.organizationId, deletedAt: null } } });

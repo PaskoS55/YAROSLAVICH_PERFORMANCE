@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('../../lib/reference-actor', () => ({ requireReferenceActor: vi.fn(async () => 'admin') }));
 vi.mock('../../lib/current-user', () => ({ requireCurrentUser: vi.fn(async () => ({ id: 'admin' })) }));
 vi.mock('../../lib/app-context', () => ({ requireAppContext: vi.fn(async () => mocks.context) }));
 vi.mock('../../lib/prisma', () => ({

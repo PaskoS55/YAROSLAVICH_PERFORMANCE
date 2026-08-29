@@ -59,7 +59,7 @@ export default async function HomePage() {
     prisma.player.count({ where: { ...playerScope, status: 'INJURED' } }),
     prisma.testSession.count({ where: sessionScope }),
     prisma.testResult.count({ where: { deletedAt: null, testSession: sessionScope } }),
-    prisma.playerGoal.count({ where: { deletedAt: null, achieved: false, player: { teamId: context.teamId } } }),
+    prisma.playerGoal.count({ where: { deletedAt: null, achieved: false, player: playerScope } }),
     prisma.testSession.count({ where: { ...sessionScope, DateTime: { gte: since, lte: now } } }),
     prisma.testResult.count({
       where: { deletedAt: null, testSession: { ...sessionScope, DateTime: { gte: since, lte: now } } },
@@ -75,7 +75,7 @@ export default async function HomePage() {
       take: 5,
       include: {
         player: { select: { id: true, lastName: true, firstName: true } },
-        _count: { select: { testResults: true } },
+        _count: { select: { testResults: { where: { deletedAt: null } } } },
       },
     }),
     prisma.player.findMany({ where: { ...playerScope, status: 'INJURED' } }),

@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma';
 import ReportsCards from './reports-cards';
 import { requireAppContext } from '../../lib/app-context';
+import { isDemoWorkspace } from '../../lib/workspace';
 
 function fmtDate(d: Date | null | undefined) {
   if (!d) return '—';
@@ -31,6 +32,7 @@ export default async function ReportsPage() {
       </div>
 
       <ReportsCards
+        demo={isDemoWorkspace()}
         players={players.map((p) => ({
           id: p.id,
           lastName: p.lastName,

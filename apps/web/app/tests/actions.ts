@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
 import type { Direction } from '@prisma/client';
 import { operationalLicenseRequired } from '../../lib/license-policy';
+import { changesReferencedMetricIdentity } from '../../lib/test-definition-policy';
 
 const str = (v: FormDataEntryValue | null) => String(v ?? '').trim();
 
@@ -160,7 +161,7 @@ export async function updateTest(_state: TestState, formData: FormData): Promise
   const id = str(formData.get('id'));
   const test = await prisma.test.findUnique({
     where: { id },
-    include: { _count: { select: { testResults: true } } },
+    include: { _count: { select: { testResults: true, normEntries: true } } },
   });
   if (!test) return { error: 'Тест не найден.' };
   const hasResults = test._count.testResults > 0;
@@ -172,6 +173,12 @@ export async function updateTest(_state: TestState, formData: FormData): Promise
 
   const direction = str(formData.get('direction'));
   if (!DIRECTIONS.has(direction)) return { error: 'Некорректное направление.' };
+
+  if (test._count.normEntries > 0 && changesReferencedMetricIdentity(test, {
+    unit, direction, categoryId: str(formData.get('categoryId')) || null,
+  })) {
+    return { error: 'Единицу, направление и категорию теста с референсами изменять нельзя. Создайте новый тест.' };
+  }
 
   if (hasResults && (unit !== test.unit || direction !== test.direction)) {
     if (str(formData.get('confirmed')) !== '1')

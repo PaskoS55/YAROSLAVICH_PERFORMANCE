@@ -4,7 +4,6 @@ import {
   updateSeason,
   createTeam,
   createSeason,
-  resetDemoData,
 } from "./actions";
 import ResetButton from "./reset-button";
 import RestoreButton from "./restore-button";
@@ -28,7 +27,11 @@ function fmtDate(d: Date | null | undefined) {
   return new Date(d).toISOString().split("T")[0];
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ security?: string }> }) {
+  const { security } = await searchParams;
+  const securityError = security === 'invalid-current' ? 'Текущий пароль неверен.'
+    : security === 'mismatch' ? 'Новый пароль и подтверждение не совпадают.'
+    : security === 'policy' ? 'Новый пароль должен содержать от 12 до 256 символов.' : null;
   if (isDemoWorkspace()) return <div className="space-y-5 p-6"><div><div className="mb-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-extrabold tracking-wide text-amber-900">ДЕМОНСТРАЦИОННЫЕ ДАННЫЕ</div><h1 className="text-3xl font-bold">Настройки демо</h1><p className="mt-2 text-gray-600">Это вымышленная команда. Данные не относятся к вашему клубу.</p></div><div className="rounded-lg border border-gray-200 bg-white p-6"><h2 className="mb-3 text-lg font-bold">Вернуть исходное состояние</h2><DemoResetForm /></div><div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-sm text-gray-600">Резервное копирование, восстановление, импорт, безопасность локального администратора и диагностика production DB недоступны в Demo Workspace.</div><a href="/club-workspace" className="btn-secondary inline-block">Вернуться к клубу</a></div>;
   const licenseState = getRuntimeLicenseState();
   const license = readLicenseMetadata();
@@ -76,6 +79,7 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-5 p-6">
       <h1 className="text-3xl font-bold">Настройки</h1>
+      {securityError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{securityError}</div>}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-lg border border-gray-200 bg-white p-6 lg:col-span-2">
@@ -341,9 +345,7 @@ export default async function SettingsPage() {
           сохранятся. Это действие необратимо — сначала скачайте резервную
           копию.
         </p>
-        <form action={resetDemoData}>
-          <ResetButton />
-        </form>
+        <ResetButton />
       </div>
 
       <div className="text-xs text-gray-400">

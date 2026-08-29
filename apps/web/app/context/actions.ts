@@ -6,6 +6,7 @@ import { prisma } from '../../lib/prisma';
 import { resolveAppContext } from '../../lib/app-context-core';
 import { CONTEXT_COOKIE_NAME, CONTEXT_MAX_AGE_SECONDS, contextCookieSecure, signContextSelection } from '../../lib/context-cookie';
 import { operationalLicenseRequired } from '../../lib/license-policy';
+import { createSeasonOnce, seasonDate } from '../../lib/seasons';
 
 export async function selectContext(formData: FormData): Promise<void> {
   const selection = {
@@ -44,9 +45,9 @@ export async function createContextSeason(formData: FormData): Promise<void> {
   operationalLicenseRequired();
   const teamId = String(formData.get('teamId') ?? '');
   const name = String(formData.get('name') ?? '').trim();
-  const startDate = new Date(`${String(formData.get('startDate') ?? '')}T12:00:00.000Z`);
-  const endDate = new Date(`${String(formData.get('endDate') ?? '')}T12:00:00.000Z`);
-  if (!name || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate < startDate) {
+  const startDate = seasonDate(String(formData.get('startDate') ?? ''));
+  const endDate = seasonDate(String(formData.get('endDate') ?? ''));
+  if (!name || !startDate || !endDate || endDate < startDate) {
     redirect('/context?state=INVALID_SEASON');
   }
   const team = await prisma.team.findUnique({
@@ -55,9 +56,7 @@ export async function createContextSeason(formData: FormData): Promise<void> {
   });
   if (!team || team.deletedAt || team.organization.deletedAt) redirect('/context?state=INVALID_SEASON');
   try {
-    await prisma.season.create({
-      data: { name, startDate, endDate, teams: { connect: { id: team.id } } },
-    });
+    await createSeasonOnce(prisma, team.id, name, startDate, endDate);
   } catch {
     redirect('/context?state=SEASON_CREATE_FAILED');
   }
