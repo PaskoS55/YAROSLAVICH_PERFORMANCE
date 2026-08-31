@@ -1,33 +1,30 @@
 import { app } from 'electron';
 import { spawn } from 'node:child_process';
-import path from 'node:path';
+import { resolveSquirrelLifecycle } from './squirrel-lifecycle';
 
-function runUpdate(args: string[]): void {
-  const updateExecutable = path.resolve(path.dirname(process.execPath), '..', 'Update.exe');
-  const child = spawn(updateExecutable, args, {
-    detached: true,
+const SQUIRREL_EVENT_TIMEOUT_MS = 15_000;
+
+function runUpdate(executable: string, args: string[]): void {
+  const child = spawn(executable, args, {
     windowsHide: true,
     stdio: 'ignore',
   });
-  child.unref();
-  child.once('close', () => app.quit());
-  child.once('error', () => app.quit());
+  const timeout = setTimeout(() => app.quit(), SQUIRREL_EVENT_TIMEOUT_MS);
+  const finish = (): void => {
+    clearTimeout(timeout);
+    app.quit();
+  };
+  child.once('close', finish);
+  child.once('error', finish);
 }
 
 export function handleSquirrelStartup(): boolean {
-  if (process.platform !== 'win32') return false;
-
-  const command = process.argv[1];
-  const target = path.basename(process.execPath);
-  if (command === '--squirrel-install' || command === '--squirrel-updated') {
-    runUpdate([`--createShortcut=${target}`]);
+  const plan = resolveSquirrelLifecycle(process.platform, process.argv, process.execPath);
+  if (plan.kind === 'update') {
+    runUpdate(plan.executable, plan.args);
     return true;
   }
-  if (command === '--squirrel-uninstall') {
-    runUpdate([`--removeShortcut=${target}`]);
-    return true;
-  }
-  if (command === '--squirrel-obsolete') {
+  if (plan.kind === 'quit') {
     app.quit();
     return true;
   }

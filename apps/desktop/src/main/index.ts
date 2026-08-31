@@ -1,6 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from "electron";
 import path from "node:path";
-import { handleSquirrelStartup } from "./squirrel-startup";
 import { startPackagedNext, type PackagedNextRuntime } from "./packaged-next";
 import { resolveRuntimeTarget } from "./runtime-paths";
 import { installWindowNavigation } from "./window-navigation";
@@ -24,7 +23,6 @@ import { appendRedactedRuntimeLog, listSnapshotManifests, resolveRecoveryPaths, 
 import { readFileSync, statSync } from "node:fs";
 import { LicenseStore, MAX_LICENSE_BYTES, PRODUCTION_LICENSE_KEYS, type LicenseEvaluation } from "./license";
 
-if (handleSquirrelStartup()) app.quit();
 const product = loadProductIdentity({
   isPackaged: app.isPackaged,
   resourcesPath: process.resourcesPath,

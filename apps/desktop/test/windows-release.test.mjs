@@ -40,9 +40,26 @@ test('release manifest and checksum verification exercise actual artifact bytes'
 });
 
 test('Squirrel lifecycle creates and removes shortcuts without touching LocalAppData', async () => {
-  const source = await readFile(path.join(repositoryRoot, 'apps/desktop/src/main/squirrel-startup.ts'), 'utf8');
-  assert.match(source, /--createShortcut=/);
-  assert.match(source, /--removeShortcut=/);
-  assert.match(source, /windowsHide:\s*true/);
-  assert.doesNotMatch(source, /LocalAppData|dataDirectoryName|rmSync|remove.*data/i);
+  const lifecycle = await import('../dist/main/squirrel-lifecycle.js');
+  const execPath = String.raw`C:\Users\operator\AppData\Local\pasko_performance\app-1.0.0\PaskoPerformance.exe`;
+  const updateExe = String.raw`C:\Users\operator\AppData\Local\pasko_performance\Update.exe`;
+  assert.deepEqual(lifecycle.resolveSquirrelLifecycle('win32', ['PaskoPerformance.exe', '--squirrel-install'], execPath), {
+    kind: 'update', executable: updateExe, args: ['--createShortcut', 'PaskoPerformance.exe'],
+  });
+  assert.deepEqual(lifecycle.resolveSquirrelLifecycle('win32', ['PaskoPerformance.exe', '--squirrel-updated'], execPath), {
+    kind: 'update', executable: updateExe, args: ['--createShortcut', 'PaskoPerformance.exe'],
+  });
+  assert.deepEqual(lifecycle.resolveSquirrelLifecycle('win32', ['PaskoPerformance.exe', '--squirrel-uninstall'], execPath), {
+    kind: 'update', executable: updateExe, args: ['--removeShortcut', 'PaskoPerformance.exe'],
+  });
+  assert.deepEqual(lifecycle.resolveSquirrelLifecycle('win32', ['PaskoPerformance.exe', '--squirrel-obsolete'], execPath), { kind: 'quit' });
+  assert.deepEqual(lifecycle.resolveSquirrelLifecycle('win32', ['PaskoPerformance.exe'], execPath), { kind: 'normal' });
+  assert.deepEqual(lifecycle.resolveSquirrelLifecycle('linux', ['PaskoPerformance', '--squirrel-install'], '/opt/pasko/PaskoPerformance'), { kind: 'normal' });
+
+  const startupSource = await readFile(path.join(repositoryRoot, 'apps/desktop/src/main/squirrel-startup.ts'), 'utf8');
+  const bootstrapSource = await readFile(path.join(repositoryRoot, 'apps/desktop/src/main/bootstrap.ts'), 'utf8');
+  assert.match(startupSource, /windowsHide:\s*true/);
+  assert.doesNotMatch(startupSource, /detached:\s*true|\.unref\(\)/);
+  assert.match(bootstrapSource, /if \(!handleSquirrelStartup\(\)\)/);
+  assert.doesNotMatch(`${startupSource}\n${bootstrapSource}`, /LocalAppData|dataDirectoryName|rmSync|remove.*data/i);
 });

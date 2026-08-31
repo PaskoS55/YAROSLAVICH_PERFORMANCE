@@ -5,7 +5,7 @@
   "description": "PASKO PERFORMANCE PLATFORM — VOLLEYBALL",
   "author": "Sergey Pasko",
   "private": true,
-  "main": "dist/main/index.js",
+  "main": "dist/main/bootstrap.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -13,7 +13,8 @@
     "test:run": "npm run build && node --test test/*.test.mjs",
     "dev": "npm run build && node scripts/start-forge.mjs",
     "package": "electron-forge package",
-    "make": "npm run build && electron-forge make"
+    "make": "npm run build && electron-forge make",
+    "test:installer": "powershell -NoProfile -File scripts/test-squirrel-installer.ps1"
   },
   "devDependencies": {
     "@electron-forge/cli": "7.11.2",
